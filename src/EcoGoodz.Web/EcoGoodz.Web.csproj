@@ -20,4 +20,15 @@
     <UserSecretsId>5a30681d-1f8c-47aa-8a59-ebff18d7236c</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!--
+      Dev-only config (DevTools:ShowResetLinkInResponse/AutoLoginEmail, local Docker
+      connection string). Both flags are already double-gated on IsDevelopment() in
+      code, so shipping this file wouldn't actually be exploitable - but there's no
+      reason to ship dev-only settings to a production server at all, so exclude it
+      from `dotnet publish` output specifically (still copied for local dev/build).
+    -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>

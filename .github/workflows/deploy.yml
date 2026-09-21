@@ -1,0 +1,66 @@
+name: Publish to deploy branch
+
+# Builds the frontend + .NET solution and pushes ONLY the `dotnet publish` output
+# to a dedicated `deploy` branch (single squashed commit each time, no history).
+# Plesk's Git integration (Domains -> app.ecogoodz.com -> Git Repositories) tracks
+# that branch and pulls it into \httpdocs on every push.
+#
+# Why a separate build-only branch instead of building on the VPS:
+#   - The GoDaddy Windows Server VPS only needs the ASP.NET Core Hosting Bundle
+#     (runtime + IIS module), not the full .NET SDK or Node/npm - smaller attack
+#     surface, nothing to keep patched/updated there for the build toolchain.
+#   - Keeps one source of truth for how the app is built (this workflow), the
+#     same way local dev and CI already build it.
+#   - `appsettings.Development.json` is excluded from publish output (see
+#     EcoGoodz.Web.csproj) so no dev-only settings ever reach the deploy branch.
+#
+# See docs/deployment.md for the corresponding Plesk panel configuration and the
+# secrets/environment-variable story (nothing production-sensitive is committed
+# here or on the deploy branch).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/EcoGoodz.Web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: src/EcoGoodz.Web
+        run: npm ci
+
+      - name: Restore .NET solution
+        working-directory: src
+        run: dotnet restore EcoGoodz.slnx
+
+      - name: Publish web project
+        working-directory: src/EcoGoodz.Web
+        run: dotnet publish EcoGoodz.Web.csproj --no-restore --configuration Release --output ${{ github.workspace }}/publish
+
+      - name: Push publish output to deploy branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: publish
+          publish_branch: deploy
+          force_orphan: true
+          commit_message: "Deploy ${{ github.sha }}"
