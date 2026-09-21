@@ -1,1 +1,5 @@
 backup/
+.playwright-mcp/
+bin/
+obj/
+node_modules/

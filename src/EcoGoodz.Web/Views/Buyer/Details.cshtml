@@ -1,0 +1,35 @@
+@model EcoGoodz.Web.Models.Buyer.BuyerDetailsViewModel
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<h1>@Model.Name</h1>
+
+<dl class="row">
+    <dt class="col-sm-3">Account manager</dt>
+    <dd class="col-sm-9">@Model.AccountManagerName</dd>
+
+    <dt class="col-sm-3">Active</dt>
+    <dd class="col-sm-9">@(Model.IsActive ? "Yes" : "No")</dd>
+
+    <dt class="col-sm-3">Note</dt>
+    <dd class="col-sm-9">@Model.Note</dd>
+
+    <dt class="col-sm-3">Created</dt>
+    <dd class="col-sm-9">@Model.CreateOn</dd>
+
+    <dt class="col-sm-3">Updated</dt>
+    <dd class="col-sm-9">@Model.UpdatedOn</dd>
+
+    <dt class="col-sm-3">Products</dt>
+    <dd class="col-sm-9">@Model.ProductCount</dd>
+
+    <dt class="col-sm-3">Suppliers</dt>
+    <dd class="col-sm-9">@Model.SupplierCount</dd>
+
+    <dt class="col-sm-3">Loads</dt>
+    <dd class="col-sm-9">@Model.LoadCount</dd>
+</dl>
+
+<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-secondary">Edit</a>
+<a asp-action="Index" class="btn btn-link">Back to list</a>

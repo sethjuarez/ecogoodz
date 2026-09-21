@@ -1,0 +1,29 @@
+@model EcoGoodz.Web.Models.Product.ProductDetailsViewModel
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<h1>@Model.Name</h1>
+
+<dl class="row">
+    <dt class="col-sm-3">Parent category</dt>
+    <dd class="col-sm-9">@Model.ParentName</dd>
+
+    <dt class="col-sm-3">Active</dt>
+    <dd class="col-sm-9">@(Model.IsActive ? "Yes" : "No")</dd>
+
+    <dt class="col-sm-3">Created</dt>
+    <dd class="col-sm-9">@Model.CreateOn</dd>
+
+    <dt class="col-sm-3">Updated</dt>
+    <dd class="col-sm-9">@Model.UpdatedOn</dd>
+
+    <dt class="col-sm-3">Buyers interested</dt>
+    <dd class="col-sm-9">@Model.BuyerCount</dd>
+
+    <dt class="col-sm-3">Suppliers offering</dt>
+    <dd class="col-sm-9">@Model.SupplierCount</dd>
+</dl>
+
+<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-secondary">Edit</a>
+<a asp-action="Index" class="btn btn-link">Back to list</a>

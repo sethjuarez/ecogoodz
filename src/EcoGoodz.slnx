@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="EcoGoodz.Data/EcoGoodz.Data.csproj" />
+  <Project Path="EcoGoodz.Web/EcoGoodz.Web.csproj" />
+</Solution>

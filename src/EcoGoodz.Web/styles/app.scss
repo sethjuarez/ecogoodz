@@ -1,0 +1,48 @@
+// EcoGoodz theme entry point.
+//
+// This is the ONLY place Tabler's own Sass variables are overridden. Nothing
+// else in the app should hardcode a color, font, or radius that Tabler
+// already exposes as a variable - change it here instead, exactly the same
+// "single source of truth" contract tokens.css previously offered plain
+// Bootstrap. tokens.css itself has been retired in favor of these Sass
+// variables (Tabler's own component styles read its variables directly, so
+// keeping a parallel set of unrelated CSS custom properties would just
+// invite drift between the two).
+//
+// Direction, unchanged from the original design pass: grounded/industrial -
+// muted forest green primary, warm neutrals, IBM Plex Sans/Mono, built for
+// dense data tables rather than a marketing site. All brand colors below are
+// the same WCAG-AA-checked (>=4.5:1) values from the original tokens.css.
+//
+// Custom properties Tabler emits are unprefixed (e.g. --font-monospace, not
+// --tblr-font-monospace) unless a postcss step adds the prefix, which we do
+// not use - so app-specific rules below reference the unprefixed names.
+@use '@tabler/core/scss/tabler' with (
+  // --- Brand colors --------------------------------------------------------
+  $primary: #3F5C3B,
+  $success: #4B7A43,
+  $warning: #A66A1E,
+  $danger: #A13D2D,
+  $info: #3E6E7A,
+
+  // --- Typography ------------------------------------------------------------
+  // IBM Plex Sans over the generic Inter/system-ui default - has real tabular
+  // figures for rate/quantity columns and doesn't read as an "AI-generated"
+  // template choice. Loaded via Google Fonts <link> in _Layout.cshtml.
+  $font-family-sans-serif: ('IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif),
+  $font-family-monospace: ('IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace),
+
+  // --- Surfaces --------------------------------------------------------------
+  // Warm off-white page background instead of Tabler's default cool gray-50,
+  // to keep the "warm neutrals" half of the direction intact.
+  $body-bg: #F7F5F1
+);
+
+// --- App-specific utilities (not part of Tabler) ----------------------------
+
+// Numeric columns (rates, quantities, totals) should align on tabular figures
+// rather than proportional digits. Apply to <td>/<th> holding numbers.
+.text-tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-monospace);
+}
