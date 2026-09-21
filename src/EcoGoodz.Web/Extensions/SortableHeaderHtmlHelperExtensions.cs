@@ -40,7 +40,7 @@ public static class SortableHeaderHtmlHelperExtensions
         {
             query.Add("desc=true");
         }
-        if (page.PageSize != 20)
+        if (page.PageSize != PageInfo.DefaultPageSize)
         {
             query.Add($"pageSize={page.PageSize}");
         }

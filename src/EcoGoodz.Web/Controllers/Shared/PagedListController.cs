@@ -47,7 +47,7 @@ public abstract class PagedListController<TRow, TListItem> : Controller
     /// <summary>Projects a sorted row into the view model the Index view renders.</summary>
     protected abstract Expression<Func<TRow, TListItem>> ProjectionExpression { get; }
 
-    public virtual async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = 20)
+    public virtual async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
         var query = GetBaseQuery();
 

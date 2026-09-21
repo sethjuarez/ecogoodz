@@ -7,6 +7,16 @@ namespace EcoGoodz.Web.Models.Shared;
 /// </summary>
 public sealed class PageInfo
 {
+    /// <summary>
+    /// The default page size used across every list controller/view when the
+    /// caller doesn't specify one. Centralized here so it only needs to be
+    /// updated in one place - it's compared against in the controller action
+    /// signatures, <c>Html.SortableHeader</c>, <c>_ListSearchBox</c>, and
+    /// <c>_ListPagination</c> to decide whether to include a <c>pageSize</c>
+    /// query-string parameter.
+    /// </summary>
+    public const int DefaultPageSize = 20;
+
     public required int PageNumber { get; init; }
     public required int PageSize { get; init; }
     public required int TotalCount { get; init; }

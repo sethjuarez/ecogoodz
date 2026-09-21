@@ -18,7 +18,7 @@
                 query.Add("desc=true");
             }
         }
-        if (page.PageSize != 20)
+        if (page.PageSize != EcoGoodz.Web.Models.Shared.PageInfo.DefaultPageSize)
         {
             query.Add($"pageSize={page.PageSize}");
         }

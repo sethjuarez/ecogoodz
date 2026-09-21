@@ -15,7 +15,7 @@
             <input type="hidden" name="desc" value="true" />
         }
     }
-    @if (Model.PageSize != 20)
+    @if (Model.PageSize != EcoGoodz.Web.Models.Shared.PageInfo.DefaultPageSize)
     {
         <input type="hidden" name="pageSize" value="@Model.PageSize" />
     }
