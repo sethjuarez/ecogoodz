@@ -96,6 +96,33 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthentication();
+
+// Dev-only convenience: skips the login screen for local runs by silently signing
+// in as the configured user on every request that isn't already authenticated.
+// Same belt-and-suspenders gating as DevTools:ShowResetLinkInResponse - requires
+// both the config flag AND IWebHostEnvironment.IsDevelopment(), so it can never
+// fire against a deployed appsettings even if the flag were left set.
+var devAutoLoginEmail = builder.Configuration["DevTools:AutoLoginEmail"];
+if (app.Environment.IsDevelopment() && !string.IsNullOrWhiteSpace(devAutoLoginEmail))
+{
+    app.Use(async (context, next) =>
+    {
+        if (context.User.Identity?.IsAuthenticated != true)
+        {
+            var userManager = context.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+            var signInManager = context.RequestServices.GetRequiredService<SignInManager<ApplicationUser>>();
+            var devUser = await userManager.FindByEmailAsync(devAutoLoginEmail);
+            if (devUser is not null)
+            {
+                await signInManager.SignInAsync(devUser, isPersistent: true);
+                context.User = await signInManager.CreateUserPrincipalAsync(devUser);
+            }
+        }
+
+        await next();
+    });
+}
+
 app.UseAuthorization();
 
 app.MapControllerRoute(
