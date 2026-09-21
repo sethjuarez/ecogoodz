@@ -64,13 +64,19 @@ set:
 | Environment variable | Purpose |
 |---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ConnectionStrings__EcoGoodz` | Real production SQL Server connection string |
+| `ConnectionStrings__EcoGoodz` | Real production SQL Server connection string (see `docs/database-setup.md`) |
+| `Migration__SeedLegacyUsers` | `true` (one-time bootstrap, safe to leave set - see `docs/database-setup.md`) |
 | `Smtp__Host`, `Smtp__Port`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromAddress` | Real SMTP credentials (see `SmtpOptions.cs`) |
 
 **This step still needs to happen once, directly in Plesk**, before the app
 will start successfully in production - it will fail to connect to a
 database otherwise. This is the next concrete action once you're back in the
 Plesk UI.
+
+The database itself (schema + legacy data) needs to be imported into the
+hosted SQL Server *before* the app's first production start - see
+`docs/database-setup.md` for the exact `sqlpackage` commands (GoDaddy's
+hosted SQL Server product doesn't allow a direct `.bak` file restore).
 
 ## TLS
 

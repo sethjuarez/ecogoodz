@@ -103,6 +103,17 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
+    // Applies any pending Identity schema migrations automatically at startup.
+    // Deliberately NOT done for EcoGoodzDbContext (the legacy/business schema) -
+    // that database is restored+normalized from the legacy backup via
+    // db/restore.sh, db/normalize.sql, db/add_foreign_keys.sql and isn't managed
+    // by EF migrations (see docs/database-setup.md). Doing this here (rather
+    // than requiring `dotnet ef database update` to be run manually) means the
+    // GoDaddy VPS never needs the .NET SDK/EF tooling installed - the app
+    // brings its own Identity schema up to date every time it starts.
+    var identityContext = scope.ServiceProvider.GetRequiredService<EcoGoodzIdentityDbContext>();
+    await identityContext.Database.MigrateAsync();
+
     await IdentitySeeder.SeedRolesAsync(scope.ServiceProvider);
     await LegacyUserMigrator.MigrateAsync(scope.ServiceProvider);
 }
