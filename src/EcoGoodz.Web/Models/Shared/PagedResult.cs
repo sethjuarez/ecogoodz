@@ -12,6 +12,15 @@ public sealed class PageInfo
     public required int TotalCount { get; init; }
     public string? SearchTerm { get; init; }
 
+    /// <summary>
+    /// The column actually applied for ordering (already resolved against the
+    /// controller's allowed-column map - see <c>QueryableExtensions.ApplySort</c>).
+    /// Never null once a query has gone through <c>ApplySort</c>, so views can
+    /// safely compare against it to highlight the active sort column.
+    /// </summary>
+    public string? SortColumn { get; init; }
+    public bool SortDescending { get; init; }
+
     public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
     public bool HasPreviousPage => PageNumber > 1;
     public bool HasNextPage => PageNumber < TotalPages;

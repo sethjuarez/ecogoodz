@@ -1,33 +1,62 @@
-@model IEnumerable<EcoGoodz.Web.Models.Buyer.BuyerListItemViewModel>
+@model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.Buyer.BuyerListItemViewModel>
 @{
     ViewData["Title"] = "Buyers";
 }
 
-<h1>Buyers</h1>
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <h2 class="page-title">Buyers</h2>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search buyers…" })
+            <a asp-action="Create" class="btn btn-primary text-nowrap">New buyer</a>
+        </div>
+    </div>
+</div>
 
-<p><a asp-action="Create" class="btn btn-primary">Create new</a></p>
+<div class="card">
+    <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+            <thead>
+                <tr>
+                    <th>@Html.SortableHeader("name", "Name", Model.Page)</th>
+                    <th>@Html.SortableHeader("accountManager", "Account manager", Model.Page)</th>
+                    <th>@Html.SortableHeader("active", "Active", Model.Page)</th>
+                    <th class="w-1"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-secondary py-4">No buyers found.</td>
+                    </tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></td>
+                        <td>@item.AccountManagerName</td>
+                        <td>
+                            @if (item.IsActive)
+                            {
+                                <span class="badge bg-success-lt">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-lt">Inactive</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm">Edit</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @await Html.PartialAsync("_ListPagination", Model.Page)
+</div>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Account manager</th>
-            <th>Active</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var item in Model)
-        {
-            <tr>
-                <td>@item.Name</td>
-                <td>@item.AccountManagerName</td>
-                <td>@(item.IsActive ? "Yes" : "No")</td>
-                <td>
-                    <a asp-action="Details" asp-route-id="@item.Id">Details</a> |
-                    <a asp-action="Edit" asp-route-id="@item.Id">Edit</a>
-                </td>
-            </tr>
-        }
-    </tbody>
-</table>

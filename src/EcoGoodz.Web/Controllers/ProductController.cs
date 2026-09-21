@@ -1,44 +1,62 @@
+using System.Linq.Expressions;
 using EcoGoodz.Data;
+using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Product;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace EcoGoodz.Web.Controllers;
 
-[Authorize]
-public class ProductController : Controller
+public class ProductController : PagedListController<ProductController.ProductRow, ProductListItemViewModel>
 {
-    private readonly EcoGoodzDbContext _context;
-
-    public ProductController(EcoGoodzDbContext context)
+    public ProductController(EcoGoodzDbContext context) : base(context)
     {
-        _context = context;
     }
 
-    public async Task<IActionResult> Index()
-    {
-        var products = await _context.Products.OrderBy(p => p.Name).ToListAsync();
-        var namesById = products.ToDictionary(p => p.Id, p => p.Name ?? string.Empty);
+    // Product.IdParent is a plain int FK with no EF navigation property (see
+    // Product.cs), so parent name requires an explicit self-join rather than
+    // an Include - projected into ProductRow so search/sort can see both.
+    protected override IQueryable<ProductRow> GetBaseQuery() =>
+        from p in Context.Products
+        join parent in Context.Products on p.IdParent equals parent.Id into parentJoin
+        from parent in parentJoin.DefaultIfEmpty()
+        select new ProductRow { Product = p, ParentName = parent.Name };
 
-        var model = products.Select(p => new ProductListItemViewModel
+    protected override IQueryable<ProductRow> ApplySearch(IQueryable<ProductRow> query, string searchTerm) =>
+        query.Where(r =>
+            (r.Product.Name != null && r.Product.Name.Contains(searchTerm))
+            || (r.ParentName != null && r.ParentName.Contains(searchTerm)));
+
+    protected override IReadOnlyDictionary<string, Expression<Func<ProductRow, object?>>> SortColumns { get; } =
+        new Dictionary<string, Expression<Func<ProductRow, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            Id = p.Id,
-            Name = p.Name ?? string.Empty,
-            ParentName = p.IdParent.HasValue && namesById.TryGetValue(p.IdParent.Value, out var parentName)
-                ? parentName
-                : null,
-            IsActive = p.IsActive ?? false,
-        });
+            ["name"] = r => r.Product.Name,
+            ["parent"] = r => r.ParentName,
+            ["active"] = r => r.Product.IsActive,
+        };
 
-        return View(model);
+    protected override string DefaultSortColumn => "name";
+
+    protected override Expression<Func<ProductRow, ProductListItemViewModel>> ProjectionExpression =>
+        r => new ProductListItemViewModel
+        {
+            Id = r.Product.Id,
+            Name = r.Product.Name ?? string.Empty,
+            ParentName = r.ParentName,
+            IsActive = r.Product.IsActive ?? false,
+        };
+
+    public sealed class ProductRow
+    {
+        public required Data.Models.Product Product { get; init; }
+        public string? ParentName { get; init; }
     }
 
     public async Task<IActionResult> Details(int id)
     {
-        var product = await _context.Products
+        var product = await Context.Products
             .Where(p => p.Id == id)
             .Select(p => new ProductDetailsViewModel
             {
@@ -57,10 +75,10 @@ public class ProductController : Controller
             return NotFound();
         }
 
-        var parentId = await _context.Products.Where(p => p.Id == id).Select(p => p.IdParent).FirstOrDefaultAsync();
+        var parentId = await Context.Products.Where(p => p.Id == id).Select(p => p.IdParent).FirstOrDefaultAsync();
         if (parentId.HasValue)
         {
-            product.ParentName = await _context.Products
+            product.ParentName = await Context.Products
                 .Where(p => p.Id == parentId.Value)
                 .Select(p => p.Name)
                 .FirstOrDefaultAsync();
@@ -94,15 +112,15 @@ public class ProductController : Controller
             CreatedBy = User.GetLegacyUserId(),
         };
 
-        _context.Products.Add(product);
-        await _context.SaveChangesAsync();
+        Context.Products.Add(product);
+        await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Index));
     }
 
     public async Task<IActionResult> Edit(int id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await Context.Products.FindAsync(id);
         if (product is null)
         {
             return NotFound();
@@ -140,7 +158,7 @@ public class ProductController : Controller
             return View(model);
         }
 
-        var product = await _context.Products.FindAsync(id);
+        var product = await Context.Products.FindAsync(id);
         if (product is null)
         {
             return NotFound();
@@ -152,7 +170,7 @@ public class ProductController : Controller
         product.UpdatedOn = DateTime.UtcNow;
         product.UpdatedBy = User.GetLegacyUserId();
 
-        await _context.SaveChangesAsync();
+        await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Index));
     }
@@ -161,7 +179,7 @@ public class ProductController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Deactivate(int id)
     {
-        var product = await _context.Products.FindAsync(id);
+        var product = await Context.Products.FindAsync(id);
         if (product is null)
         {
             return NotFound();
@@ -171,14 +189,14 @@ public class ProductController : Controller
         product.UpdatedOn = DateTime.UtcNow;
         product.UpdatedBy = User.GetLegacyUserId();
 
-        await _context.SaveChangesAsync();
+        await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Index));
     }
 
     private async Task<IEnumerable<SelectListItem>> GetParentOptionsAsync(int? excludeId)
     {
-        return await _context.Products
+        return await Context.Products
             .Where(p => excludeId == null || p.Id != excludeId)
             .OrderBy(p => p.Name)
             .Select(p => new SelectListItem
