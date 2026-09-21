@@ -3,27 +3,68 @@
     ViewData["Title"] = Model.Name;
 }
 
-<h1>@Model.Name</h1>
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Products</div>
+            <h2 class="page-title">@Model.Name</h2>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
 
-<dl class="row">
-    <dt class="col-sm-3">Parent category</dt>
-    <dd class="col-sm-9">@Model.ParentName</dd>
+<div class="row row-deck row-cards">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <div class="datagrid">
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Parent category</div>
+                        <div class="datagrid-content">@Model.ParentName</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Active</div>
+                        <div class="datagrid-content">
+                            @if (Model.IsActive)
+                            {
+                                <span class="badge bg-success-lt">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-lt">Inactive</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Created</div>
+                        <div class="datagrid-content">@Model.CreateOn</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Updated</div>
+                        <div class="datagrid-content">@Model.UpdatedOn</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="text-secondary">Buyers interested</div>
+                        <div class="h1 m-0">@Model.BuyerCount</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-secondary">Suppliers offering</div>
+                        <div class="h1 m-0">@Model.SupplierCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    <dt class="col-sm-3">Active</dt>
-    <dd class="col-sm-9">@(Model.IsActive ? "Yes" : "No")</dd>
-
-    <dt class="col-sm-3">Created</dt>
-    <dd class="col-sm-9">@Model.CreateOn</dd>
-
-    <dt class="col-sm-3">Updated</dt>
-    <dd class="col-sm-9">@Model.UpdatedOn</dd>
-
-    <dt class="col-sm-3">Buyers interested</dt>
-    <dd class="col-sm-9">@Model.BuyerCount</dd>
-
-    <dt class="col-sm-3">Suppliers offering</dt>
-    <dd class="col-sm-9">@Model.SupplierCount</dd>
-</dl>
-
-<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-secondary">Edit</a>
-<a asp-action="Index" class="btn btn-link">Back to list</a>

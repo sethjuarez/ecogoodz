@@ -1,8 +1,99 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@model EcoGoodz.Web.Models.Home.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <h2 class="page-title">Dashboard</h2>
+            <div class="text-secondary mt-1">Welcome back — here's what's moving right now.</div>
+        </div>
+    </div>
+</div>
+
+<div class="row row-deck row-cards mb-3">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Active buyers</div>
+                </div>
+                <div class="h1 mb-0">@Model.ActiveBuyerCount</div>
+                <a asp-controller="Buyer" asp-action="Index" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Active suppliers</div>
+                </div>
+                <div class="h1 mb-0">@Model.ActiveSupplierCount</div>
+                <a asp-controller="Supplier" asp-action="Index" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Active products</div>
+                </div>
+                <div class="h1 mb-0">@Model.ActiveProductCount</div>
+                <a asp-controller="Product" asp-action="Index" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Active loads</div>
+                </div>
+                <div class="h1 mb-0">@Model.ActiveLoadCount</div>
+                <div class="text-secondary small">@Model.LoadsThisMonth shipped this month</div>
+                <a asp-controller="Load" asp-action="Index" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Recent loads</h3>
+        <div class="card-actions">
+            <a asp-controller="Load" asp-action="Index" class="btn btn-sm">View all</a>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Buyer</th>
+                    <th>Supplier</th>
+                    <th>Status</th>
+                    <th>Shipment date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.RecentLoads.Count == 0)
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-secondary py-4">No loads yet.</td>
+                    </tr>
+                }
+                @foreach (var load in Model.RecentLoads)
+                {
+                    <tr>
+                        <td><a asp-controller="Load" asp-action="Details" asp-route-id="@load.Id" class="text-reset">@load.BuyerName</a></td>
+                        <td>@load.SupplierName</td>
+                        <td>@load.StatusName</td>
+                        <td>@load.ShipmentDate?.ToString("yyyy-MM-dd")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 </div>
