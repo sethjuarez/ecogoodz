@@ -18,6 +18,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>5a30681d-1f8c-47aa-8a59-ebff18d7236c</UserSecretsId>
+    <!-- We stamp our own short-sha build version below; don't let the SDK also
+         auto-append the full git SHA on top of it. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,5 +33,24 @@
     -->
     <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
   </ItemGroup>
+
+  <!--
+    Build version shown in the footer: vYYYYMMDD.HH.MM.SS+<short-sha>. Computed
+    fresh on every build (local or CI), so it always reflects the actual moment
+    and commit that produced the running binary - not a manually-bumped number
+    that can drift out of sync with what's really deployed.
+  -->
+  <Target Name="SetBuildVersion" BeforeTargets="GetAssemblyVersion;GenerateAssemblyInfo">
+    <PropertyGroup>
+      <BuildTimestamp>$([System.DateTime]::UtcNow.ToString("yyyyMMdd.HH.mm.ss"))</BuildTimestamp>
+    </PropertyGroup>
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" ContinueOnError="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitShortSha" />
+    </Exec>
+    <PropertyGroup>
+      <GitShortSha Condition="'$(GitShortSha)' == ''">local</GitShortSha>
+      <InformationalVersion>v$(BuildTimestamp)+$(GitShortSha)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
 
 </Project>
