@@ -3,3 +3,16 @@ backup/
 bin/
 obj/
 node_modules/
+
+# Never committed - local scratchpad for real production secrets (hosted SQL
+# Server connection string, SMTP creds, etc.). ASP.NET Core doesn't read this
+# automatically; it's just a private place to keep values before copying them
+# into Plesk's environment-variable settings or using them for one-off scripts
+# (e.g. the sqlpackage import in docs/database-setup.md).
+.env
+.env.*
+
+# Regenerable data snapshot (see docs/database-setup.md) used for the one-time
+# production DB import - contains real legacy business data, so it's never
+# committed. Regenerate on demand with `sqlpackage /Action:Export`.
+db/*.bacpac
