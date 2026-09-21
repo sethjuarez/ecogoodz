@@ -2,68 +2,64 @@
 
 This documents how the production database gets stood up on the GoDaddy
 **hosted SQL Server** (a separate managed database, not SQL Server running on
-the VPS itself). Because it's a managed/hosted instance, there is no
-filesystem access to it - `RESTORE DATABASE ... FROM DISK` (what
-`db/restore.sh` does locally against Docker) is not possible. Instead this
-uses `sqlpackage`, which moves schema+data over a normal SQL connection.
+the VPS itself). It's a managed/hosted instance behind Plesk, and in practice
+**direct external SQL connectivity from a dev machine doesn't work** - Plesk's
+own connection host string (`.\MSSQLSERVER2022:0`) is a local-machine-only
+reference, named-instance resolution (UDP 1434) isn't reachable externally,
+and a direct port-1433 attempt times out (firewalled). So instead of
+`sqlpackage` over a live connection, this uses **Plesk's built-in "Import
+dump" feature** (Databases > EcoGoodz > Import dump), which uploads a native
+SQL Server `.bak` file over HTTPS through the browser - no external
+connectivity to the database required at all.
 
-## One-time setup on your machine
-
-```powershell
-dotnet tool install -g microsoft.sqlpackage
-```
-
-## Step 1 - Prepare a clean local snapshot
+## Step 1 - Produce a clean, production-ready `.bak`
 
 The local Docker database (`db/restore.sh` + `db/normalize.sql` +
 `db/add_foreign_keys.sql`) is the source of truth for schema and legacy
-business data. Make sure it's up to date, then export it to a `.bacpac`
-(schema + data, portable, no filesystem access needed to consume it):
+business data. Its `AspNetUsers`/`AspNetRoles`/etc. Identity tables, however,
+hold local dev test accounts that must never reach production. Rather than
+running a cleanup script against the hosted DB after import (not possible -
+Plesk has no MS SQL query console), clean a **temporary duplicate** of the
+local DB before ever exporting it, so the `.bak` handed to Plesk is already
+production-safe:
 
 ```powershell
-sqlpackage /Action:Export `
-  /SourceServerName:"localhost,14330" /SourceDatabaseName:"EcoGoodz" `
-  /SourceUser:"sa" /SourcePassword:"<local sa password, see docker-compose.yml>" `
-  /SourceTrustServerCertificate:True `
-  /TargetFile:"db/EcoGoodz.bacpac"
+# 1. Back up the local (already normalized) dev DB
+docker exec ecogoodz-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$env:MSSQL_SA_PASSWORD" -C -Q "BACKUP DATABASE [EcoGoodz] TO DISK = N'/var/opt/mssql/data/EcoGoodz_export.bak' WITH FORMAT, INIT;"
+
+# 2. Restore it into a throwaway duplicate DB
+docker exec ecogoodz-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$env:MSSQL_SA_PASSWORD" -C -Q "RESTORE DATABASE [EcoGoodzExport] FROM DISK = N'/var/opt/mssql/data/EcoGoodz_export.bak' WITH MOVE N'Ecogoodz' TO N'/var/opt/mssql/data/EcoGoodzExport.mdf', MOVE N'Ecogoodz_log' TO N'/var/opt/mssql/data/EcoGoodzExport_log.ldf', REPLACE;"
+
+# 3. Clear Identity tables in the duplicate only (db/reset-identity-tables.sql logic)
+docker exec ecogoodz-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$env:MSSQL_SA_PASSWORD" -C -d EcoGoodzExport -i db/reset-identity-tables.sql
+
+# 4. Back up the cleaned duplicate - THIS is the file to import into production
+docker exec ecogoodz-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$env:MSSQL_SA_PASSWORD" -C -Q "BACKUP DATABASE [EcoGoodzExport] TO DISK = N'/var/opt/mssql/data/EcoGoodz_prod_ready.bak' WITH FORMAT, INIT;"
+docker cp ecogoodz-sqlserver:/var/opt/mssql/data/EcoGoodz_prod_ready.bak .\backup\EcoGoodz_prod_ready.bak
+
+# 5. Clean up the duplicate DB and scratch files in the container
+docker exec ecogoodz-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$env:MSSQL_SA_PASSWORD" -C -Q "ALTER DATABASE [EcoGoodzExport] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [EcoGoodzExport];"
+docker exec ecogoodz-sqlserver rm -f /var/opt/mssql/data/EcoGoodz_export.bak /var/opt/mssql/data/EcoGoodz_prod_ready.bak /var/opt/mssql/data/EcoGoodzExport.mdf /var/opt/mssql/data/EcoGoodzExport_log.ldf
 ```
 
-This file is **never committed** (`db/*.bacpac` is gitignored) - it contains
-real legacy business data and is trivially regenerated on demand.
+The resulting `.bak` is never committed - it contains real legacy business
+data and is trivially regenerated on demand.
 
-> Note: if you ever see `SQL71564: ... has been orphaned from its login`,
-> some leftover legacy SQL Server users/schemas need to be dropped first (this
-> happened once with `ecogoodzuser`/`gdtechtest` - empty schemas left over
-> from the old GoDaddy shared-hosting setup). Confirm the schema has no
-> tables, then `DROP SCHEMA` / `DROP USER` for that principal.
+## Step 2 - Import via Plesk's UI
 
-## Step 2 - Import into the hosted SQL Server
+In Plesk: **Databases > EcoGoodz > Import dump**, select the `.bak` produced
+above, upload it. This restores the full schema (business tables + empty
+Identity tables) and all current legacy data directly on the server - no
+external SQL connectivity needed.
 
-Using the connection string GoDaddy provides for the hosted database (keep it
-in your local `.env`, never commit it):
+> If the upload is rejected for being too large, check Plesk's PHP upload
+> size limit (Tools & Settings > PHP Settings) and raise it, or use the
+> Plesk File Manager to upload the `.bak` into a temp folder first and point
+> Import dump at that server-side path instead.
 
-```powershell
-sqlpackage /Action:Import `
-  /TargetConnectionString:"<connection string from .env>" `
-  /SourceFile:"db/EcoGoodz.bacpac"
-```
+## Step 3 - (Skipped)
 
-This creates the database on the hosted server with the full schema
-(business tables + the ASP.NET Identity tables) and all current legacy data.
-
-## Step 3 - Reset Identity tables
-
-The bacpac's `AspNetUsers`/`AspNetRoles`/etc. data came from your local dev
-database (test accounts, dev passwords) - that must never reach production.
-Run `db/reset-identity-tables.sql` against the hosted database once, right
-after the import:
-
-```powershell
-sqlcmd -S <hosted server> -d EcoGoodz -U <admin login> -P <admin password> -C -i db/reset-identity-tables.sql
-```
-
-(Or run it via SSMS/Azure Data Studio connected to the hosted instance -
-whichever is easiest.)
+Not needed - the `.bak` from Step 1 already has empty Identity tables.
 
 ## Step 4 - Configure the app and let it finish the job
 
@@ -89,20 +85,27 @@ On its **first startup**, the app will automatically:
 steps are idempotent (skip anything already migrated), so subsequent
 restarts are no-ops.
 
-## Why not just restore the `.bak` directly?
-
-`RESTORE DATABASE ... FROM DISK` requires the backup file to be visible on
-the SQL Server's own filesystem, which a hosted/managed database product
-doesn't expose. `sqlpackage` only needs a normal SQL connection (over TDS,
-same as the app itself uses), so it works regardless of hosting model - and
-it's the same mechanism used whether the database ends up hosted by GoDaddy,
-Azure SQL, or anywhere else in the future.
-
 ## Keeping production data current
 
 If the legacy backup is re-normalized later (e.g. a new tier from
 `docs/legacy-controller-inventory.md` needs a schema change captured in
-`db/normalize.sql`), repeat Steps 1-2 with `/Action:Publish` instead of
-`/Action:Import` (schema-only sync, preserves existing data) once production
-has real data of its own - re-importing the full bacpac at that point would
-overwrite live data.
+`db/normalize.sql`), repeat Step 1 and re-upload via Plesk's Import dump.
+Note this **overwrites the whole database**, so once production has real
+data of its own (new orders, new users placed after go-live), a full
+re-import would destroy it - at that point, schema changes need to be applied
+as targeted `ALTER` scripts against production instead (via a one-off page in
+the app, or by getting direct SQL access resolved with GoDaddy support).
+
+## If direct SQL connectivity ever gets resolved
+
+If GoDaddy/Plesk support opens external access to the hosted SQL Server
+(firewall allow-list, or a fixed non-default port), `sqlpackage` becomes
+useful for incremental schema-only syncs (`/Action:Publish`) without
+re-uploading a full `.bak` each time:
+
+```powershell
+dotnet tool install -g microsoft.sqlpackage
+sqlpackage /Action:Publish `
+  /SourceFile:"db/EcoGoodz.bacpac" `
+  /TargetConnectionString:"<connection string from .env>"
+```
