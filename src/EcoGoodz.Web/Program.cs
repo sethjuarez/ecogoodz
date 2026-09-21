@@ -4,7 +4,9 @@ using EcoGoodz.Web.Email;
 using EcoGoodz.Web.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,10 +26,16 @@ builder.Services.AddDbContext<EcoGoodzIdentityDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
     {
         // Reasonable modern defaults; legacy app had no password policy at all.
-        options.Password.RequiredLength = 8;
+        options.Password.RequiredLength = 12;
         options.Password.RequireNonAlphanumeric = false;
         options.Password.RequireUppercase = false;
         options.Lockout.MaxFailedAccessAttempts = 10;
+        // Legacy data was checked (all 18 migrated users have unique, non-empty
+        // emails) before enabling this - see docs/security-review.md. Without it,
+        // FindByEmailAsync during ForgotPassword/ResetPassword could silently
+        // resolve to the wrong account if a future data import introduced a
+        // duplicate/shared email.
+        options.User.RequireUniqueEmail = true;
     })
     .AddEntityFrameworkStores<EcoGoodzIdentityDbContext>()
     .AddClaimsPrincipalFactory<ApplicationClaimsPrincipalFactory>()
@@ -70,6 +78,27 @@ builder.Services.AddControllersWithViews(options =>
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
+// Per-IP rate limiting on the unauthenticated auth endpoints (Login/ForgotPassword/
+// ResetPassword). These have no other abuse protection: Identity's lockout only
+// engages after a valid *username* is found, so login enumeration and reset-email
+// flooding are otherwise unbounded. A fixed window keyed on remote IP is enough for
+// a low-traffic internal-staff app like this - not meant to defend against a
+// distributed attacker, just casual abuse/scripted flooding.
+const string AuthRateLimitPolicy = "auth";
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(AuthRateLimitPolicy, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -94,6 +123,8 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 
