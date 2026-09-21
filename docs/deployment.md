@@ -66,7 +66,8 @@ set:
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 | `ConnectionStrings__EcoGoodz` | Real production SQL Server connection string (see `docs/database-setup.md`) |
 | `Migration__SeedLegacyUsers` | `true` (one-time bootstrap, safe to leave set - see `docs/database-setup.md`) |
-| `Smtp__Host`, `Smtp__Port`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromAddress` | Real SMTP credentials (see `SmtpOptions.cs`) |
+| `Smtp__Host`, `Smtp__Port`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromAddress` | Amazon SES SMTP credentials (see below and `SmtpOptions.cs`) |
+| `Smtp__TenantName` | SES tenant name (`ecogoodz`) - isolates this app's sending reputation from other projects in the same personal AWS account (see below) |
 
 **This step still needs to happen once, directly in Plesk**, before the app
 will start successfully in production - it will fail to connect to a
@@ -75,8 +76,58 @@ Plesk UI.
 
 The database itself (schema + legacy data) needs to be imported into the
 hosted SQL Server *before* the app's first production start - see
-`docs/database-setup.md` for the exact `sqlpackage` commands (GoDaddy's
-hosted SQL Server product doesn't allow a direct `.bak` file restore).
+`docs/database-setup.md` for the exact steps (GoDaddy's hosted SQL Server
+product doesn't allow a direct `.bak` file restore over the network, but
+Plesk's own "Import dump" UI does).
+
+### Why Amazon SES instead of the legacy GoDaddy mailbox
+
+The legacy app relayed password-reset/notification email through
+`Reports@ecogoodz.com` via `smtpout.secureserver.net` (see the old
+`Web.config`). That mailbox turned out to actually be hosted on Microsoft 365
+(GoDaddy just resells/fronts it - confirmed via the domain's MX/SPF records
+pointing at `*.protection.outlook.com`), and it isn't a licensed user visible
+in GoDaddy's simplified Email & Office admin panel - getting its credentials
+would have meant using a real staff member's Microsoft 365 login, which we
+didn't want to do.
+
+Amazon SES gives the app its own dedicated sender identity instead:
+
+1. In the AWS SES console (region **us-east-1**), verify the `ecogoodz.com`
+   domain (**Verified identities > Create identity > Domain**) - this adds a
+   few DNS records (DKIM CNAMEs, etc.) wherever `ecogoodz.com`'s DNS is
+   managed.
+2. Create SMTP credentials (**SMTP settings > Create SMTP credentials**) -
+   this is a dedicated IAM-backed username/password pair, unrelated to any
+   staff member's login.
+3. Note the SMTP endpoint SES gives you (e.g.
+   `email-smtp.us-east-1.amazonaws.com`, or a Mail Manager endpoint like
+   `<id>.mail-manager-smtp.amazonaws.com`), port `587`, STARTTLS.
+4. **New SES accounts start in "sandbox" mode** - only pre-verified
+   recipient addresses can receive mail. Either verify each recipient
+   individually (**Verified identities > Create identity > Email address**,
+   fine for early testing) or request production access
+   (**Account dashboard > Request production access**) before go-live, since
+   real staff resetting their password can't all be pre-verified individually.
+5. Set `Smtp__FromAddress` to any address at the verified domain (e.g.
+   `no-reply@ecogoodz.com` - it doesn't need to be a real mailbox, unlike the
+   legacy setup).
+
+### SES tenant isolation
+
+Since this SES account is a personal AWS account (may host other unrelated
+projects over time), EcoGoodz sends through a dedicated **SES tenant** named
+`ecogoodz`. This isolates its sending reputation, suppression list, and
+enforcement policy from anything else sharing the account - a reputation
+issue in one project can't pause sending for the other.
+
+1. In the SES console, go to **Tenants > Create tenant**, name it `ecogoodz`.
+2. Associate the `ecogoodz.com` verified domain identity with the tenant.
+3. Create (or associate) a configuration set with the tenant - required
+   before it can send.
+4. Set `Smtp__TenantName=ecogoodz`. The app adds this as an `X-SES-TENANT`
+   header on every outbound message (`SmtpEmailSender.cs`); if unset, mail
+   sends at the account level with no tenant isolation.
 
 ## TLS
 
@@ -95,6 +146,9 @@ easiest path if it isn't already covering that subdomain.
 4. [ ] Confirm/replace the app pool name in the deployment-actions script.
 5. [ ] Push to `main` (or re-run the `Publish to deploy branch` workflow
        manually) to create the initial `deploy` branch.
-6. [ ] Verify the site loads at `https://app.ecogoodz.com` and can reach the
+6. [ ] Request SES production access (or verify each real staff email
+       individually) before relying on password-reset emails for anyone
+       outside the sandbox-verified test list.
+7. [ ] Verify the site loads at `https://app.ecogoodz.com` and can reach the
        database.
-7. [ ] Confirm TLS certificate covers `app.ecogoodz.com`.
+8. [ ] Confirm TLS certificate covers `app.ecogoodz.com`.

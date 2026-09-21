@@ -6,10 +6,10 @@ using MimeKit;
 namespace EcoGoodz.Web.Email;
 
 /// <summary>
-/// Sends outbound email via SMTP relay (the GoDaddy-hosted Reports@ecogoodz.com
-/// mailbox by default - see SmtpOptions). Replaces the legacy app's raw
-/// System.Net.Mail.SmtpClient usage (EcoGoodz_Service/Email.cs) with MailKit, which
-/// supports modern TLS negotiation that the old code left to machine-wide config.
+/// Sends outbound email via SMTP relay - Amazon SES by default (see SmtpOptions).
+/// Replaces the legacy app's raw System.Net.Mail.SmtpClient usage
+/// (EcoGoodz_Service/Email.cs) with MailKit, which supports modern TLS
+/// negotiation that the old code left to machine-wide config.
 /// </summary>
 public class SmtpEmailSender : IEmailSender
 {
@@ -38,6 +38,13 @@ public class SmtpEmailSender : IEmailSender
         message.To.Add(MailboxAddress.Parse(toEmail));
         message.Subject = subject;
         message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
+
+        if (!string.IsNullOrWhiteSpace(_options.TenantName))
+        {
+            // Scopes this send to the SES tenant so its reputation/suppression
+            // list is isolated from other projects in the same SES account.
+            message.Headers.Add("X-SES-TENANT", _options.TenantName);
+        }
 
         using var client = new SmtpClient();
         var socketOptions = _options.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
