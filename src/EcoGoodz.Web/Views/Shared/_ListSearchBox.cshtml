@@ -1,0 +1,23 @@
+@model EcoGoodz.Web.Models.Shared.PageInfo
+@{
+    // Placeholder text is per-page (e.g. "Search buyers..."); pass it via
+    // ViewData when invoking this partial: Html.PartialAsync("_ListSearchBox",
+    // Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "..." })
+    var placeholder = ViewData["Placeholder"] as string ?? "Search…";
+}
+<form method="get" class="d-flex" role="search">
+    @* Preserve sort state across a new search; page always resets to 1 by omission. *@
+    @if (!string.IsNullOrWhiteSpace(Model.SortColumn))
+    {
+        <input type="hidden" name="sort" value="@Model.SortColumn" />
+        @if (Model.SortDescending)
+        {
+            <input type="hidden" name="desc" value="true" />
+        }
+    }
+    @if (Model.PageSize != EcoGoodz.Web.Models.Shared.PageInfo.DefaultPageSize)
+    {
+        <input type="hidden" name="pageSize" value="@Model.PageSize" />
+    }
+    <input type="search" name="search" value="@Model.SearchTerm" class="form-control" placeholder="@placeholder" aria-label="@placeholder" />
+</form>

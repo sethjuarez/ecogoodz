@@ -1,17 +1,17 @@
-@model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.Buyer.BuyerListItemViewModel>
+@model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.Load.LoadListItemViewModel>
 @{
-    ViewData["Title"] = "Buyers";
+    ViewData["Title"] = "Loads";
 }
 
 <div class="page-header d-print-none mb-3">
     <div class="row g-2 align-items-center">
         <div class="col">
-            <h2 class="page-title">Buyers</h2>
+            <h2 class="page-title">Loads</h2>
             <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
-            @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search buyers…" })
-            <a asp-action="Create" class="btn btn-primary text-nowrap">New buyer</a>
+            @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search loads…" })
+            <a asp-action="Create" class="btn btn-primary text-nowrap">New load</a>
         </div>
     </div>
 </div>
@@ -21,8 +21,10 @@
         <table class="table card-table table-vcenter">
             <thead>
                 <tr>
-                    <th>@Html.SortableHeader("name", "Name", Model.Page)</th>
-                    <th>@Html.SortableHeader("accountManager", "Account manager", Model.Page)</th>
+                    <th>@Html.SortableHeader("buyer", "Buyer", Model.Page)</th>
+                    <th>@Html.SortableHeader("supplier", "Supplier", Model.Page)</th>
+                    <th>@Html.SortableHeader("status", "Status", Model.Page)</th>
+                    <th>@Html.SortableHeader("shipmentDate", "Shipment date", Model.Page)</th>
                     <th>@Html.SortableHeader("active", "Active", Model.Page)</th>
                     <th class="w-1"></th>
                 </tr>
@@ -31,14 +33,16 @@
                 @if (Model.Items.Count == 0)
                 {
                     <tr>
-                        <td colspan="4" class="text-center text-secondary py-4">No buyers found.</td>
+                        <td colspan="6" class="text-center text-secondary py-4">No loads found.</td>
                     </tr>
                 }
                 @foreach (var item in Model.Items)
                 {
                     <tr>
-                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></td>
-                        <td>@item.AccountManagerName</td>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.BuyerName</a></td>
+                        <td>@item.SupplierName</td>
+                        <td>@item.StatusName</td>
+                        <td>@item.ShipmentDate?.ToString("yyyy-MM-dd")</td>
                         <td>
                             @if (item.IsActive)
                             {
@@ -59,4 +63,3 @@
     </div>
     @await Html.PartialAsync("_ListPagination", Model.Page)
 </div>
-

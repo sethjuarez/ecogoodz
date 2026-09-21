@@ -1,45 +1,54 @@
+using System.Linq.Expressions;
 using EcoGoodz.Data;
+using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Buyer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
 namespace EcoGoodz.Web.Controllers;
 
-[Authorize]
-public class BuyerController : Controller
+public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListItemViewModel>
 {
-    private readonly EcoGoodzDbContext _context;
-
-    public BuyerController(EcoGoodzDbContext context)
+    public BuyerController(EcoGoodzDbContext context) : base(context)
     {
-        _context = context;
     }
 
-    public async Task<IActionResult> Index()
-    {
-        var buyers = await _context.Buyers
-            .Include(b => b.AccountManagerNavigation)
-            .OrderBy(b => b.Name)
-            .Select(b => new BuyerListItemViewModel
-            {
-                Id = b.Id,
-                Name = b.Name ?? string.Empty,
-                AccountManagerName = b.AccountManagerNavigation != null
-                    ? b.AccountManagerNavigation.FirstName + " " + b.AccountManagerNavigation.LastName
-                    : null,
-                IsActive = b.IsActive ?? false,
-            })
-            .ToListAsync();
+    protected override IQueryable<Data.Models.Buyer> GetBaseQuery() =>
+        Context.Buyers.Include(b => b.AccountManagerNavigation);
 
-        return View(buyers);
-    }
+    protected override IQueryable<Data.Models.Buyer> ApplySearch(IQueryable<Data.Models.Buyer> query, string searchTerm) =>
+        query.Where(b =>
+            (b.Name != null && b.Name.Contains(searchTerm))
+            || (b.AccountManagerNavigation != null && (
+                (b.AccountManagerNavigation.FirstName != null && b.AccountManagerNavigation.FirstName.Contains(searchTerm))
+                || (b.AccountManagerNavigation.LastName != null && b.AccountManagerNavigation.LastName.Contains(searchTerm)))));
+
+    protected override IReadOnlyDictionary<string, Expression<Func<Data.Models.Buyer, object?>>> SortColumns { get; } =
+        new Dictionary<string, Expression<Func<Data.Models.Buyer, object?>>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["name"] = b => b.Name,
+            ["accountManager"] = b => b.AccountManagerNavigation != null ? b.AccountManagerNavigation.FirstName : null,
+            ["active"] = b => b.IsActive,
+        };
+
+    protected override string DefaultSortColumn => "name";
+
+    protected override Expression<Func<Data.Models.Buyer, BuyerListItemViewModel>> ProjectionExpression =>
+        b => new BuyerListItemViewModel
+        {
+            Id = b.Id,
+            Name = b.Name ?? string.Empty,
+            AccountManagerName = b.AccountManagerNavigation != null
+                ? b.AccountManagerNavigation.FirstName + " " + b.AccountManagerNavigation.LastName
+                : null,
+            IsActive = b.IsActive ?? false,
+        };
 
     public async Task<IActionResult> Details(int id)
     {
-        var buyer = await _context.Buyers
+        var buyer = await Context.Buyers
             .Include(b => b.AccountManagerNavigation)
             .Where(b => b.Id == id)
             .Select(b => new BuyerDetailsViewModel
@@ -93,15 +102,15 @@ public class BuyerController : Controller
             CreatedBy = User.GetLegacyUserId(),
         };
 
-        _context.Buyers.Add(buyer);
-        await _context.SaveChangesAsync();
+        Context.Buyers.Add(buyer);
+        await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Index));
     }
 
     public async Task<IActionResult> Edit(int id)
     {
-        var buyer = await _context.Buyers.FindAsync(id);
+        var buyer = await Context.Buyers.FindAsync(id);
         if (buyer is null)
         {
             return NotFound();
@@ -135,7 +144,7 @@ public class BuyerController : Controller
             return View(model);
         }
 
-        var buyer = await _context.Buyers.FindAsync(id);
+        var buyer = await Context.Buyers.FindAsync(id);
         if (buyer is null)
         {
             return NotFound();
@@ -148,7 +157,7 @@ public class BuyerController : Controller
         buyer.UpdatedOn = DateTime.UtcNow;
         buyer.UpdatedBy = User.GetLegacyUserId();
 
-        await _context.SaveChangesAsync();
+        await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Index));
     }
@@ -159,7 +168,7 @@ public class BuyerController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Deactivate(int id)
     {
-        var buyer = await _context.Buyers.FindAsync(id);
+        var buyer = await Context.Buyers.FindAsync(id);
         if (buyer is null)
         {
             return NotFound();
@@ -169,14 +178,14 @@ public class BuyerController : Controller
         buyer.UpdatedOn = DateTime.UtcNow;
         buyer.UpdatedBy = User.GetLegacyUserId();
 
-        await _context.SaveChangesAsync();
+        await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Index));
     }
 
     private async Task<IEnumerable<SelectListItem>> GetAccountManagerOptionsAsync()
     {
-        return await _context.Users
+        return await Context.Users
             .Where(u => u.IsActive == true)
             .OrderBy(u => u.FirstName)
             .Select(u => new SelectListItem

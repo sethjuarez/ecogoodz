@@ -7,10 +7,29 @@ namespace EcoGoodz.Web.Models.Shared;
 /// </summary>
 public sealed class PageInfo
 {
+    /// <summary>
+    /// The default page size used across every list controller/view when the
+    /// caller doesn't specify one. Centralized here so it only needs to be
+    /// updated in one place - it's compared against in the controller action
+    /// signatures, <c>Html.SortableHeader</c>, <c>_ListSearchBox</c>, and
+    /// <c>_ListPagination</c> to decide whether to include a <c>pageSize</c>
+    /// query-string parameter.
+    /// </summary>
+    public const int DefaultPageSize = 20;
+
     public required int PageNumber { get; init; }
     public required int PageSize { get; init; }
     public required int TotalCount { get; init; }
     public string? SearchTerm { get; init; }
+
+    /// <summary>
+    /// The column actually applied for ordering (already resolved against the
+    /// controller's allowed-column map - see <c>QueryableExtensions.ApplySort</c>).
+    /// Never null once a query has gone through <c>ApplySort</c>, so views can
+    /// safely compare against it to highlight the active sort column.
+    /// </summary>
+    public string? SortColumn { get; init; }
+    public bool SortDescending { get; init; }
 
     public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
     public bool HasPreviousPage => PageNumber > 1;

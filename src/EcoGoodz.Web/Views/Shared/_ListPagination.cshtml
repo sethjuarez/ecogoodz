@@ -1,0 +1,84 @@
+@model EcoGoodz.Web.Models.Shared.PageInfo
+@{
+    var totalPages = Model.TotalPages;
+}
+@functions {
+    static string BuildHref(EcoGoodz.Web.Models.Shared.PageInfo page, string path, int targetPage)
+    {
+        var query = new List<string> { $"page={targetPage}" };
+        if (!string.IsNullOrWhiteSpace(page.SearchTerm))
+        {
+            query.Add($"search={Uri.EscapeDataString(page.SearchTerm)}");
+        }
+        if (!string.IsNullOrWhiteSpace(page.SortColumn))
+        {
+            query.Add($"sort={Uri.EscapeDataString(page.SortColumn)}");
+            if (page.SortDescending)
+            {
+                query.Add("desc=true");
+            }
+        }
+        if (page.PageSize != EcoGoodz.Web.Models.Shared.PageInfo.DefaultPageSize)
+        {
+            query.Add($"pageSize={page.PageSize}");
+        }
+
+        return path + "?" + string.Join("&", query);
+    }
+}
+@if (totalPages > 1 || Model.TotalCount > 0)
+{
+    var path = Context.Request.Path.Value ?? string.Empty;
+    var windowStart = Math.Max(1, Model.PageNumber - 2);
+    var windowEnd = Math.Min(Math.Max(totalPages, 1), windowStart + 4);
+    windowStart = Math.Max(1, windowEnd - 4);
+    var firstItem = Model.TotalCount == 0 ? 0 : ((Model.PageNumber - 1) * Model.PageSize) + 1;
+    var lastItem = Math.Min(Model.PageNumber * Model.PageSize, Model.TotalCount);
+
+    <div class="card-footer d-flex align-items-center">
+        <p class="m-0 text-secondary">
+            Showing <strong>@firstItem</strong> to <strong>@lastItem</strong> of <strong>@Model.TotalCount</strong> entries
+        </p>
+        @if (totalPages > 1)
+        {
+            <nav aria-label="Pagination" class="ms-auto">
+                <ul class="pagination m-0">
+                    <li class="page-item @(Model.HasPreviousPage ? "" : "disabled")">
+                        @if (Model.HasPreviousPage)
+                        {
+                            <a class="page-link" href="@BuildHref(Model, path, Model.PageNumber - 1)" aria-label="Previous page">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M15 6l-6 6l6 6" /></svg>
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="page-link" tabindex="-1" aria-disabled="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M15 6l-6 6l6 6" /></svg>
+                            </span>
+                        }
+                    </li>
+                    @for (var p = windowStart; p <= windowEnd; p++)
+                    {
+                        <li class="page-item @(p == Model.PageNumber ? "active" : "")">
+                            <a class="page-link" href="@BuildHref(Model, path, p)" aria-label="Page @p" aria-current="@(p == Model.PageNumber ? "page" : null)">@p</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.HasNextPage ? "" : "disabled")">
+                        @if (Model.HasNextPage)
+                        {
+                            <a class="page-link" href="@BuildHref(Model, path, Model.PageNumber + 1)" aria-label="Next page">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M9 6l6 6l-6 6" /></svg>
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="page-link" tabindex="-1" aria-disabled="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon"><path d="M9 6l6 6l-6 6" /></svg>
+                            </span>
+                        }
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+}

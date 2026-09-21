@@ -1,0 +1,190 @@
+@model EcoGoodz.Web.Models.Load.LoadDetailsViewModel
+@{
+    ViewData["Title"] = $"Load #{Model.Id}";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Loads</div>
+            <h2 class="page-title">@Model.BuyerName &rarr; @Model.SupplierName</h2>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+<div class="row row-deck row-cards">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Shipment</h3>
+            </div>
+            <div class="card-body">
+                <div class="datagrid">
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Status</div>
+                        <div class="datagrid-content">@Model.StatusName</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Shipment date</div>
+                        <div class="datagrid-content">@Model.ShipmentDate?.ToString("yyyy-MM-dd")</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Container</div>
+                        <div class="datagrid-content">@Model.Container</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Buyer ref</div>
+                        <div class="datagrid-content">@Model.BuyerRef</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Supplier ref</div>
+                        <div class="datagrid-content">@Model.SupplierRef</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Freight carrier</div>
+                        <div class="datagrid-content">@Model.FreightCarrier</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Active</div>
+                        <div class="datagrid-content">
+                            @if (Model.IsActive)
+                            {
+                                <span class="badge bg-success-lt">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-lt">Inactive</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Complete</div>
+                        <div class="datagrid-content">@(Model.IsComplete ? "Yes" : "No")</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Created</div>
+                        <div class="datagrid-content">@Model.CreateOn</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Updated</div>
+                        <div class="datagrid-content">@Model.UpdatedOn</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h3 class="card-title">Invoices & freight</h3>
+            </div>
+            <div class="card-body">
+                <div class="datagrid">
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Buyer invoice</div>
+                        <div class="datagrid-content">@Model.BuyerInvoice</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Buyer invoice amount</div>
+                        <div class="datagrid-content">@Model.BuyerInvoiceAmount?.ToString("C")</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Supplier invoice</div>
+                        <div class="datagrid-content">@Model.SupplierInvoice</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Supplier invoice amount</div>
+                        <div class="datagrid-content">@Model.SupplierInvoiceAmount?.ToString("C")</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Freight invoice</div>
+                        <div class="datagrid-content">@Model.FreightInvoice</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Freight quoted</div>
+                        <div class="datagrid-content">@Model.FreightAmountQuoted?.ToString("C")</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Freight billed</div>
+                        <div class="datagrid-content">@Model.FreightAmountBilled?.ToString("C")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.BuyerNotes) || !string.IsNullOrWhiteSpace(Model.SupplierNotes) || !string.IsNullOrWhiteSpace(Model.FreightNotes))
+        {
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">Notes</h3>
+                </div>
+                <div class="card-body">
+                    <div class="datagrid">
+                        @if (!string.IsNullOrWhiteSpace(Model.BuyerNotes))
+                        {
+                            <div class="datagrid-item datagrid-item-full">
+                                <div class="datagrid-title">Buyer notes</div>
+                                <div class="datagrid-content">@Model.BuyerNotes</div>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.SupplierNotes))
+                        {
+                            <div class="datagrid-item datagrid-item-full">
+                                <div class="datagrid-title">Supplier notes</div>
+                                <div class="datagrid-content">@Model.SupplierNotes</div>
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.FreightNotes))
+                        {
+                            <div class="datagrid-item datagrid-item-full">
+                                <div class="datagrid-title">Freight notes</div>
+                                <div class="datagrid-content">@Model.FreightNotes</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="datagrid">
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Buyer</div>
+                        <div class="datagrid-content">
+                            @if (Model.BuyerId is not null)
+                            {
+                                <a asp-controller="Buyer" asp-action="Details" asp-route-id="@Model.BuyerId">@Model.BuyerName</a>
+                            }
+                            else
+                            {
+                                @Model.BuyerName
+                            }
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Supplier</div>
+                        <div class="datagrid-content">
+                            @if (Model.SupplierId is not null)
+                            {
+                                <a asp-controller="Supplier" asp-action="Details" asp-route-id="@Model.SupplierId">@Model.SupplierName</a>
+                            }
+                            else
+                            {
+                                @Model.SupplierName
+                            }
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Product lines</div>
+                        <div class="datagrid-content">@Model.ProductLineCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

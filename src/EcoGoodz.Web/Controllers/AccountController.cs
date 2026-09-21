@@ -5,11 +5,16 @@ using EcoGoodz.Web.Models.Account;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Text;
 
 namespace EcoGoodz.Web.Controllers;
 
+// Login/ForgotPassword/ResetPassword are unauthenticated by design, so they're the
+// only user-facing surface an attacker can hammer directly (username enumeration,
+// reset-email flooding). Rate-limited per-IP via the "auth" policy in Program.cs.
+[EnableRateLimiting("auth")]
 public class AccountController : Controller
 {
     private readonly SignInManager<ApplicationUser> _signInManager;
