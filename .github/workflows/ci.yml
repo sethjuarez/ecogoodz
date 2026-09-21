@@ -1,0 +1,52 @@
+name: CI
+
+# Build-and-verify only - no deployment step yet. Deployment to the GoDaddy VPS
+# (Plesk/IIS) is intentionally NOT wired up here until hosting access/topology is
+# confirmed (Plesk Git integration vs. Web Deploy vs. manual). See
+# docs/legacy-controller-inventory.md and docs/security-review.md for other
+# deployment-gated items (TLS cert, real SMTP creds).
+on:
+  push:
+    branches: [main, "sethjuarez/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: src/EcoGoodz.Web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/EcoGoodz.Web/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets (Sass -> wwwroot/css, Tabler JS)
+        run: npm run build
+
+      - name: Restore .NET solution
+        working-directory: src
+        run: dotnet restore EcoGoodz.slnx
+
+      - name: Build .NET solution
+        working-directory: src
+        run: dotnet build EcoGoodz.slnx --no-restore --configuration Release
+
+      - name: Publish web project (verifies a deployable output can be produced)
+        run: dotnet publish EcoGoodz.Web.csproj --no-restore --configuration Release --output ../../publish
