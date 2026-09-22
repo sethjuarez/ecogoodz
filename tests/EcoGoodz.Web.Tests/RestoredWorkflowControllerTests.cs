@@ -15,6 +15,7 @@ using EcoGoodz.Web.Models.Note;
 using EcoGoodz.Web.Models.Report;
 using EcoGoodz.Web.Models.StaffTask;
 using EcoGoodz.Web.Models.StaffUser;
+using EcoGoodz.Web.Models.SupplierProduct;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -499,6 +500,180 @@ public class RestoredWorkflowControllerTests
         var controller = WithLegacyUser(new StaffTaskController(context));
 
         Assert.IsType<NotFoundResult>(await controller.EditHeadline(1));
+    }
+
+    [Fact]
+    public async Task SupplierProductAssignToBuyers_AddsProductAndRateToExistingMatch()
+    {
+        await using var context = CreateContext();
+        context.Suppliers.Add(new Supplier { Id = 1, Name = "Legacy Supplier", IsActive = true });
+        context.Buyers.Add(new Buyer { Id = 2, Name = "Legacy Buyer", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" },
+            new Location { Id = 4, ClientId = 2, IsBuyer = true, IsActive = true, BuyerStatus = 2, Location1 = "Buyer Dock" });
+        context.Products.Add(new Product { Id = 5, Name = "OCC", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 6, Supplier = 1, Location = 3, Product = 5, IsActive = true });
+        context.BuyerSuppliers.Add(new BuyerSupplier
+        {
+            Id = 7,
+            Buyer = 2,
+            Supplier = 1,
+            BuyerLocation = 4,
+            SupplierLocation = 3,
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+
+        var result = await controller.AssignToBuyers(new SupplierProductAssignToBuyersViewModel
+        {
+            ProductId = 6,
+            TiedBuyers =
+            [
+                new SupplierProductAssignBuyerRowViewModel
+                {
+                    BuyerId = 2,
+                    IsSelected = true,
+                    SelectedLocationIds = [4],
+                    Rate = 111.25m,
+                    EffectiveDate = new DateTime(2026, 9, 22),
+                },
+            ],
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var buyerSupplierProduct = await context.BuyerSupplierProducts.Include(product => product.BuyerProductRates).SingleAsync();
+        Assert.Equal(7, buyerSupplierProduct.BuyerSupplierId);
+        Assert.Equal(6, buyerSupplierProduct.SupplierProduct);
+        Assert.Equal(99, buyerSupplierProduct.CreatedBy);
+        var rate = Assert.Single(buyerSupplierProduct.BuyerProductRates);
+        Assert.Equal(111.25m, rate.Price);
+        Assert.Equal(new DateTime(2026, 9, 22), rate.EffectiveDate);
+        Assert.True(rate.IsActive);
+    }
+
+    [Fact]
+    public async Task SupplierProductAssignToBuyers_CreatesProposedMatchForActiveBuyerLocation()
+    {
+        await using var context = CreateContext();
+        context.Suppliers.Add(new Supplier { Id = 1, Name = "Legacy Supplier", IsActive = true });
+        context.Buyers.Add(new Buyer { Id = 2, Name = "Legacy Buyer", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" },
+            new Location { Id = 4, ClientId = 2, IsBuyer = true, IsActive = true, BuyerStatus = 3, Location1 = "Buyer Dock" });
+        context.Products.Add(new Product { Id = 5, Name = "OCC", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 6, Supplier = 1, Location = 3, Product = 5, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+
+        var result = await controller.AssignToBuyers(new SupplierProductAssignToBuyersViewModel
+        {
+            ProductId = 6,
+            ActiveBuyers =
+            [
+                new SupplierProductAssignBuyerRowViewModel
+                {
+                    BuyerId = 2,
+                    IsSelected = true,
+                    SelectedLocationIds = [4],
+                    Rate = 125m,
+                    EffectiveDate = new DateTime(2026, 9, 23),
+                },
+            ],
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var match = await context.BuyerSuppliers.Include(match => match.BuyerSupplierProducts).SingleAsync();
+        Assert.Equal(3, match.Status);
+        Assert.Equal(2, match.Buyer);
+        Assert.Equal(1, match.Supplier);
+        Assert.Equal(4, match.BuyerLocation);
+        Assert.Equal(3, match.SupplierLocation);
+        Assert.True(match.IsActive);
+        var assignedProduct = Assert.Single(match.BuyerSupplierProducts);
+        Assert.Equal(6, assignedProduct.SupplierProduct);
+        Assert.Equal(125m, await context.BuyerProductRates.Where(rate => rate.BuyerSupplierProductId == assignedProduct.Id).Select(rate => rate.Price).SingleAsync());
+    }
+
+    [Fact]
+    public async Task SupplierProductAssignToBuyers_DoesNotListAlreadyAssignedLocationAsUntied()
+    {
+        await using var context = CreateContext();
+        context.Suppliers.Add(new Supplier { Id = 1, Name = "Legacy Supplier", IsActive = true });
+        context.Buyers.Add(new Buyer { Id = 2, Name = "Legacy Buyer", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" },
+            new Location { Id = 4, ClientId = 2, IsBuyer = true, IsActive = true, BuyerStatus = 2, Location1 = "Buyer Dock" });
+        context.Products.Add(new Product { Id = 5, Name = "OCC", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 6, Supplier = 1, Location = 3, Product = 5, IsActive = true });
+        context.BuyerSuppliers.Add(new BuyerSupplier
+        {
+            Id = 7,
+            Buyer = 2,
+            Supplier = 1,
+            BuyerLocation = 4,
+            SupplierLocation = 3,
+            IsActive = true,
+            BuyerSupplierProducts = [new BuyerSupplierProduct { Id = 8, SupplierProduct = 6 }],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.AssignToBuyers(6));
+        var model = Assert.IsType<SupplierProductAssignToBuyersViewModel>(result.Model);
+
+        Assert.Empty(model.TiedBuyers);
+        Assert.DoesNotContain(model.ActiveBuyers.SelectMany(buyer => buyer.Locations), location => location.Id == 4);
+    }
+
+    [Fact]
+    public async Task SupplierProductAssignToBuyers_ReusesExistingMatchForStaleActiveBuyerPost()
+    {
+        await using var context = CreateContext();
+        context.Suppliers.Add(new Supplier { Id = 1, Name = "Legacy Supplier", IsActive = true });
+        context.Buyers.Add(new Buyer { Id = 2, Name = "Legacy Buyer", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" },
+            new Location { Id = 4, ClientId = 2, IsBuyer = true, IsActive = true, BuyerStatus = 2, Location1 = "Buyer Dock" });
+        context.Products.Add(new Product { Id = 5, Name = "OCC", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 6, Supplier = 1, Location = 3, Product = 5, IsActive = true });
+        context.BuyerSuppliers.Add(new BuyerSupplier
+        {
+            Id = 7,
+            Buyer = 2,
+            Supplier = 1,
+            BuyerLocation = 4,
+            SupplierLocation = 3,
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+
+        var result = await controller.AssignToBuyers(new SupplierProductAssignToBuyersViewModel
+        {
+            ProductId = 6,
+            ActiveBuyers =
+            [
+                new SupplierProductAssignBuyerRowViewModel
+                {
+                    BuyerId = 2,
+                    IsSelected = true,
+                    SelectedLocationIds = [4],
+                    Rate = 125m,
+                    EffectiveDate = new DateTime(2026, 9, 23),
+                },
+            ],
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(1, await context.BuyerSuppliers.CountAsync());
+        var assignedProduct = await context.BuyerSupplierProducts.SingleAsync();
+        Assert.Equal(7, assignedProduct.BuyerSupplierId);
+        Assert.Equal(6, assignedProduct.SupplierProduct);
     }
 
     [Fact]

@@ -10,6 +10,7 @@
             <h2 class="page-title">@Model.ProductName</h2>
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="AssignToBuyers" asp-route-id="@Model.Id" class="btn">Assign to buyers</a>
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
             <a asp-action="Index" class="btn">Back to list</a>
         </div>
@@ -19,6 +20,10 @@
 @if (TempData["Error"] is string error)
 {
     <div class="alert alert-danger">@error</div>
+}
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success">@success</div>
 }
 
 <div class="row row-cards">
