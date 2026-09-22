@@ -12,7 +12,7 @@ PRINT '1) Table sizes for list pages';
 SELECT
     s.name AS SchemaName,
     t.name AS TableName,
-    SUM(p.rows) AS RowCount
+    SUM(p.rows) AS [Rows]
 FROM sys.tables AS t
 JOIN sys.schemas AS s ON s.schema_id = t.schema_id
 JOIN sys.partitions AS p ON p.object_id = t.object_id AND p.index_id IN (0, 1)
@@ -29,7 +29,7 @@ WHERE t.name IN (
     'User'
 )
 GROUP BY s.name, t.name
-ORDER BY RowCount DESC;
+ORDER BY [Rows] DESC;
 
 PRINT '2) Existing indexes on slow-list tables';
 SELECT
@@ -39,10 +39,17 @@ SELECT
     i.type_desc AS IndexType,
     i.is_primary_key AS IsPrimaryKey,
     i.is_unique AS IsUnique,
-    STRING_AGG(c.name, ', ') WITHIN GROUP (ORDER BY ic.key_ordinal) AS KeyColumns
+    STUFF((
+        SELECT ', ' + c2.name
+        FROM sys.index_columns AS ic2
+        JOIN sys.columns AS c2 ON c2.object_id = ic2.object_id AND c2.column_id = ic2.column_id
+        WHERE ic2.object_id = i.object_id
+          AND ic2.index_id = i.index_id
+          AND ic2.key_ordinal > 0
+        ORDER BY ic2.key_ordinal
+        FOR XML PATH(''), TYPE
+    ).value('.', 'nvarchar(max)'), 1, 2, '') AS KeyColumns
 FROM sys.indexes AS i
-JOIN sys.index_columns AS ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.key_ordinal > 0
-JOIN sys.columns AS c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
 WHERE OBJECT_NAME(i.object_id) IN (
     'Buyer',
     'Supplier',
