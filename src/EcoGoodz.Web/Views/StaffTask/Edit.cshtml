@@ -13,7 +13,7 @@
 </div>
 
 <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="card">
-    @await Html.PartialAsync("_Form", Model)
+    @await Html.PartialAsync("_Form", Model, new ViewDataDictionary(ViewData) { ["AllowMultipleAssignees"] = false })
     <div class="card-footer d-flex justify-content-between">
         <button type="submit" class="btn btn-primary">Save changes</button>
         <a asp-action="Index" class="btn">Cancel</a>

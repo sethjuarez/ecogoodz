@@ -318,6 +318,35 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task StaffTaskCreate_AssignsOneTaskToMultipleUsers()
+    {
+        await using var context = CreateContext();
+        context.Users.AddRange(
+            new User { Id = 5, FirstName = "Ava", LastName = "Trader", IsActive = true },
+            new User { Id = 6, FirstName = "Ben", LastName = "Broker", IsActive = true });
+        context.TaskHeadlines.Add(new TaskHeadline { Id = 7, UserId = 6, Headline = "Assigned", IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = await controller.Create(new StaffTaskFormViewModel
+        {
+            Description = "Follow up with both managers",
+            DueDate = new DateTime(2026, 10, 5),
+            AssignedToIds = [5, 6],
+            IsActive = true,
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var task = await context.Tasks.Include(t => t.AssignTasks).SingleAsync();
+        Assert.Equal("Follow up with both managers", task.Description);
+        Assert.Equal(2, task.AssignTasks.Count);
+        Assert.Equal([5, 6], task.AssignTasks.OrderBy(a => a.AssignedTo).Select(a => a.AssignedTo).ToList());
+        Assert.All(task.AssignTasks, assignment => Assert.Equal("Assigned", context.TaskHeadlines.Single(h => h.Id == assignment.TaskHeadline).Headline));
+        Assert.Equal(2, await context.TaskHeadlines.CountAsync(h => h.Headline == "Assigned"));
+    }
+
+    [Fact]
     public async Task StaffUserCreate_AddsLegacyUserAndDefaultTaskHeadlines()
     {
         await using var context = CreateContext();

@@ -16,9 +16,11 @@ public class StaffTaskFormViewModel
     [Display(Name = "Due date")]
     public DateTime? DueDate { get; set; }
 
-    [Required]
     [Display(Name = "Assigned to")]
     public int? AssignedTo { get; set; }
+
+    [Display(Name = "Assigned to")]
+    public List<int> AssignedToIds { get; set; } = [];
 
     [Display(Name = "Headline")]
     public int? TaskHeadline { get; set; }

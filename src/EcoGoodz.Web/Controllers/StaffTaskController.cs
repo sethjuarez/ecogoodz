@@ -71,13 +71,18 @@ public class StaffTaskController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(StaffTaskFormViewModel model)
     {
+        var assignedUserIds = GetAssignedUserIds(model);
+        if (assignedUserIds.Count == 0)
+        {
+            ModelState.AddModelError(nameof(model.AssignedToIds), "Choose at least one assignee.");
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateOptionsAsync(model);
             return View(model);
         }
 
-        var headlineId = await ResolveHeadlineAsync(model.AssignedTo!.Value, model.TaskHeadline);
         var task = new TaskItem
         {
             Description = model.Description,
@@ -85,17 +90,18 @@ public class StaffTaskController : Controller
             IsActive = model.IsActive,
             CreateOn = DateTime.UtcNow,
             CreatedBy = User.GetLegacyUserId(),
-            AssignTasks =
-            [
-                new AssignTask
-                {
-                    AssignedTo = model.AssignedTo,
-                    TaskHeadline = headlineId,
-                    IsActive = true,
-                    IsRead = model.AssignedTo == User.GetLegacyUserId(),
-                },
-            ],
         };
+
+        foreach (var assignedUserId in assignedUserIds)
+        {
+            task.AssignTasks.Add(new AssignTask
+            {
+                AssignedTo = assignedUserId,
+                TaskHeadline = await ResolveHeadlineAsync(assignedUserId, model.TaskHeadline),
+                IsActive = true,
+                IsRead = assignedUserId == User.GetLegacyUserId(),
+            });
+        }
 
         _context.Tasks.Add(task);
         await _context.SaveChangesAsync();
@@ -121,6 +127,7 @@ public class StaffTaskController : Controller
             Description = assignTask.Task.Description ?? string.Empty,
             DueDate = assignTask.Task.Duedate,
             AssignedTo = assignTask.AssignedTo,
+            AssignedToIds = assignTask.AssignedTo.HasValue ? [assignTask.AssignedTo.Value] : [],
             TaskHeadline = assignTask.TaskHeadline,
             IsActive = assignTask.IsActive && assignTask.Task.IsActive,
         };
@@ -136,6 +143,16 @@ public class StaffTaskController : Controller
         if (id != model.Id)
         {
             return NotFound();
+        }
+
+        if (!model.AssignedTo.HasValue && model.AssignedToIds.Count == 1)
+        {
+            model.AssignedTo = model.AssignedToIds[0];
+        }
+
+        if (!model.AssignedTo.HasValue)
+        {
+            ModelState.AddModelError(nameof(model.AssignedTo), "Choose an assignee.");
         }
 
         if (!ModelState.IsValid)
@@ -262,5 +279,20 @@ public class StaffTaskController : Controller
             .OrderBy(h => h.Headline)
             .Select(h => new SelectListItem { Value = h.Id.ToString(), Text = h.Headline })
             .ToListAsync();
+    }
+
+    private static List<int> GetAssignedUserIds(StaffTaskFormViewModel model)
+    {
+        var assignedUserIds = model.AssignedToIds
+            .Where(id => id > 0)
+            .Distinct()
+            .ToList();
+
+        if (assignedUserIds.Count == 0 && model.AssignedTo.HasValue)
+        {
+            assignedUserIds.Add(model.AssignedTo.Value);
+        }
+
+        return assignedUserIds;
     }
 }
