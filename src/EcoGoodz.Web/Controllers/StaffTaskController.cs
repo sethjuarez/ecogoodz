@@ -60,6 +60,109 @@ public class StaffTaskController : Controller
         return View(tasks);
     }
 
+    public async Task<IActionResult> Board(int? headlineId)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        var headlines = await _context.TaskHeadlines
+            .Where(headline => headline.UserId == userId && headline.IsActive == true)
+            .OrderByDescending(headline => headline.Headline == "Assigned To")
+            .ThenByDescending(headline => headline.Headline == "Assigned")
+            .ThenBy(headline => headline.Headline)
+            .Select(headline => new StaffTaskBoardHeadlineViewModel
+            {
+                Id = headline.Id,
+                Headline = headline.Headline ?? string.Empty,
+                OpenTaskCount = headline.AssignTasks.Count(task =>
+                    task.AssignedTo == userId
+                    && task.IsActive
+                    && task.Task != null
+                    && task.Task.IsActive
+                    && !task.IsDone),
+                UnreadTaskCount = headline.AssignTasks.Count(task =>
+                    task.AssignedTo == userId
+                    && task.IsActive
+                    && task.Task != null
+                    && task.Task.IsActive
+                    && !task.IsDone
+                    && !task.IsRead),
+            })
+            .ToListAsync();
+
+        var selectedHeadline = headlineId.HasValue
+            ? headlines.FirstOrDefault(headline => headline.Id == headlineId.Value)
+            : headlines.FirstOrDefault(headline => headline.OpenTaskCount > 0) ?? headlines.FirstOrDefault();
+
+        if (headlineId.HasValue && selectedHeadline is null)
+        {
+            return NotFound();
+        }
+
+        var tasks = new List<StaffTaskBoardTaskViewModel>();
+        if (selectedHeadline is not null)
+        {
+            var assignedTasks = await _context.AssignTasks
+                .Where(task =>
+                    task.TaskHeadline == selectedHeadline.Id
+                    && task.AssignedTo == userId
+                    && task.IsActive
+                    && task.Task != null
+                    && task.Task.IsActive
+                    && !task.IsDone)
+                .Include(task => task.Task)
+                    .ThenInclude(task => task!.CreatedByNavigation)
+                .OrderBy(task => task.Task!.Duedate == null)
+                .ThenBy(task => task.Task!.Duedate)
+                .ThenByDescending(task => task.Id)
+                .ToListAsync();
+
+            if (string.Equals(selectedHeadline.Headline, "Assigned", StringComparison.OrdinalIgnoreCase))
+            {
+                var markedAny = false;
+                foreach (var task in assignedTasks.Where(task => !task.IsRead))
+                {
+                    task.IsRead = true;
+                    task.UpdatedOn = DateTime.UtcNow;
+                    task.UpdatedBy = userId;
+                    markedAny = true;
+                }
+
+                if (markedAny)
+                {
+                    await _context.SaveChangesAsync();
+                    selectedHeadline.UnreadTaskCount = 0;
+                }
+            }
+
+            tasks = assignedTasks
+                .Select(task => new StaffTaskBoardTaskViewModel
+                {
+                    Id = task.Id,
+                    TaskId = task.TaskId ?? 0,
+                    Description = task.Task!.Description ?? string.Empty,
+                    DueDate = task.Task.Duedate,
+                    CreatedByName = task.Task.CreatedByNavigation != null
+                        ? task.Task.CreatedByNavigation.FirstName + " " + task.Task.CreatedByNavigation.LastName
+                        : null,
+                    IsDone = task.IsDone,
+                    IsRead = task.IsRead,
+                    IsCreatedByCurrentUser = task.Task.CreatedBy == userId,
+                })
+                .ToList();
+        }
+
+        return View(new StaffTaskBoardViewModel
+        {
+            Headlines = headlines,
+            SelectedHeadline = selectedHeadline,
+            Tasks = tasks,
+        });
+    }
+
     public async Task<IActionResult> Create()
     {
         var model = new StaffTaskFormViewModel();
@@ -306,7 +409,7 @@ public class StaffTaskController : Controller
         return string.Equals(headline?.Trim(), "Assigned", StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task<IActionResult> Edit(int id)
+    public async Task<IActionResult> Edit(int id, string? returnUrl = null)
     {
         var assignTask = await _context.AssignTasks
             .Include(t => t.Task)
@@ -327,6 +430,7 @@ public class StaffTaskController : Controller
             AssignedToIds = assignTask.AssignedTo.HasValue ? [assignTask.AssignedTo.Value] : [],
             TaskHeadline = assignTask.TaskHeadline,
             IsActive = assignTask.IsActive && assignTask.Task.IsActive,
+            ReturnUrl = returnUrl,
         };
 
         await PopulateOptionsAsync(model);
@@ -377,12 +481,12 @@ public class StaffTaskController : Controller
 
         await _context.SaveChangesAsync();
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToLocalOrIndex(model.ReturnUrl);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ToggleDone(int id, bool done)
+    public async Task<IActionResult> ToggleDone(int id, bool done, string? returnUrl = null)
     {
         var assignTask = await _context.AssignTasks.FindAsync(id);
         if (assignTask is null)
@@ -396,12 +500,12 @@ public class StaffTaskController : Controller
         assignTask.UpdatedBy = User.GetLegacyUserId();
         await _context.SaveChangesAsync();
 
-        return RedirectToAction(nameof(Index), new { includeCompleted = done });
+        return RedirectToLocalOrIndex(returnUrl, new { includeCompleted = done });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Deactivate(int id)
+    public async Task<IActionResult> Deactivate(int id, string? returnUrl = null)
     {
         var assignTask = await _context.AssignTasks
             .Include(t => t.Task)
@@ -424,7 +528,14 @@ public class StaffTaskController : Controller
 
         await _context.SaveChangesAsync();
 
-        return RedirectToAction(nameof(Index));
+        return RedirectToLocalOrIndex(returnUrl);
+    }
+
+    private IActionResult RedirectToLocalOrIndex(string? returnUrl, object? routeValues = null)
+    {
+        return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
+            ? LocalRedirect(returnUrl)
+            : RedirectToAction(nameof(Index), routeValues);
     }
 
     private async Task<int?> ResolveHeadlineAsync(int userId, int? selectedHeadlineId)

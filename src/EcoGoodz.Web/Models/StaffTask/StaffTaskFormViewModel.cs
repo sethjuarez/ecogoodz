@@ -26,6 +26,7 @@ public class StaffTaskFormViewModel
     public int? TaskHeadline { get; set; }
 
     public bool IsActive { get; set; } = true;
+    public string? ReturnUrl { get; set; }
 
     public IEnumerable<SelectListItem> UserOptions { get; set; } = [];
     public IEnumerable<SelectListItem> HeadlineOptions { get; set; } = [];

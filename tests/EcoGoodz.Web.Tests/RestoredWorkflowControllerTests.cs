@@ -508,6 +508,118 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task StaffTaskBoard_GroupsCurrentUserHeadlinesWithUnreadCounts()
+    {
+        await using var context = CreateContext();
+        context.Users.AddRange(
+            new User { Id = 99, FirstName = "Erin", LastName = "Staff", IsActive = true },
+            new User { Id = 100, FirstName = "Other", LastName = "Staff", IsActive = true });
+        context.TaskHeadlines.AddRange(
+            new TaskHeadline { Id = 1, UserId = 99, Headline = "Assigned", IsActive = true },
+            new TaskHeadline { Id = 2, UserId = 99, Headline = "Calls", IsActive = true },
+            new TaskHeadline { Id = 3, UserId = 100, Headline = "Other user's calls", IsActive = true });
+        context.Tasks.AddRange(
+            new TaskItem
+            {
+                Id = 4,
+                Description = "Read active task",
+                CreatedBy = 100,
+                IsActive = true,
+                AssignTasks =
+                [
+                    new AssignTask { Id = 5, AssignedTo = 99, TaskHeadline = 2, IsActive = true, IsDone = false, IsRead = true },
+                ],
+            },
+            new TaskItem
+            {
+                Id = 6,
+                Description = "Unread active task",
+                CreatedBy = 100,
+                IsActive = true,
+                AssignTasks =
+                [
+                    new AssignTask { Id = 7, AssignedTo = 99, TaskHeadline = 2, IsActive = true, IsDone = false, IsRead = false },
+                ],
+            },
+            new TaskItem
+            {
+                Id = 8,
+                Description = "Completed task",
+                CreatedBy = 100,
+                IsActive = true,
+                AssignTasks =
+                [
+                    new AssignTask { Id = 9, AssignedTo = 99, TaskHeadline = 2, IsActive = true, IsDone = true, IsRead = true },
+                ],
+            },
+            new TaskItem
+            {
+                Id = 10,
+                Description = "Other user task",
+                CreatedBy = 99,
+                IsActive = true,
+                AssignTasks =
+                [
+                    new AssignTask { Id = 11, AssignedTo = 100, TaskHeadline = 3, IsActive = true, IsDone = false, IsRead = false },
+                ],
+            });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Board(2));
+        var model = Assert.IsType<StaffTaskBoardViewModel>(result.Model);
+
+        Assert.Equal("Calls", model.SelectedHeadline!.Headline);
+        Assert.Equal(["Assigned", "Calls"], model.Headlines.Select(headline => headline.Headline).ToList());
+        var calls = model.Headlines.Single(headline => headline.Headline == "Calls");
+        Assert.Equal(2, calls.OpenTaskCount);
+        Assert.Equal(1, calls.UnreadTaskCount);
+        Assert.Equal(["Unread active task", "Read active task"], model.Tasks.Select(task => task.Description).ToList());
+    }
+
+    [Fact]
+    public async Task StaffTaskBoard_DoesNotShowAnotherUsersHeadline()
+    {
+        await using var context = CreateContext();
+        context.TaskHeadlines.Add(new TaskHeadline { Id = 3, UserId = 100, Headline = "Other user's calls", IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        Assert.IsType<NotFoundResult>(await controller.Board(3));
+    }
+
+    [Fact]
+    public async Task StaffTaskBoard_MarksAssignedHeadlineTasksAsRead()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new User { Id = 99, FirstName = "Erin", LastName = "Staff", IsActive = true });
+        context.TaskHeadlines.Add(new TaskHeadline { Id = 1, UserId = 99, Headline = "Assigned", IsActive = true });
+        context.Tasks.Add(new TaskItem
+        {
+            Id = 2,
+            Description = "Review assigned task",
+            CreatedBy = 100,
+            IsActive = true,
+            AssignTasks =
+            [
+                new AssignTask { Id = 3, AssignedTo = 99, TaskHeadline = 1, IsActive = true, IsDone = false, IsRead = false },
+            ],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Board(1));
+        var model = Assert.IsType<StaffTaskBoardViewModel>(result.Model);
+
+        Assert.Equal(0, model.SelectedHeadline!.UnreadTaskCount);
+        Assert.True(model.Tasks.Single().IsRead);
+        Assert.True((await context.AssignTasks.FindAsync(3))!.IsRead);
+    }
+
+    [Fact]
     public async Task SupplierProductAssignToBuyers_AddsProductAndRateToExistingMatch()
     {
         await using var context = CreateContext();

@@ -11,6 +11,7 @@
             <div class="text-secondary mt-1">@Model.Count shown</div>
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Board" class="btn">Task board</a>
             <a asp-action="Headlines" class="btn">Manage headlines</a>
             <a asp-action="Index" asp-route-includeCompleted="@(!includeCompleted)" class="btn">@(includeCompleted ? "Hide completed" : "Show completed")</a>
             <a asp-action="Create" class="btn btn-primary">New task</a>

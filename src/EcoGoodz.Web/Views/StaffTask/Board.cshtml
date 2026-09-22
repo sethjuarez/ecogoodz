@@ -1,0 +1,108 @@
+@model EcoGoodz.Web.Models.StaffTask.StaffTaskBoardViewModel
+@{
+    ViewData["Title"] = "Task board";
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Tasks</div>
+            <h2 class="page-title">Task board</h2>
+            <div class="text-secondary mt-1">Open tasks grouped by your active headlines</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Create" class="btn btn-primary">New task</a>
+            <a asp-action="Index" class="btn">All tasks</a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-4 col-lg-3">
+        <div class="card">
+            <div class="list-group list-group-flush">
+                @if (Model.Headlines.Count == 0)
+                {
+                    <div class="list-group-item text-secondary">No task headlines found.</div>
+                }
+                @foreach (var headline in Model.Headlines)
+                {
+                    var isActive = Model.SelectedHeadline?.Id == headline.Id;
+                    <a asp-action="Board" asp-route-headlineId="@headline.Id" class="list-group-item list-group-item-action @(isActive ? "active" : null)">
+                        <div class="d-flex align-items-center">
+                            <span class="me-auto">@headline.Headline</span>
+                            @if (headline.UnreadTaskCount > 0)
+                            {
+                                <span class="badge bg-blue-lt me-2">@headline.UnreadTaskCount new</span>
+                            }
+                            <span class="badge bg-secondary-lt">@headline.OpenTaskCount</span>
+                        </div>
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8 col-lg-9">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">@(Model.SelectedHeadline?.Headline ?? "Tasks")</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table card-table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Task</th>
+                            <th>Due</th>
+                            <th>Created by</th>
+                            <th>Status</th>
+                            <th class="w-1"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Tasks.Count == 0)
+                        {
+                            <tr><td colspan="5" class="text-center text-secondary py-4">No tasks found for this headline.</td></tr>
+                        }
+                        @foreach (var task in Model.Tasks)
+                        {
+                            <tr class="@(!task.IsRead ? "table-active" : null)">
+                                <td>
+                                    <div>@task.Description</div>
+                                    @if (!task.IsRead)
+                                    {
+                                        <span class="badge bg-blue-lt mt-1">New</span>
+                                    }
+                                </td>
+                                <td>@task.DueDate?.ToShortDateString()</td>
+                                <td>@task.CreatedByName</td>
+                                <td>
+                                    @if (task.IsDone)
+                                    {
+                                        <span class="badge bg-success-lt">Done</span>
+                                    }
+                                    else if (task.DueDate.HasValue && task.DueDate.Value.Date < DateTime.Today)
+                                    {
+                                        <span class="badge bg-danger-lt">Overdue</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning-lt">Open</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a asp-action="Edit" asp-route-id="@task.Id" asp-route-returnUrl="@returnUrl" class="btn btn-sm">Edit</a>
+                                        <form asp-action="ToggleDone" asp-route-id="@task.Id" asp-route-done="@(!task.IsDone)" asp-route-returnUrl="@returnUrl" method="post">
+                                            <button type="submit" class="btn btn-sm">@(task.IsDone ? "Reopen" : "Done")</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

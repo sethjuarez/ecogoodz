@@ -30,7 +30,7 @@ modules that were already deferred or retired.
 | `ContactController` | `ContactController` | **Complete for CRUD/copy** | Contact CRUD, primary-contact invariant, and legacy `CopyContact` behavior are rebuilt. `SetPrimaryContact` behavior is covered by create/edit primary flag. |
 | `CommunicationController` | `CommunicationController` | **Complete for CRUD** | Communication list/create/edit/deactivate is rebuilt for buyer/supplier clients. Legacy DataTables JSON endpoint is replaced by current list UI. Higher-level communication reports remain deferred in reporting. |
 | `NotesController` | `NoteController` | **Complete for CRUD** | Note list/create/edit/deactivate is rebuilt across supported scopes. Legacy DataTables JSON endpoint is replaced by current list UI. |
-| `TaskController` | `StaffTaskController` | **Partial** | Staff task create/edit/list/toggle done/deactivate is rebuilt, including legacy-style multi-assignee task creation. Not rebuilt: multi-assignee edit expansion, per-user headline board AJAX endpoints, home-task partials, read/unread handling, and headline-specific task lists. |
+| `TaskController` | `StaffTaskController` | **Core complete; edit parity partial** | Staff task create/edit/list/toggle done/deactivate is rebuilt, including legacy-style multi-assignee task creation, per-user headline board, headline-specific task lists, and unread Assigned-task handling. Not rebuilt: legacy multi-assignee edit expansion for creator-owned tasks; current edit remains assignment-row scoped. |
 | `TaskHeadlineController` | `StaffTaskController` headline actions | **Rebuilt / folded in** | Default headlines are created for staff users. Dedicated per-user headline list/create/edit/delete is rebuilt, excluding the reserved `Assigned` headline and blocking deletion while visible open tasks remain assigned to that headline. |
 | `UserController` | `StaffUserController`, `AccountController` | **Complete for staff admin; modernized auth** | Staff user CRUD/deactivate and Identity user synchronization are rebuilt. Password reset/change flows are handled by modern account routes instead of legacy admin partials. |
 | `LoadController` | `LoadController` | **Core complete** | Load CRUD/details, buyer/supplier locations, product lines, validation, CSV export of the filtered/sorted load list, and supplier account-manager lookup JSON are rebuilt. Legacy AJAX helper actions are otherwise replaced by populated forms/searches. |
@@ -59,8 +59,7 @@ core app" to "full 1:1 legacy parity":
 
 1. **Reports beyond Last Load Shipped**: communication, gross profit/summary,
    goal, company, email, and account-manager dashboard reports.
-2. **Task board parity**: multi-assignee edit expansion,
-   per-user headline/task board AJAX views, and read/unread behavior.
+2. **Task edit parity**: legacy creator-owned multi-assignee edit expansion.
 3. **Remaining buyer/supplier helper workflows**: low-level tracking order/delete/note
    fragments and other confirmed helper needs.
 
@@ -68,6 +67,5 @@ core app" to "full 1:1 legacy parity":
 
 Do not treat the missing items above as bugs in the restored core app. Convert
 only staff-confirmed gaps into scoped issues, with the legacy controller/action
-names copied into the issue. The highest-risk parity candidate is now the task
-headline board because it is an operational data-entry accelerator rather than
-a broad reporting surface.
+names copied into the issue. Remaining task work is now limited to the lower-risk
+creator-owned multi-assignee edit expansion; the headline board itself is rebuilt.
