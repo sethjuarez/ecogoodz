@@ -453,6 +453,156 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
         return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
     }
 
+    public async Task<IActionResult> ProductDetails(int id)
+    {
+        var model = await Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product => product.Id == id)
+            .Select(product => new BuyerSupplierProductDetailsViewModel
+            {
+                Id = product.Id,
+                BuyerSupplierId = product.BuyerSupplierId ?? 0,
+                BuyerName = product.BuyerSupplier != null && product.BuyerSupplier.BuyerNavigation != null
+                    ? product.BuyerSupplier.BuyerNavigation.Name ?? string.Empty
+                    : string.Empty,
+                SupplierName = product.BuyerSupplier != null && product.BuyerSupplier.SupplierNavigation != null
+                    ? product.BuyerSupplier.SupplierNavigation.Name ?? string.Empty
+                    : string.Empty,
+                ProductName = product.SupplierProductNavigation != null && product.SupplierProductNavigation.ProductNavigation != null
+                    ? product.SupplierProductNavigation.ProductNavigation.Name ?? string.Empty
+                    : string.Empty,
+                PackagingName = product.SupplierProductNavigation != null
+                    ? product.SupplierProductNavigation.PackagingNavigation != null
+                        ? product.SupplierProductNavigation.PackagingNavigation.Type
+                        : product.SupplierProductNavigation.OtherPackaging
+                    : null,
+                SupplierPrice = product.SupplierProductNavigation != null
+                    ? product.SupplierProductNavigation.SupplierProductRates
+                        .Where(rate => rate.IsActive)
+                        .OrderByDescending(rate => rate.EffectiveDate)
+                        .Select(rate => rate.Price)
+                        .FirstOrDefault()
+                    : null,
+                SupplierEffectiveDate = product.SupplierProductNavigation != null
+                    ? product.SupplierProductNavigation.SupplierProductRates
+                        .Where(rate => rate.IsActive)
+                        .OrderByDescending(rate => rate.EffectiveDate)
+                        .Select(rate => rate.EffectiveDate)
+                        .FirstOrDefault()
+                    : null,
+                NewRate = new BuyerProductRateFormViewModel
+                {
+                    BuyerSupplierProductId = product.Id,
+                    BuyerSupplierId = product.BuyerSupplierId ?? 0,
+                    EffectiveDate = DateTime.Today,
+                },
+            })
+            .FirstOrDefaultAsync();
+
+        if (model is null)
+        {
+            return NotFound();
+        }
+
+        model.Rates = await Context.BuyerProductRates
+            .AsNoTracking()
+            .Where(rate => rate.BuyerSupplierProductId == id)
+            .OrderByDescending(rate => rate.EffectiveDate)
+            .Select(rate => new BuyerProductRateListItemViewModel
+            {
+                Id = rate.Id,
+                Price = rate.Price,
+                EffectiveDate = rate.EffectiveDate,
+                CreatedDate = rate.CreatedDate,
+                UserName = rate.User != null ? rate.User.FirstName + " " + rate.User.LastName : null,
+                IsActive = rate.IsActive,
+            })
+            .ToListAsync();
+
+        return View(model);
+    }
+
+    public async Task<IActionResult> EditProductRate(int id)
+    {
+        var model = await Context.BuyerProductRates
+            .AsNoTracking()
+            .Where(rate => rate.Id == id)
+            .Select(rate => new BuyerProductRateFormViewModel
+            {
+                Id = rate.Id,
+                BuyerSupplierProductId = rate.BuyerSupplierProductId ?? 0,
+                BuyerSupplierId = rate.BuyerSupplierProduct != null ? rate.BuyerSupplierProduct.BuyerSupplierId ?? 0 : 0,
+                Price = rate.Price,
+                EffectiveDate = rate.EffectiveDate,
+            })
+            .FirstOrDefaultAsync();
+
+        if (model is null)
+        {
+            return NotFound();
+        }
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditProductRate(int id, BuyerProductRateFormViewModel model)
+    {
+        if (id != model.Id)
+        {
+            return NotFound();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        var rate = await Context.BuyerProductRates.FindAsync(id);
+        if (rate is null || rate.BuyerSupplierProductId != model.BuyerSupplierProductId)
+        {
+            return NotFound();
+        }
+
+        var duplicate = await Context.BuyerProductRates.AnyAsync(existing =>
+            existing.Id != id
+            && existing.BuyerSupplierProductId == model.BuyerSupplierProductId
+            && existing.EffectiveDate.HasValue
+            && model.EffectiveDate.HasValue
+            && existing.EffectiveDate.Value.Date == model.EffectiveDate.Value.Date);
+
+        if (duplicate)
+        {
+            ModelState.AddModelError(nameof(model.EffectiveDate), "A buyer rate already exists for that effective date.");
+            return View(model);
+        }
+
+        rate.Price = model.Price;
+        rate.EffectiveDate = model.EffectiveDate;
+        rate.CreatedDate = DateTime.UtcNow;
+        rate.UserId = User.GetLegacyUserId();
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(ProductDetails), new { id = model.BuyerSupplierProductId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeactivateProductRate(int id, int buyerSupplierProductId)
+    {
+        var rate = await Context.BuyerProductRates.FindAsync(id);
+        if (rate is null || rate.BuyerSupplierProductId != buyerSupplierProductId)
+        {
+            return NotFound();
+        }
+
+        rate.IsActive = false;
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(ProductDetails), new { id = buyerSupplierProductId });
+    }
+
     private async Task PopulateOptionsAsync(BuyerSupplierFormViewModel model)
     {
         model.BuyerOptions = await GetSelectedBuyerOptionsAsync(model.Buyer);

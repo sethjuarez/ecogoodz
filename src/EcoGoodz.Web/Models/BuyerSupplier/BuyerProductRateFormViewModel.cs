@@ -4,6 +4,7 @@ namespace EcoGoodz.Web.Models.BuyerSupplier;
 
 public class BuyerProductRateFormViewModel
 {
+    public int Id { get; set; }
     public int BuyerSupplierId { get; set; }
     public int BuyerSupplierProductId { get; set; }
 

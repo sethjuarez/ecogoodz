@@ -96,7 +96,7 @@
                         @foreach (var product in Model.Products)
                         {
                             <tr>
-                                <td>@product.ProductName</td>
+                                <td><a asp-action="ProductDetails" asp-route-id="@product.Id" class="text-reset">@product.ProductName</a></td>
                                 <td>@product.PackagingName</td>
                                 <td>
                                     @product.BuyerPrice?.ToString("C")
@@ -114,6 +114,7 @@
                                         <input class="form-control form-control-sm" name="EffectiveDate" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" aria-label="Effective date" />
                                         <button type="submit" class="btn btn-sm">Add</button>
                                     </form>
+                                    <a asp-action="ProductDetails" asp-route-id="@product.Id" class="btn btn-sm btn-link px-0">History</a>
                                 </td>
                             </tr>
                         }

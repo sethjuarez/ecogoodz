@@ -277,6 +277,70 @@ public class SupplierProductController : PagedListController<SupplierProductCont
         return RedirectToAction(nameof(Details), new { id = model.SupplierProductId });
     }
 
+    public async Task<IActionResult> EditRate(int id)
+    {
+        var rate = await Context.SupplierProductRates
+            .AsNoTracking()
+            .Where(rate => rate.Id == id)
+            .Select(rate => new SupplierProductRateFormViewModel
+            {
+                Id = rate.Id,
+                SupplierProductId = rate.SupplierProductId ?? 0,
+                Price = rate.Price,
+                EffectiveDate = rate.EffectiveDate,
+            })
+            .FirstOrDefaultAsync();
+
+        if (rate is null)
+        {
+            return NotFound();
+        }
+
+        return View(rate);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditRate(int id, SupplierProductRateFormViewModel model)
+    {
+        if (id != model.Id)
+        {
+            return NotFound();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        var rate = await Context.SupplierProductRates.FindAsync(id);
+        if (rate is null || rate.SupplierProductId != model.SupplierProductId)
+        {
+            return NotFound();
+        }
+
+        var duplicate = await Context.SupplierProductRates.AnyAsync(existing =>
+            existing.Id != id
+            && existing.SupplierProductId == model.SupplierProductId
+            && existing.EffectiveDate.HasValue
+            && model.EffectiveDate.HasValue
+            && existing.EffectiveDate.Value.Date == model.EffectiveDate.Value.Date);
+
+        if (duplicate)
+        {
+            ModelState.AddModelError(nameof(model.EffectiveDate), "A rate already exists for that effective date.");
+            return View(model);
+        }
+
+        rate.Price = model.Price;
+        rate.EffectiveDate = model.EffectiveDate;
+        rate.CreatedDate = DateTime.UtcNow;
+        rate.UserId = User.GetLegacyUserId();
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Details), new { id = model.SupplierProductId });
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Deactivate(int id)

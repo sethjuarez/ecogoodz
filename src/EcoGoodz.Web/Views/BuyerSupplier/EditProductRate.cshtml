@@ -1,0 +1,46 @@
+@model EcoGoodz.Web.Models.BuyerSupplier.BuyerProductRateFormViewModel
+@{
+    ViewData["Title"] = "Edit buyer product rate";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Buyer product rates</div>
+            <h2 class="page-title">Edit rate</h2>
+        </div>
+    </div>
+</div>
+
+<div class="row row-deck">
+    <div class="col-12 col-lg-6">
+        <div class="card">
+            <div class="card-body">
+                <form asp-action="EditProductRate" asp-route-id="@Model.Id" method="post">
+                    <input asp-for="Id" type="hidden" />
+                    <input asp-for="BuyerSupplierId" type="hidden" />
+                    <input asp-for="BuyerSupplierProductId" type="hidden" />
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <div class="mb-3">
+                        <label asp-for="Price" class="form-label"></label>
+                        <input asp-for="Price" class="form-control" />
+                        <span asp-validation-for="Price" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="EffectiveDate" class="form-label"></label>
+                        <input asp-for="EffectiveDate" class="form-control" type="date" />
+                        <span asp-validation-for="EffectiveDate" class="text-danger"></span>
+                    </div>
+                    <div class="form-footer">
+                        <button type="submit" class="btn btn-primary">Save rate</button>
+                        <a asp-action="ProductDetails" asp-route-id="@Model.BuyerSupplierProductId" class="btn btn-link">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

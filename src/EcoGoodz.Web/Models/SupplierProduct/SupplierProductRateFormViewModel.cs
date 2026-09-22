@@ -4,6 +4,7 @@ namespace EcoGoodz.Web.Models.SupplierProduct;
 
 public class SupplierProductRateFormViewModel
 {
+    public int Id { get; set; }
     public int SupplierProductId { get; set; }
 
     [Required]
