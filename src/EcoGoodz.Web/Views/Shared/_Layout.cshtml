@@ -1,4 +1,15 @@
-﻿<!DOCTYPE html>
+﻿@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var isDashboardActive = string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase);
+    var isTradingActive = string.Equals(currentController, "Load", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "BuyerSupplier", StringComparison.OrdinalIgnoreCase);
+    var isPartnersActive = string.Equals(currentController, "Buyer", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "Supplier", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase);
+    var isCatalogActive = string.Equals(currentController, "Product", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase);
+}
+<!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
 <head>
     <meta charset="utf-8" />
@@ -46,45 +57,38 @@
                 <div class="collapse navbar-collapse" id="navbar-menu">
                     <div class="container-xl">
                         <ul class="navbar-nav">
-                            <li class="nav-item">
+                            <li class="nav-item @(isDashboardActive ? "active" : null)">
                                 <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">
-                                    <span class="nav-link-title">Home</span>
+                                    <span class="nav-link-title">Dashboard</span>
                                 </a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Buyer" asp-action="Index">
-                                    <span class="nav-link-title">Buyers</span>
+                            <li class="nav-item dropdown @(isTradingActive ? "active" : null)">
+                                <a class="nav-link dropdown-toggle" href="#navbar-trading" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
+                                    <span class="nav-link-title">Trading</span>
                                 </a>
+                                <div class="dropdown-menu">
+                                    <a class="dropdown-item @(string.Equals(currentController, "Load", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Load" asp-action="Index">Loads</a>
+                                    <a class="dropdown-item @(string.Equals(currentController, "BuyerSupplier", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="BuyerSupplier" asp-action="Index">Buyer/supplier matches</a>
+                                </div>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Supplier" asp-action="Index">
-                                    <span class="nav-link-title">Suppliers</span>
+                            <li class="nav-item dropdown @(isPartnersActive ? "active" : null)">
+                                <a class="nav-link dropdown-toggle" href="#navbar-partners" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
+                                    <span class="nav-link-title">Partners</span>
                                 </a>
+                                <div class="dropdown-menu">
+                                    <a class="dropdown-item @(string.Equals(currentController, "Buyer", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Buyer" asp-action="Index">Buyers</a>
+                                    <a class="dropdown-item @(string.Equals(currentController, "Supplier", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Supplier" asp-action="Index">Suppliers</a>
+                                    <a class="dropdown-item @(string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Location" asp-action="Index">Locations</a>
+                                </div>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Product" asp-action="Index">
-                                    <span class="nav-link-title">Products</span>
+                            <li class="nav-item dropdown @(isCatalogActive ? "active" : null)">
+                                <a class="nav-link dropdown-toggle" href="#navbar-catalog" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
+                                    <span class="nav-link-title">Catalog</span>
                                 </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Location" asp-action="Index">
-                                    <span class="nav-link-title">Locations</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="PackageType" asp-action="Index">
-                                    <span class="nav-link-title">Package types</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="BuyerSupplier" asp-action="Index">
-                                    <span class="nav-link-title">Matches</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-controller="Load" asp-action="Index">
-                                    <span class="nav-link-title">Loads</span>
-                                </a>
+                                <div class="dropdown-menu">
+                                    <a class="dropdown-item @(string.Equals(currentController, "Product", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Product" asp-action="Index">Products</a>
+                                    <a class="dropdown-item @(string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="PackageType" asp-action="Index">Package types</a>
+                                </div>
                             </li>
                         </ul>
                     </div>
