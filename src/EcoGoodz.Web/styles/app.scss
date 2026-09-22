@@ -381,6 +381,10 @@ a {
 }
 
 .eg-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .875rem;
   margin: -.35rem 0 1rem;
 
   .breadcrumb {
@@ -407,6 +411,37 @@ a {
   .active {
     color: var(--eg-ink);
     font-weight: 600;
+  }
+}
+
+.eg-history-back {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  color: var(--primary);
+  font-size: .875rem;
+  font-weight: 700;
+  text-decoration: none;
+
+  &::before {
+    content: "←";
+  }
+
+  &::after {
+    content: "";
+    align-self: stretch;
+    width: 1px;
+    margin-left: .375rem;
+    background: rgba(63, 92, 59, .18);
+  }
+
+  &:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  &[hidden] {
+    display: none;
   }
 }
 

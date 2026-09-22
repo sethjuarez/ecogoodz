@@ -1,4 +1,36 @@
 ﻿(() => {
+    const historyBack = document.querySelector("[data-history-back]");
+    const current = {
+        path: `${window.location.pathname}${window.location.search}${window.location.hash}`,
+        title: document.title.replace(/\s+-\s+EcoGoodz$/, "").trim() || "Previous page",
+    };
+
+    try {
+        const key = "ecogoodz.navigationHistory";
+        const stored = JSON.parse(window.sessionStorage.getItem(key) || "[]");
+        const history = Array.isArray(stored) ? stored : [];
+        const previous = [...history].reverse().find((entry) => entry?.path && entry.path !== current.path);
+
+        if (historyBack && previous) {
+            historyBack.textContent = `Back to ${previous.title || "previous page"}`;
+            historyBack.setAttribute("href", previous.path);
+            historyBack.hidden = false;
+            historyBack.addEventListener("click", (event) => {
+                event.preventDefault();
+                window.location.assign(previous.path);
+            });
+        }
+
+        const nextHistory = [...history.filter((entry) => entry?.path !== current.path), current].slice(-12);
+        window.sessionStorage.setItem(key, JSON.stringify(nextHistory));
+    } catch {
+        if (historyBack) {
+            historyBack.hidden = true;
+        }
+    }
+})();
+
+(() => {
     if (!window.TomSelect) {
         return;
     }
