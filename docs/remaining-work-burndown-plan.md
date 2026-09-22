@@ -18,7 +18,7 @@ legacy action. Each feature slice follows the same rubric:
 | 2 | Trading setup accelerators | Supplier-product-to-buyer wizard (**done**), recent-load widgets (**done**), supplier tracking product/supplier helpers (**done**), buyer tracking buyer/product/supplier helpers (**done**) | Relationship/product setup can be done with the same few-click paths as legacy where still useful. |
 | 3 | Rate/history power tools | Rate history tables (**done**), supplier-rate propagation to tied buyer/supplier products (**done**) | Rate changes are auditable and bulk updates avoid manual re-entry. |
 | 4 | Catalog/admin completeness | Product markup color/margin matrix with conflict validation (**done**) | Product margin color rules can be maintained. |
-| 5 | Reports and dashboards | Communication report first, then staff-selected gross-profit/summary/dashboard reports | Each report has named users, filters, columns, and Playwright validation before implementation. |
+| 5 | Reports and dashboards | Communication report (**done**), then staff-selected gross-profit/summary/dashboard reports | Each report has named users, filters, columns, and Playwright validation before implementation. |
 | 6 | Low-priority helpers | Location favorite toggle (**done**), load export (**done**), favorite list filters (**done**), quick status/substatus helpers (**done**), supplier account-manager load lookup (**done**) | Implement only if users confirm the workflow still matters. |
 
 Retired modules (`MessagesController`, `CustomFieldController`) stay retired

@@ -40,6 +40,28 @@ public class ReportController : Controller
         return View(filters);
     }
 
+    public async Task<IActionResult> Communication(CommunicationReportViewModel filters)
+    {
+        filters.StartDate ??= DateTime.Today.AddDays(-30);
+        filters.EndDate ??= DateTime.Today;
+
+        if (filters.StartDate.HasValue && filters.EndDate.HasValue && filters.StartDate.Value.Date > filters.EndDate.Value.Date)
+        {
+            ModelState.AddModelError(nameof(filters.EndDate), "End date must be on or after start date.");
+        }
+
+        filters.Users = await GetCommunicationReportUsersAsync();
+
+        if (!ModelState.IsValid)
+        {
+            filters.Rows = [];
+            return View(filters);
+        }
+
+        filters.Rows = await GetCommunicationReportRowsAsync(filters);
+        return View(filters);
+    }
+
     public IActionResult Index() => RedirectToAction(nameof(LastLoadShipped));
 
     private async Task<List<AccountManagerReportOption>> GetAccountManagersAsync(bool isBuyerReport)
@@ -72,6 +94,167 @@ public class ReportController : Controller
                 Name = FormatUserName(user),
             })
             .ToList();
+    }
+
+    private async Task<List<CommunicationReportUserColumn>> GetCommunicationReportUsersAsync()
+    {
+        var communicationUserIds = await _context.Communications
+            .AsNoTracking()
+            .Where(communication => communication.IsActive && communication.CreatedBy.HasValue)
+            .Select(communication => communication.CreatedBy!.Value)
+            .Distinct()
+            .ToListAsync();
+
+        var buyerSupplierHistoryUserIds = await _context.BuyerSupplierHistories
+            .AsNoTracking()
+            .Where(history => history.UserId.HasValue)
+            .Select(history => history.UserId!.Value)
+            .Distinct()
+            .ToListAsync();
+
+        var activityUserIds = communicationUserIds
+            .Union(buyerSupplierHistoryUserIds)
+            .ToList();
+
+        var users = await _context.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive == true && user.IsShowCommunicationReport && activityUserIds.Contains(user.Id))
+            .OrderBy(user => user.FirstName)
+            .ThenBy(user => user.LastName)
+            .ToListAsync();
+
+        return users
+            .Select(user => new CommunicationReportUserColumn
+            {
+                Id = user.Id,
+                Name = FormatUserName(user),
+            })
+            .ToList();
+    }
+
+    private async Task<List<CommunicationReportRow>> GetCommunicationReportRowsAsync(CommunicationReportViewModel filters)
+    {
+        if (filters.Users.Count == 0)
+        {
+            return [];
+        }
+
+        var userIds = filters.Users.Select(user => user.Id).ToHashSet();
+        var startDate = filters.StartDate?.Date;
+        var endDate = filters.EndDate?.Date;
+        var communicationTypes = await _context.CommunicationTypes
+            .AsNoTracking()
+            .OrderBy(type => type.Type)
+            .Select(type => new CommunicationTypeReportOption(type.Id, type.Type ?? $"Type {type.Id}"))
+            .ToListAsync();
+
+        var communications = await _context.Communications
+            .AsNoTracking()
+            .Where(communication =>
+                communication.IsActive
+                && (communication.Date.HasValue || communication.CreateOn.HasValue)
+                && communication.CreatedBy.HasValue
+                && userIds.Contains(communication.CreatedBy.Value)
+                && (!startDate.HasValue || (communication.Date ?? communication.CreateOn)!.Value.Date >= startDate.Value)
+                && (!endDate.HasValue || (communication.Date ?? communication.CreateOn)!.Value.Date <= endDate.Value))
+            .ToListAsync();
+
+        var activeProductHistories = await _context.BuyerSupplierHistories
+            .AsNoTracking()
+            .Where(history =>
+                history.UserId.HasValue
+                && userIds.Contains(history.UserId.Value)
+                && history.CreatedDate.HasValue
+                && history.NewStatus == 1
+                && (history.Action == null || history.Action.ToLower() != "add")
+                && (!startDate.HasValue || history.CreatedDate.Value.Date >= startDate.Value)
+                && (!endDate.HasValue || history.CreatedDate.Value.Date <= endDate.Value))
+            .ToListAsync();
+
+        var proposedProductHistories = await _context.BuyerSupplierHistories
+            .AsNoTracking()
+            .Where(history =>
+                history.UserId.HasValue
+                && userIds.Contains(history.UserId.Value)
+                && history.CreatedDate.HasValue
+                && history.NewStatus == 3
+                && (!startDate.HasValue || history.CreatedDate.Value.Date >= startDate.Value)
+                && (!endDate.HasValue || history.CreatedDate.Value.Date <= endDate.Value))
+            .ToListAsync();
+
+        var communicationsByDateUser = communications
+            .GroupBy(communication => (Date: (communication.Date ?? communication.CreateOn)!.Value.Date, UserId: communication.CreatedBy!.Value))
+            .ToDictionary(group => group.Key, group => group.ToList());
+        var activeProductsByDateUser = activeProductHistories
+            .GroupBy(history => (Date: history.CreatedDate!.Value.Date, UserId: history.UserId!.Value))
+            .ToDictionary(group => group.Key, group => group.Count());
+        var proposedProductsByDateUser = proposedProductHistories
+            .GroupBy(history => (Date: history.CreatedDate!.Value.Date, UserId: history.UserId!.Value))
+            .ToDictionary(group => group.Key, group => group.Count());
+
+        var dates = communicationsByDateUser.Keys
+            .Select(key => key.Date)
+            .Union(activeProductHistories.Select(history => history.CreatedDate!.Value.Date))
+            .Union(proposedProductHistories.Select(history => history.CreatedDate!.Value.Date))
+            .OrderByDescending(date => date)
+            .ToList();
+
+        return dates
+            .Select(date => new CommunicationReportRow
+            {
+                Date = date,
+                UserCells = filters.Users
+                    .Select(user => BuildCommunicationCell(
+                        user.Id,
+                        communicationTypes,
+                        communicationsByDateUser.GetValueOrDefault((date, user.Id)) ?? [],
+                        activeProductsByDateUser.GetValueOrDefault((date, user.Id)),
+                        proposedProductsByDateUser.GetValueOrDefault((date, user.Id))))
+                    .ToList(),
+            })
+            .ToList();
+    }
+
+    private static CommunicationReportUserCell BuildCommunicationCell(
+        int userId,
+        IEnumerable<CommunicationTypeReportOption> communicationTypes,
+        IEnumerable<Communication> communications,
+        int activeProductCount,
+        int proposedProductCount)
+    {
+        var communicationList = communications.ToList();
+        var counts = communicationTypes
+            .Select(type =>
+            {
+                return new CommunicationReportCount
+                {
+                    Label = type.Name,
+                    BuyerCount = communicationList.Count(communication => communication.CommunicationType == type.Id && communication.IsBuyer == true),
+                    SupplierCount = communicationList.Count(communication => communication.CommunicationType == type.Id && communication.IsBuyer == false),
+                };
+            })
+            .ToList();
+
+        var otherBuyerCount = communicationList.Count(communication => !communication.CommunicationType.HasValue && communication.IsBuyer == true);
+        var otherSupplierCount = communicationList.Count(communication => !communication.CommunicationType.HasValue && communication.IsBuyer == false);
+        if (otherBuyerCount > 0 || otherSupplierCount > 0)
+        {
+            counts.Add(new CommunicationReportCount
+            {
+                Label = "Other Type",
+                BuyerCount = otherBuyerCount,
+                SupplierCount = otherSupplierCount,
+            });
+        }
+
+        counts.Add(new CommunicationReportCount { Label = "Active Products", BuyerCount = activeProductCount, IsProductMetric = true });
+        counts.Add(new CommunicationReportCount { Label = "Proposed Products", BuyerCount = proposedProductCount, IsProductMetric = true });
+
+        return new CommunicationReportUserCell
+        {
+            UserId = userId,
+            Counts = counts,
+        };
     }
 
     private async Task<List<LastLoadShippedReportRow>> GetLastLoadRowsAsync(LastLoadShippedReportViewModel filters)
@@ -163,6 +346,8 @@ public class ReportController : Controller
                 && LegacyLastLoadStatusIds.Contains(load.LoadStatus.Value)
                 && load.Buyer.HasValue
                 && load.Supplier.HasValue);
+
+    private sealed record CommunicationTypeReportOption(int Id, string Name);
 
     private static LastLoadShippedReportRow ToReportRow(
         Load load,

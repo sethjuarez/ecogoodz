@@ -1,5 +1,6 @@
 ﻿@{
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
     var isDashboardActive = string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase);
     var isTradingActive = string.Equals(currentController, "Load", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "BuyerSupplier", StringComparison.OrdinalIgnoreCase)
@@ -130,7 +131,8 @@
                                 <span class="nav-link-title">Reports</span>
                             </a>
                             <div class="dropdown-menu">
-                                <a class="dropdown-item @(string.Equals(currentController, "Report", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Report" asp-action="LastLoadShipped">Last load shipped</a>
+                                <a class="dropdown-item @(string.Equals(currentController, "Report", StringComparison.OrdinalIgnoreCase) && string.Equals(currentAction, "LastLoadShipped", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Report" asp-action="LastLoadShipped">Last load shipped</a>
+                                <a class="dropdown-item @(string.Equals(currentController, "Report", StringComparison.OrdinalIgnoreCase) && string.Equals(currentAction, "Communication", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Report" asp-action="Communication">Communication</a>
                             </div>
                         </li>
                         <li class="nav-item dropdown @(isAdminActive ? "active" : null)">

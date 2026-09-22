@@ -2232,6 +2232,70 @@ public class RestoredWorkflowControllerTests
         Assert.Equal(60, row.DaysSinceShipment);
     }
 
+    [Fact]
+    public async Task CommunicationReport_CountsCommunicationsAndProductStatusActivityByUserAndDay()
+    {
+        await using var context = CreateContext();
+        context.Users.AddRange(
+            new User { Id = 1, FirstName = "Ava", LastName = "Manager", IsActive = true, IsShowCommunicationReport = true },
+            new User { Id = 2, FirstName = "Ben", LastName = "Hidden", IsActive = true, IsShowCommunicationReport = false });
+        context.CommunicationTypes.AddRange(
+            new CommunicationType { Id = 10, Type = "Call" },
+            new CommunicationType { Id = 11, Type = "Email" });
+        context.Communications.AddRange(
+            new Communication { Id = 20, CreatedBy = 1, CommunicationType = 10, IsBuyer = true, IsActive = true, CreateOn = new DateTime(2026, 1, 5, 8, 0, 0) },
+            new Communication { Id = 21, CreatedBy = 1, CommunicationType = 10, IsBuyer = false, IsActive = true, CreateOn = new DateTime(2026, 1, 5, 9, 0, 0) },
+            new Communication { Id = 22, CreatedBy = 1, CommunicationType = null, IsBuyer = true, IsActive = true, CreateOn = new DateTime(2026, 1, 5, 10, 0, 0) },
+            new Communication { Id = 23, CreatedBy = 2, CommunicationType = 10, IsBuyer = true, IsActive = true, CreateOn = new DateTime(2026, 1, 5, 11, 0, 0) },
+            new Communication { Id = 24, CreatedBy = 1, CommunicationType = 10, IsBuyer = true, IsActive = true, CreateOn = new DateTime(2025, 12, 20, 11, 0, 0), Date = new DateTime(2026, 1, 5) });
+        context.BuyerSupplierHistories.AddRange(
+            new BuyerSupplierHistory { Id = 30, UserId = 1, NewStatus = 1, OldStatus = 3, Action = "Update", CreatedDate = new DateTime(2026, 1, 5, 12, 0, 0) },
+            new BuyerSupplierHistory { Id = 31, UserId = 1, NewStatus = 3, Action = "Add", CreatedDate = new DateTime(2026, 1, 5, 13, 0, 0) });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ReportController(context));
+
+        var result = await controller.Communication(new CommunicationReportViewModel
+        {
+            StartDate = new DateTime(2026, 1, 1),
+            EndDate = new DateTime(2026, 1, 31),
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CommunicationReportViewModel>(view.Model);
+        var user = Assert.Single(model.Users);
+        Assert.Equal("Ava Manager", user.Name);
+
+        var row = Assert.Single(model.Rows);
+        Assert.Equal(new DateTime(2026, 1, 5), row.Date);
+        var counts = row.UserCells.Single().Counts;
+        var call = counts.Single(count => count.Label == "Call");
+        Assert.Equal(2, call.BuyerCount);
+        Assert.Equal(1, call.SupplierCount);
+        Assert.Equal(0, counts.Single(count => count.Label == "Email").TotalCount);
+        Assert.Equal(1, counts.Single(count => count.Label == "Other Type").BuyerCount);
+        Assert.Equal(1, counts.Single(count => count.Label == "Active Products").TotalCount);
+        Assert.Equal(1, counts.Single(count => count.Label == "Proposed Products").TotalCount);
+    }
+
+    [Fact]
+    public async Task CommunicationReport_RejectsEndDateBeforeStartDate()
+    {
+        await using var context = CreateContext();
+        var controller = WithLegacyUser(new ReportController(context));
+
+        var result = await controller.Communication(new CommunicationReportViewModel
+        {
+            StartDate = new DateTime(2026, 2, 1),
+            EndDate = new DateTime(2026, 1, 1),
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CommunicationReportViewModel>(view.Model);
+        Assert.Empty(model.Rows);
+        Assert.False(controller.ModelState.IsValid);
+    }
+
     private static EcoGoodzDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<EcoGoodzDbContext>()
