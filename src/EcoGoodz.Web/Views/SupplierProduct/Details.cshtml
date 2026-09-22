@@ -78,6 +78,11 @@
                 </table>
             </div>
         </div>
+
+        <div class="card mt-3">
+            <div class="card-header"><h3 class="card-title">Rate change audit</h3></div>
+            @await Html.PartialAsync("_RateChangeHistory", Model.RateHistory)
+        </div>
     </div>
     <div class="col-12 col-lg-4">
         <div class="card">

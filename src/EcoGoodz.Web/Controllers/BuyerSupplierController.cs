@@ -515,15 +515,17 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
         }
 
+        var userId = User.GetLegacyUserId();
         Context.BuyerProductRates.Add(new BuyerProductRate
         {
             BuyerSupplierProductId = model.BuyerSupplierProductId,
             Price = model.Price,
             EffectiveDate = model.EffectiveDate,
             CreatedDate = DateTime.UtcNow,
-            UserId = User.GetLegacyUserId(),
+            UserId = userId,
             IsActive = true,
         });
+        AddBuyerProductHistory(model.BuyerSupplierProductId, oldPrice: null, model.Price, oldEffectiveDate: null, model.EffectiveDate, userId, "Add");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
@@ -597,6 +599,23 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             })
             .ToListAsync();
 
+        model.RateHistory = await Context.BuyerProductHistories
+            .AsNoTracking()
+            .Where(history => history.BuyerSupplierProductId == id)
+            .OrderByDescending(history => history.CreatedDate)
+            .ThenByDescending(history => history.Id)
+            .Select(history => new RateChangeHistoryItemViewModel
+            {
+                OldPrice = history.OldPrice,
+                NewPrice = history.NewPrice,
+                OldEffectiveDate = history.OldEffectiveDate,
+                NewEffectiveDate = history.NewEffectiveDate,
+                CreatedDate = history.CreatedDate,
+                UserName = history.User != null ? history.User.FirstName + " " + history.User.LastName : null,
+                Action = history.Action,
+            })
+            .ToListAsync();
+
         return View(model);
     }
 
@@ -656,10 +675,15 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             return View(model);
         }
 
+        var oldPrice = rate.Price;
+        var oldEffectiveDate = rate.EffectiveDate;
+        var userId = User.GetLegacyUserId();
+
         rate.Price = model.Price;
         rate.EffectiveDate = model.EffectiveDate;
         rate.CreatedDate = DateTime.UtcNow;
-        rate.UserId = User.GetLegacyUserId();
+        rate.UserId = userId;
+        AddBuyerProductHistory(model.BuyerSupplierProductId, oldPrice, model.Price, oldEffectiveDate, model.EffectiveDate, userId, "Update");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(ProductDetails), new { id = model.BuyerSupplierProductId });
@@ -676,6 +700,14 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
         }
 
         rate.IsActive = false;
+        AddBuyerProductHistory(
+            buyerSupplierProductId,
+            rate.Price,
+            null,
+            rate.EffectiveDate,
+            null,
+            User.GetLegacyUserId(),
+            "Delete");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(ProductDetails), new { id = buyerSupplierProductId });
@@ -691,6 +723,28 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             .OrderBy(s => s.Status)
             .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Status })
             .ToListAsync();
+    }
+
+    private void AddBuyerProductHistory(
+        int buyerSupplierProductId,
+        decimal? oldPrice,
+        decimal? newPrice,
+        DateTime? oldEffectiveDate,
+        DateTime? newEffectiveDate,
+        int? userId,
+        string action)
+    {
+        Context.BuyerProductHistories.Add(new BuyerProductHistory
+        {
+            BuyerSupplierProductId = buyerSupplierProductId,
+            OldPrice = oldPrice,
+            NewPrice = newPrice,
+            OldEffectiveDate = oldEffectiveDate,
+            NewEffectiveDate = newEffectiveDate,
+            CreatedDate = DateTime.UtcNow,
+            UserId = userId,
+            Action = action,
+        });
     }
 
     private async Task ValidateSelectionsAsync(BuyerSupplierFormViewModel model)

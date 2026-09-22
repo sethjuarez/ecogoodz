@@ -1029,6 +1029,115 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task SupplierProductRateChanges_RecordAndDisplayHistory()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new User { Id = 99, FirstName = "Ava", LastName = "Auditor", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 1, Name = "Supplier", IsActive = true });
+        context.Locations.Add(new Location { Id = 2, ClientId = 1, IsBuyer = false, Location1 = "Supplier Dock", IsActive = true });
+        context.Products.Add(new Product { Id = 3, Name = "OCC", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 4, Supplier = 1, Location = 2, Product = 3, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+
+        Assert.IsType<RedirectToActionResult>(await controller.AddRate(new SupplierProductRateFormViewModel
+        {
+            SupplierProductId = 4,
+            Price = 10.25m,
+            EffectiveDate = new DateTime(2026, 9, 22),
+        }));
+
+        var rate = await context.SupplierProductRates.SingleAsync();
+        Assert.IsType<RedirectToActionResult>(await controller.EditRate(rate.Id, new SupplierProductRateFormViewModel
+        {
+            Id = rate.Id,
+            SupplierProductId = 4,
+            Price = 12.50m,
+            EffectiveDate = new DateTime(2026, 10, 1),
+        }));
+        Assert.IsType<RedirectToActionResult>(await controller.DeactivateRate(rate.Id, 4));
+
+        var history = await context.SupplierProductHistories.OrderBy(h => h.Id).ToListAsync();
+        Assert.Equal(["Add", "Update", "Delete"], history.Select(h => h.Action).ToList());
+        Assert.Null(history[0].OldPrice);
+        Assert.Equal(10.25m, history[0].NewPrice);
+        Assert.Equal(10.25m, history[1].OldPrice);
+        Assert.Equal(12.50m, history[1].NewPrice);
+        Assert.Equal(12.50m, history[2].OldPrice);
+        Assert.Null(history[2].NewPrice);
+        Assert.Equal(new DateTime(2026, 10, 1), history[2].OldEffectiveDate);
+        Assert.Null(history[2].NewEffectiveDate);
+
+        var details = Assert.IsType<ViewResult>(await controller.Details(4));
+        var model = Assert.IsType<SupplierProductDetailsViewModel>(details.Model);
+        Assert.Equal(["Delete", "Update", "Add"], model.RateHistory.Select(h => h.Action).ToList());
+        Assert.All(model.RateHistory, h => Assert.Equal("Ava Auditor", h.UserName));
+    }
+
+    [Fact]
+    public async Task BuyerProductRateChanges_RecordAndDisplayHistory()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new User { Id = 99, FirstName = "Ava", LastName = "Auditor", IsActive = true });
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 2, Name = "Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = true, Location1 = "Buyer Dock", IsActive = true },
+            new Location { Id = 4, ClientId = 2, IsBuyer = false, Location1 = "Supplier Dock", IsActive = true });
+        context.Products.Add(new Product { Id = 5, Name = "OCC", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 6, Supplier = 2, Location = 4, Product = 5, IsActive = true });
+        context.BuyerSuppliers.Add(new BuyerSupplier
+        {
+            Id = 7,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            IsActive = true,
+        });
+        context.BuyerSupplierProducts.Add(new BuyerSupplierProduct { Id = 8, BuyerSupplierId = 7, SupplierProduct = 6 });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerSupplierController(context));
+
+        Assert.IsType<RedirectToActionResult>(await controller.AddProductRate(new BuyerProductRateFormViewModel
+        {
+            BuyerSupplierId = 7,
+            BuyerSupplierProductId = 8,
+            Price = 20.25m,
+            EffectiveDate = new DateTime(2026, 9, 22),
+        }));
+
+        var rate = await context.BuyerProductRates.SingleAsync();
+        Assert.IsType<RedirectToActionResult>(await controller.EditProductRate(rate.Id, new BuyerProductRateFormViewModel
+        {
+            Id = rate.Id,
+            BuyerSupplierId = 7,
+            BuyerSupplierProductId = 8,
+            Price = 21.75m,
+            EffectiveDate = new DateTime(2026, 10, 1),
+        }));
+        Assert.IsType<RedirectToActionResult>(await controller.DeactivateProductRate(rate.Id, 8));
+
+        var history = await context.BuyerProductHistories.OrderBy(h => h.Id).ToListAsync();
+        Assert.Equal(["Add", "Update", "Delete"], history.Select(h => h.Action).ToList());
+        Assert.Null(history[0].OldPrice);
+        Assert.Equal(20.25m, history[0].NewPrice);
+        Assert.Equal(20.25m, history[1].OldPrice);
+        Assert.Equal(21.75m, history[1].NewPrice);
+        Assert.Equal(21.75m, history[2].OldPrice);
+        Assert.Null(history[2].NewPrice);
+        Assert.Equal(new DateTime(2026, 10, 1), history[2].OldEffectiveDate);
+        Assert.Null(history[2].NewEffectiveDate);
+
+        var details = Assert.IsType<ViewResult>(await controller.ProductDetails(8));
+        var model = Assert.IsType<BuyerSupplierProductDetailsViewModel>(details.Model);
+        Assert.Equal(["Delete", "Update", "Add"], model.RateHistory.Select(h => h.Action).ToList());
+        Assert.All(model.RateHistory, h => Assert.Equal("Ava Auditor", h.UserName));
+    }
+
+    [Fact]
     public async Task LoadExport_ReturnsFilteredCsvWithOperationalColumns()
     {
         await using var context = CreateContext();

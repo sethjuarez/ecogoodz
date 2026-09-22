@@ -186,6 +186,23 @@ public class SupplierProductController : PagedListController<SupplierProductCont
             })
             .ToListAsync();
 
+        model.RateHistory = await Context.SupplierProductHistories
+            .AsNoTracking()
+            .Where(history => history.SupplierProductId == id)
+            .OrderByDescending(history => history.CreatedDate)
+            .ThenByDescending(history => history.Id)
+            .Select(history => new RateChangeHistoryItemViewModel
+            {
+                OldPrice = history.OldPrice,
+                NewPrice = history.NewPrice,
+                OldEffectiveDate = history.OldEffectiveDate,
+                NewEffectiveDate = history.NewEffectiveDate,
+                CreatedDate = history.CreatedDate,
+                UserName = history.User != null ? history.User.FirstName + " " + history.User.LastName : null,
+                Action = history.Action,
+            })
+            .ToListAsync();
+
         return View(model);
     }
 
@@ -412,15 +429,17 @@ public class SupplierProductController : PagedListController<SupplierProductCont
             return RedirectToAction(nameof(Details), new { id = model.SupplierProductId });
         }
 
+        var userId = User.GetLegacyUserId();
         Context.SupplierProductRates.Add(new SupplierProductRate
         {
             SupplierProductId = model.SupplierProductId,
             Price = model.Price,
             EffectiveDate = model.EffectiveDate,
             CreatedDate = DateTime.UtcNow,
-            UserId = User.GetLegacyUserId(),
+            UserId = userId,
             IsActive = true,
         });
+        AddSupplierProductHistory(model.SupplierProductId, oldPrice: null, model.Price, oldEffectiveDate: null, model.EffectiveDate, userId, "Add");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Details), new { id = model.SupplierProductId });
@@ -481,10 +500,15 @@ public class SupplierProductController : PagedListController<SupplierProductCont
             return View(model);
         }
 
+        var oldPrice = rate.Price;
+        var oldEffectiveDate = rate.EffectiveDate;
+        var userId = User.GetLegacyUserId();
+
         rate.Price = model.Price;
         rate.EffectiveDate = model.EffectiveDate;
         rate.CreatedDate = DateTime.UtcNow;
-        rate.UserId = User.GetLegacyUserId();
+        rate.UserId = userId;
+        AddSupplierProductHistory(model.SupplierProductId, oldPrice, model.Price, oldEffectiveDate, model.EffectiveDate, userId, "Update");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Details), new { id = model.SupplierProductId });
@@ -519,6 +543,14 @@ public class SupplierProductController : PagedListController<SupplierProductCont
         }
 
         rate.IsActive = false;
+        AddSupplierProductHistory(
+            supplierProductId,
+            rate.Price,
+            null,
+            rate.EffectiveDate,
+            null,
+            User.GetLegacyUserId(),
+            "Delete");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Details), new { id = supplierProductId });
@@ -564,6 +596,28 @@ public class SupplierProductController : PagedListController<SupplierProductCont
         model.ProductOptions = await GetSelectedProductOptionsAsync(model.Product);
         model.PackagingOptions = await Context.PackageTypes.AsNoTracking().Where(p => p.IsActive == true).OrderBy(p => p.Type).Select(p => new SelectListItem { Value = p.Id.ToString(), Text = p.Type }).ToListAsync();
         model.FrequencyPackageTypeOptions = await Context.FrequencyPackageTypes.AsNoTracking().OrderBy(p => p.Type).Select(p => new SelectListItem { Value = p.Id.ToString(), Text = p.Type }).ToListAsync();
+    }
+
+    private void AddSupplierProductHistory(
+        int supplierProductId,
+        decimal? oldPrice,
+        decimal? newPrice,
+        DateTime? oldEffectiveDate,
+        DateTime? newEffectiveDate,
+        int? userId,
+        string action)
+    {
+        Context.SupplierProductHistories.Add(new SupplierProductHistory
+        {
+        SupplierProductId = supplierProductId,
+        OldPrice = oldPrice,
+        NewPrice = newPrice,
+        OldEffectiveDate = oldEffectiveDate,
+        NewEffectiveDate = newEffectiveDate,
+        CreatedDate = DateTime.UtcNow,
+        UserId = userId,
+        Action = action,
+        });
     }
 
     private async Task<List<SelectListItem>> GetSelectedSupplierOptionsAsync(int? selectedId) =>
