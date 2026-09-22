@@ -44,9 +44,9 @@ public class LocationController : PagedListController<LocationController.Locatio
     protected override IReadOnlyDictionary<string, Expression<Func<LocationRow, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<LocationRow, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["name"] = r => EF.Property<string>(r.Location, "LocationSort"),
+            ["name"] = r => r.Location.Location1,
             ["client"] = r => r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
-            ["city"] = r => EF.Property<string>(r.Location, "CitySort"),
+            ["city"] = r => r.Location.City,
             ["state"] = r => r.Location.StateNavigation != null ? r.Location.StateNavigation.StateName : null,
             ["country"] = r => r.Location.CountryNavigation != null ? r.Location.CountryNavigation.CountryName : null,
             ["active"] = r => r.Location.IsActive,

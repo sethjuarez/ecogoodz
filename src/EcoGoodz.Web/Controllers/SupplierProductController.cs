@@ -30,13 +30,9 @@ public class SupplierProductController : PagedListController<SupplierProductCont
         {
             SupplierProduct = supplierProduct,
             SupplierName = supplier.Name,
-            SupplierNameSort = supplier != null ? EF.Property<string>(supplier, "NameSort") : null,
             LocationName = location.Location1,
-            LocationNameSort = location != null ? EF.Property<string>(location, "LocationSort") : null,
             ProductName = product.Name,
-            ProductNameSort = product != null ? EF.Property<string>(product, "NameSort") : null,
             PackagingName = packaging.Type,
-            PackagingNameSort = packaging != null ? EF.Property<string>(packaging, "TypeSort") : null,
         };
 
     protected override IQueryable<SupplierProductRow> ApplySearch(IQueryable<SupplierProductRow> query, string searchTerm) =>
@@ -50,10 +46,10 @@ public class SupplierProductController : PagedListController<SupplierProductCont
     protected override IReadOnlyDictionary<string, Expression<Func<SupplierProductRow, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<SupplierProductRow, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["supplier"] = r => r.SupplierNameSort,
-            ["location"] = r => r.LocationNameSort,
-            ["product"] = r => r.ProductNameSort,
-            ["packaging"] = r => r.PackagingNameSort ?? r.SupplierProduct.OtherPackaging,
+            ["supplier"] = r => r.SupplierName,
+            ["location"] = r => r.LocationName,
+            ["product"] = r => r.ProductName,
+            ["packaging"] = r => r.PackagingName ?? r.SupplierProduct.OtherPackaging,
             ["active"] = r => r.SupplierProduct.IsActive,
         };
 
@@ -470,13 +466,9 @@ public class SupplierProductController : PagedListController<SupplierProductCont
     {
         public required SupplierProduct SupplierProduct { get; init; }
         public string? SupplierName { get; init; }
-        public string? SupplierNameSort { get; init; }
         public string? LocationName { get; init; }
-        public string? LocationNameSort { get; init; }
         public string? ProductName { get; init; }
-        public string? ProductNameSort { get; init; }
         public string? PackagingName { get; init; }
-        public string? PackagingNameSort { get; init; }
     }
 
     private sealed record SelectOption(string Value, string Text);
