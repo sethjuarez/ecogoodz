@@ -53,8 +53,16 @@
   letter-spacing: .04em;
 }
 
+.navbar-expand-md .navbar-brand {
+  margin-right: 2rem;
+}
+
 .navbar-expand-md .navbar-collapse > .navbar-nav {
   gap: .75rem;
+}
+
+.navbar-expand-md .navbar-nav .dropdown-toggle::after {
+  margin-left: .5rem;
 }
 
 .page-header {
