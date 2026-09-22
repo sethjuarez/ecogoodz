@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using EcoGoodz.Data;
+using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Load;
@@ -64,8 +65,12 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
                 Id = l.Id,
                 BuyerId = l.Buyer,
                 BuyerName = l.BuyerNavigation != null ? l.BuyerNavigation.Name : null,
+                BuyerLocationId = l.BuyerLocation,
+                BuyerLocationName = l.BuyerLocationNavigation != null ? l.BuyerLocationNavigation.Location1 : null,
                 SupplierId = l.Supplier,
                 SupplierName = l.SupplierNavigation != null ? l.SupplierNavigation.Name : null,
+                SupplierLocationId = l.SupplierLocation,
+                SupplierLocationName = l.SupplierLocationNavigation != null ? l.SupplierLocationNavigation.Location1 : null,
                 StatusName = l.LoadStatusNavigation != null ? l.LoadStatusNavigation.Status : null,
                 ShipmentDate = l.ShipmentDate,
                 Container = l.Container,
@@ -97,17 +102,39 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             return NotFound();
         }
 
+        load.ProductLines = await Context.LoadProducts
+            .AsNoTracking()
+            .Where(lp => lp.Load == id)
+            .Select(lp => new LoadProductLineViewModel
+            {
+                SupplierProductId = lp.Product,
+                SupplierName = lp.ProductNavigation.SupplierNavigation != null ? lp.ProductNavigation.SupplierNavigation.Name : null,
+                ProductName = lp.ProductNavigation.ProductNavigation != null ? lp.ProductNavigation.ProductNavigation.Name : null,
+                PackagingName = lp.ProductNavigation.PackagingNavigation != null
+                    ? lp.ProductNavigation.PackagingNavigation.Type
+                    : lp.ProductNavigation.OtherPackaging,
+                CurrentPrice = lp.ProductNavigation.SupplierProductRates
+                    .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
+                    .OrderByDescending(rate => rate.EffectiveDate)
+                    .ThenByDescending(rate => rate.Id)
+                    .Select(rate => rate.Price)
+                    .FirstOrDefault(),
+                EffectiveDate = lp.ProductNavigation.SupplierProductRates
+                    .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
+                    .OrderByDescending(rate => rate.EffectiveDate)
+                    .ThenByDescending(rate => rate.Id)
+                    .Select(rate => rate.EffectiveDate)
+                    .FirstOrDefault(),
+            })
+            .ToListAsync();
+
         return View(load);
     }
 
     public async Task<IActionResult> Create()
     {
-        var model = new LoadFormViewModel
-        {
-            BuyerOptions = await GetBuyerOptionsAsync(),
-            SupplierOptions = await GetSupplierOptionsAsync(),
-            StatusOptions = await GetStatusOptionsAsync(),
-        };
+        var model = new LoadFormViewModel();
+        await PopulateOptionsAsync(model);
         return View(model);
     }
 
@@ -121,10 +148,19 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             return View(model);
         }
 
+        await ValidateSelectionsAsync(model, loadId: null);
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
         var load = new Data.Models.Load
         {
             Buyer = model.Buyer,
             Supplier = model.Supplier,
+            BuyerLocation = model.BuyerLocation,
+            SupplierLocation = model.SupplierLocation,
             LoadStatus = model.LoadStatus,
             ShipmentDate = model.ShipmentDate,
             Container = model.Container,
@@ -135,6 +171,11 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             CreateOn = DateTime.UtcNow,
             CreatedBy = User.GetLegacyUserId(),
         };
+
+        foreach (var supplierProductId in model.SupplierProductIds.Distinct())
+        {
+            load.LoadProducts.Add(new LoadProduct { Product = supplierProductId });
+        }
 
         Context.Loads.Add(load);
         await Context.SaveChangesAsync();
@@ -155,6 +196,8 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             Id = load.Id,
             Buyer = load.Buyer,
             Supplier = load.Supplier,
+            BuyerLocation = load.BuyerLocation,
+            SupplierLocation = load.SupplierLocation,
             LoadStatus = load.LoadStatus,
             ShipmentDate = load.ShipmentDate,
             Container = load.Container,
@@ -162,6 +205,10 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             SupplierRef = load.SupplierRef,
             FreightCarrier = load.FreightCarrier,
             IsActive = load.IsActive ?? false,
+            SupplierProductIds = await Context.LoadProducts
+                .Where(lp => lp.Load == load.Id)
+                .Select(lp => lp.Product)
+                .ToListAsync(),
         };
 
         await PopulateOptionsAsync(model);
@@ -183,6 +230,13 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             return View(model);
         }
 
+        await ValidateSelectionsAsync(model, id);
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
         var load = await Context.Loads.FindAsync(id);
         if (load is null)
         {
@@ -191,6 +245,8 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
 
         load.Buyer = model.Buyer;
         load.Supplier = model.Supplier;
+        load.BuyerLocation = model.BuyerLocation;
+        load.SupplierLocation = model.SupplierLocation;
         load.LoadStatus = model.LoadStatus;
         load.ShipmentDate = model.ShipmentDate;
         load.Container = model.Container;
@@ -201,7 +257,18 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         load.UpdatedOn = DateTime.UtcNow;
         load.UpdatedBy = User.GetLegacyUserId();
 
-        await Context.SaveChangesAsync();
+        if (Context.Database.IsRelational())
+        {
+            await using var transaction = await Context.Database.BeginTransactionAsync();
+            await SyncLoadProductsAsync(load.Id, model.SupplierProductIds);
+            await Context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        else
+        {
+            await SyncLoadProductsAsync(load.Id, model.SupplierProductIds);
+            await Context.SaveChangesAsync();
+        }
 
         return RedirectToAction(nameof(Index));
     }
@@ -231,6 +298,9 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
     {
         model.BuyerOptions = await GetBuyerOptionsAsync();
         model.SupplierOptions = await GetSupplierOptionsAsync();
+        model.BuyerLocationOptions = await GetLocationOptionsAsync(isBuyer: true, model.Buyer, model.BuyerLocation);
+        model.SupplierLocationOptions = await GetLocationOptionsAsync(isBuyer: false, model.Supplier, model.SupplierLocation);
+        model.SupplierProductOptions = await GetSupplierProductOptionsAsync(model.Supplier, model.SupplierProductIds);
         model.StatusOptions = await GetStatusOptionsAsync();
     }
 
@@ -248,9 +318,134 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Name })
             .ToListAsync();
 
+    private async Task<IEnumerable<SelectListItem>> GetLocationOptionsAsync(bool isBuyer, int? clientId, int? selectedId)
+    {
+        var locations = Context.Locations
+            .Where(l => ((clientId == null || l.ClientId == clientId)
+                    && l.IsActive
+                    && (l.IsBuyer == isBuyer || l.IsBuyer == null))
+                || l.Id == selectedId);
+
+        if (isBuyer)
+        {
+            return await (
+                    from location in locations
+                    join buyer in Context.Buyers on location.ClientId equals buyer.Id into buyerJoin
+                    from buyer in buyerJoin.DefaultIfEmpty()
+                    orderby buyer.Name, location.Location1
+                    select new SelectListItem
+                    {
+                        Value = location.Id.ToString(),
+                        Text = (buyer.Name ?? "Buyer") + " - " + location.Location1,
+                    })
+                .ToListAsync();
+        }
+
+        return await (
+                from location in locations
+                join supplier in Context.Suppliers on location.ClientId equals supplier.Id into supplierJoin
+                from supplier in supplierJoin.DefaultIfEmpty()
+                orderby supplier.Name, location.Location1
+                select new SelectListItem
+                {
+                    Value = location.Id.ToString(),
+                    Text = (supplier.Name ?? "Supplier") + " - " + location.Location1,
+                })
+            .ToListAsync();
+    }
+
+    private async Task<IEnumerable<SelectListItem>> GetSupplierProductOptionsAsync(int? supplierId, IReadOnlyCollection<int> selectedIds) =>
+        await Context.SupplierProducts
+            .Where(sp => ((supplierId == null || sp.Supplier == supplierId) && sp.IsActive) || selectedIds.Contains(sp.Id))
+            .OrderBy(sp => sp.SupplierNavigation!.Name)
+            .ThenBy(sp => sp.ProductNavigation!.Name)
+            .Select(sp => new SelectListItem
+            {
+                Value = sp.Id.ToString(),
+                Text = (sp.SupplierNavigation != null ? sp.SupplierNavigation.Name : "Supplier")
+                    + " - "
+                    + (sp.ProductNavigation != null ? sp.ProductNavigation.Name : "Product")
+                    + (sp.PackagingNavigation != null ? " (" + sp.PackagingNavigation.Type + ")" : sp.OtherPackaging != null ? " (" + sp.OtherPackaging + ")" : string.Empty),
+            })
+            .ToListAsync();
+
     private async Task<IEnumerable<SelectListItem>> GetStatusOptionsAsync() =>
         await Context.LoadStatuses
             .OrderBy(s => s.Status)
             .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Status })
             .ToListAsync();
+
+    private async Task ValidateSelectionsAsync(LoadFormViewModel model, int? loadId)
+    {
+        if (model.BuyerLocation is not null && model.Buyer is not null)
+        {
+            var validBuyerLocation = await Context.Locations.AnyAsync(l =>
+                l.Id == model.BuyerLocation &&
+                l.ClientId == model.Buyer &&
+                (l.IsBuyer == true || l.IsBuyer == null));
+            if (!validBuyerLocation)
+            {
+                ModelState.AddModelError(nameof(model.BuyerLocation), "Choose a location for the selected buyer.");
+            }
+        }
+
+        if (model.SupplierLocation is not null && model.Supplier is not null)
+        {
+            var validSupplierLocation = await Context.Locations.AnyAsync(l =>
+                l.Id == model.SupplierLocation &&
+                l.ClientId == model.Supplier &&
+                (l.IsBuyer == false || l.IsBuyer == null));
+            if (!validSupplierLocation)
+            {
+                ModelState.AddModelError(nameof(model.SupplierLocation), "Choose a location for the selected supplier.");
+            }
+        }
+
+        if (model.SupplierProductIds.Count > 0 && model.Supplier is not null)
+        {
+            var distinctIds = model.SupplierProductIds.Distinct().ToList();
+            var storedSupplier = loadId is null
+                ? model.Supplier
+                : await Context.Loads
+                    .Where(load => load.Id == loadId)
+                    .Select(load => load.Supplier)
+                    .FirstOrDefaultAsync();
+            var existingIds = loadId is null || storedSupplier != model.Supplier
+                ? new List<int>()
+                : await Context.LoadProducts
+                    .Where(lp => lp.Load == loadId)
+                    .Select(lp => lp.Product)
+                    .ToListAsync();
+            var newIds = distinctIds.Except(existingIds).ToList();
+            var validCount = await Context.SupplierProducts.CountAsync(sp =>
+                newIds.Contains(sp.Id) &&
+                sp.Supplier == model.Supplier &&
+                sp.IsActive);
+
+            if (validCount != newIds.Count)
+            {
+                ModelState.AddModelError(nameof(model.SupplierProductIds), "Choose products offered by the selected supplier.");
+            }
+        }
+    }
+
+    private async Task SyncLoadProductsAsync(int loadId, IEnumerable<int> supplierProductIds)
+    {
+        var selectedIds = supplierProductIds.Distinct().ToHashSet();
+        var existingRows = await Context.LoadProducts
+            .Where(lp => lp.Load == loadId)
+            .ToListAsync();
+
+        Context.LoadProducts.RemoveRange(existingRows.Where(lp => !selectedIds.Contains(lp.Product)));
+
+        var existingIds = existingRows.Select(lp => lp.Product).ToHashSet();
+        foreach (var supplierProductId in selectedIds.Except(existingIds))
+        {
+            Context.LoadProducts.Add(new LoadProduct
+            {
+                Load = loadId,
+                Product = supplierProductId,
+            });
+        }
+    }
 }

@@ -7,15 +7,19 @@ public class BuyerSupplierFormViewModel
 {
     public int Id { get; set; }
 
+    [Required]
     [Display(Name = "Buyer")]
     public int? Buyer { get; set; }
 
+    [Required]
     [Display(Name = "Supplier")]
     public int? Supplier { get; set; }
 
+    [Required]
     [Display(Name = "Buyer location")]
     public int? BuyerLocation { get; set; }
 
+    [Required]
     [Display(Name = "Supplier location")]
     public int? SupplierLocation { get; set; }
 

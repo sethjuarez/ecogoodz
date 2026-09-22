@@ -348,17 +348,33 @@ public class BuyerProductController : PagedListController<BuyerProductController
 
     private async Task SavePackagingAsync(int buyerProductId, BuyerProductFormViewModel model)
     {
-        var existing = Context.BuyerProductPackagings.Where(p => p.BuyerProduct == buyerProductId);
-        Context.BuyerProductPackagings.RemoveRange(existing);
+        var existing = await Context.BuyerProductPackagings
+            .Where(p => p.BuyerProduct == buyerProductId)
+            .OrderBy(p => p.Id)
+            .ToListAsync();
+        var editablePackaging = existing.FirstOrDefault();
 
         if (model.Packaging is not null || !string.IsNullOrWhiteSpace(model.OtherPackaging))
         {
-            Context.BuyerProductPackagings.Add(new BuyerProductPackaging
+            if (editablePackaging is null)
             {
-                BuyerProduct = buyerProductId,
-                Packaging = model.Packaging,
-                OtherPackaging = string.IsNullOrWhiteSpace(model.OtherPackaging) ? null : model.OtherPackaging.Trim(),
-            });
+                Context.BuyerProductPackagings.Add(new BuyerProductPackaging
+                {
+                    BuyerProduct = buyerProductId,
+                    Packaging = model.Packaging,
+                    OtherPackaging = string.IsNullOrWhiteSpace(model.OtherPackaging) ? null : model.OtherPackaging.Trim(),
+                });
+            }
+            else
+            {
+                editablePackaging.Packaging = model.Packaging;
+                editablePackaging.OtherPackaging = string.IsNullOrWhiteSpace(model.OtherPackaging) ? null : model.OtherPackaging.Trim();
+            }
+        }
+        else if (editablePackaging is not null)
+        {
+            editablePackaging.Packaging = null;
+            editablePackaging.OtherPackaging = null;
         }
 
         await Context.SaveChangesAsync();

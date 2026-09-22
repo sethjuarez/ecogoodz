@@ -65,13 +65,15 @@ public class SupplierProductController : PagedListController<SupplierProductCont
             ProductName = r.ProductName ?? string.Empty,
             PackagingName = r.PackagingName ?? r.SupplierProduct.OtherPackaging,
             CurrentPrice = r.SupplierProduct.SupplierProductRates
-                .Where(rate => rate.IsActive)
+                .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                 .OrderByDescending(rate => rate.EffectiveDate)
+                .ThenByDescending(rate => rate.Id)
                 .Select(rate => rate.Price)
                 .FirstOrDefault(),
             CurrentEffectiveDate = r.SupplierProduct.SupplierProductRates
-                .Where(rate => rate.IsActive)
+                .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                 .OrderByDescending(rate => rate.EffectiveDate)
+                .ThenByDescending(rate => rate.Id)
                 .Select(rate => rate.EffectiveDate)
                 .FirstOrDefault(),
             IsActive = r.SupplierProduct.IsActive,
@@ -113,13 +115,15 @@ public class SupplierProductController : PagedListController<SupplierProductCont
                     ProductName = product.Name ?? string.Empty,
                     PackagingName = packaging.Type ?? supplierProduct.OtherPackaging,
                     CurrentPrice = supplierProduct.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.Price)
                         .FirstOrDefault(),
                     CurrentEffectiveDate = supplierProduct.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.EffectiveDate)
                         .FirstOrDefault(),
                     IsActive = supplierProduct.IsActive,
@@ -311,7 +315,14 @@ public class SupplierProductController : PagedListController<SupplierProductCont
     {
         if (!ModelState.IsValid)
         {
+            TempData["Error"] = "Enter a valid supplier rate before saving.";
             return RedirectToAction(nameof(Details), new { id = model.SupplierProductId });
+        }
+
+        var supplierProductExists = await Context.SupplierProducts.AnyAsync(product => product.Id == model.SupplierProductId);
+        if (!supplierProductExists)
+        {
+            return NotFound();
         }
 
         var duplicate = await Context.SupplierProductRates.AnyAsync(rate =>

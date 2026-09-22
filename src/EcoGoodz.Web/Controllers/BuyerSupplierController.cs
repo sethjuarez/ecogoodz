@@ -163,26 +163,30 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
                         : product.SupplierProductNavigation.OtherPackaging
                     : null,
                 BuyerPrice = product.BuyerProductRates
-                    .Where(rate => rate.IsActive)
+                    .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                     .OrderByDescending(rate => rate.EffectiveDate)
+                    .ThenByDescending(rate => rate.Id)
                     .Select(rate => rate.Price)
                     .FirstOrDefault(),
                 BuyerEffectiveDate = product.BuyerProductRates
-                    .Where(rate => rate.IsActive)
+                    .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                     .OrderByDescending(rate => rate.EffectiveDate)
+                    .ThenByDescending(rate => rate.Id)
                     .Select(rate => rate.EffectiveDate)
                     .FirstOrDefault(),
                 SupplierPrice = product.SupplierProductNavigation != null
                     ? product.SupplierProductNavigation.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.Price)
                         .FirstOrDefault()
                     : null,
                 SupplierEffectiveDate = product.SupplierProductNavigation != null
                     ? product.SupplierProductNavigation.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.EffectiveDate)
                         .FirstOrDefault()
                     : null,
@@ -209,6 +213,13 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(BuyerSupplierFormViewModel model)
     {
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
+        await ValidateSelectionsAsync(model);
         if (!ModelState.IsValid)
         {
             await PopulateOptionsAsync(model);
@@ -265,6 +276,13 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             return NotFound();
         }
 
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
+        await ValidateSelectionsAsync(model);
         if (!ModelState.IsValid)
         {
             await PopulateOptionsAsync(model);
@@ -419,6 +437,7 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
     {
         if (!ModelState.IsValid)
         {
+            TempData["Error"] = "Choose a supplier product and enter a valid buyer price before saving.";
             return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
         }
 
@@ -469,6 +488,7 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
     {
         if (!ModelState.IsValid)
         {
+            TempData["Error"] = "Enter a valid buyer rate before saving.";
             return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
         }
 
@@ -534,15 +554,17 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
                     : null,
                 SupplierPrice = product.SupplierProductNavigation != null
                     ? product.SupplierProductNavigation.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.Price)
                         .FirstOrDefault()
                     : null,
                 SupplierEffectiveDate = product.SupplierProductNavigation != null
                     ? product.SupplierProductNavigation.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.EffectiveDate)
                         .FirstOrDefault()
                     : null,
@@ -669,6 +691,33 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             .OrderBy(s => s.Status)
             .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Status })
             .ToListAsync();
+    }
+
+    private async Task ValidateSelectionsAsync(BuyerSupplierFormViewModel model)
+    {
+        if (model.Buyer is not null && model.BuyerLocation is not null)
+        {
+            var validBuyerLocation = await Context.Locations.AnyAsync(location =>
+                location.Id == model.BuyerLocation &&
+                location.ClientId == model.Buyer &&
+                (location.IsBuyer == true || location.IsBuyer == null));
+            if (!validBuyerLocation)
+            {
+                ModelState.AddModelError(nameof(model.BuyerLocation), "Choose a location for the selected buyer.");
+            }
+        }
+
+        if (model.Supplier is not null && model.SupplierLocation is not null)
+        {
+            var validSupplierLocation = await Context.Locations.AnyAsync(location =>
+                location.Id == model.SupplierLocation &&
+                location.ClientId == model.Supplier &&
+                (location.IsBuyer == false || location.IsBuyer == null));
+            if (!validSupplierLocation)
+            {
+                ModelState.AddModelError(nameof(model.SupplierLocation), "Choose a location for the selected supplier.");
+            }
+        }
     }
 
     private async Task<List<SelectListItem>> GetSelectedBuyerOptionsAsync(int? selectedId)

@@ -1,11 +1,15 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Identity;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers;
 using EcoGoodz.Web.Identity;
+using EcoGoodz.Web.Models.BuyerProduct;
+using EcoGoodz.Web.Models.BuyerSupplier;
 using EcoGoodz.Web.Models.Communication;
 using EcoGoodz.Web.Models.Contact;
+using EcoGoodz.Web.Models.Load;
 using EcoGoodz.Web.Models.Note;
 using EcoGoodz.Web.Models.StaffTask;
 using EcoGoodz.Web.Models.StaffUser;
@@ -195,12 +199,264 @@ public class RestoredWorkflowControllerTests
         Assert.Equal(1, role.RoleId);
     }
 
+    [Fact]
+    public async Task BuyerProductEdit_PreservesAdditionalPackagingRows()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer", IsActive = true });
+        context.Locations.Add(new Location { Id = 2, ClientId = 1, IsBuyer = true, Location1 = "Dock", IsActive = true });
+        context.Products.Add(new Product { Id = 3, Name = "PET", IsActive = true });
+        context.PackageTypes.AddRange(
+            new PackageType { Id = 4, Type = "Bales", IsActive = true },
+            new PackageType { Id = 5, Type = "Boxes", IsActive = true });
+        context.BuyerProducts.Add(new BuyerProduct
+        {
+            Id = 6,
+            Buyer = 1,
+            Location = 2,
+            Product = 3,
+            IsActive = true,
+            BuyerProductPackagings =
+            [
+                new BuyerProductPackaging { Id = 7, Packaging = 4 },
+                new BuyerProductPackaging { Id = 8, Packaging = 5 },
+            ],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerProductController(context));
+
+        var result = await controller.Edit(6, new BuyerProductFormViewModel
+        {
+            Id = 6,
+            Buyer = 1,
+            Location = 2,
+            Product = 3,
+            Packaging = 4,
+            IsActive = false,
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var packagingIds = await context.BuyerProductPackagings
+            .Where(p => p.BuyerProduct == 6)
+            .OrderBy(p => p.Id)
+            .Select(p => p.Packaging)
+            .ToListAsync();
+        Assert.Equal([4, 5], packagingIds);
+    }
+
+    [Fact]
+    public async Task LoadCreate_PersistsLocationsAndProductLines()
+    {
+        await using var context = CreateContext();
+        SeedLoadWorkflowData(context);
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+
+        var result = await controller.Create(new LoadFormViewModel
+        {
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            ShipmentDate = new DateTime(2026, 10, 1),
+            Container = "PW-CONT",
+            SupplierProductIds = [8],
+            IsActive = true,
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var load = await context.Loads.Include(l => l.LoadProducts).SingleAsync();
+        Assert.Equal(1, load.Buyer);
+        Assert.Equal(2, load.Supplier);
+        Assert.Equal(3, load.BuyerLocation);
+        Assert.Equal(4, load.SupplierLocation);
+        Assert.Equal(99, load.CreatedBy);
+        Assert.Equal(8, load.LoadProducts.Single().Product);
+    }
+
+    [Fact]
+    public async Task LoadDetails_ShowsLocationsAndProductLines()
+    {
+        await using var context = CreateContext();
+        SeedLoadWorkflowData(context);
+        context.Loads.Add(new Load
+        {
+            Id = 20,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            IsActive = true,
+            LoadProducts = [new LoadProduct { Id = 21, Product = 8 }],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+
+        var result = await controller.Details(20);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<LoadDetailsViewModel>(view.Model);
+        Assert.Equal("Buyer Dock", model.BuyerLocationName);
+        Assert.Equal("Supplier Dock", model.SupplierLocationName);
+        var product = Assert.Single(model.ProductLines);
+        Assert.Equal("PET", product.ProductName);
+        Assert.Equal("Bales", product.PackagingName);
+        Assert.Equal(12.34m, product.CurrentPrice);
+    }
+
+    [Fact]
+    public async Task LoadEdit_ReplacesProductLines()
+    {
+        await using var context = CreateContext();
+        SeedLoadWorkflowData(context);
+        context.Loads.Add(new Load
+        {
+            Id = 20,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            IsActive = true,
+            LoadProducts = [new LoadProduct { Id = 21, Product = 8 }],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+
+        var result = await controller.Edit(20, new LoadFormViewModel
+        {
+            Id = 20,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            ShipmentDate = new DateTime(2026, 11, 1),
+            SupplierProductIds = [10],
+            IsActive = true,
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var load = await context.Loads.Include(l => l.LoadProducts).SingleAsync(l => l.Id == 20);
+        Assert.Equal(new DateTime(2026, 11, 1), load.ShipmentDate);
+        Assert.Equal(10, load.LoadProducts.Single().Product);
+    }
+
+    [Fact]
+    public async Task LoadEdit_KeepsExistingInactiveProductLine()
+    {
+        await using var context = CreateContext();
+        SeedLoadWorkflowData(context);
+        context.SupplierProducts.Add(new SupplierProduct
+        {
+            Id = 11,
+            Supplier = 2,
+            Location = 4,
+            Product = 6,
+            Packaging = 7,
+            IsActive = false,
+        });
+        context.Loads.Add(new Load
+        {
+            Id = 20,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            IsActive = true,
+            LoadProducts = [new LoadProduct { Id = 21, Product = 11 }],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+
+        var result = await controller.Edit(20, new LoadFormViewModel
+        {
+            Id = 20,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            ShipmentDate = new DateTime(2026, 12, 1),
+            SupplierProductIds = [11],
+            IsActive = true,
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var load = await context.Loads.Include(l => l.LoadProducts).SingleAsync(l => l.Id == 20);
+        Assert.Equal(new DateTime(2026, 12, 1), load.ShipmentDate);
+        Assert.Equal(11, load.LoadProducts.Single().Product);
+    }
+
+    [Fact]
+    public void BuyerSupplierForm_RequiresCompleteMatchKeys()
+    {
+        var model = new BuyerSupplierFormViewModel();
+        var results = new List<ValidationResult>();
+
+        var isValid = Validator.TryValidateObject(model, new ValidationContext(model), results, validateAllProperties: true);
+
+        Assert.False(isValid);
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(BuyerSupplierFormViewModel.Buyer)));
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(BuyerSupplierFormViewModel.Supplier)));
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(BuyerSupplierFormViewModel.BuyerLocation)));
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(BuyerSupplierFormViewModel.SupplierLocation)));
+    }
+
     private static EcoGoodzDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<EcoGoodzDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
         return new EcoGoodzDbContext(options);
+    }
+
+    private static void SeedLoadWorkflowData(EcoGoodzDbContext context)
+    {
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 2, Name = "Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = true, Location1 = "Buyer Dock", IsActive = true },
+            new Location { Id = 4, ClientId = 2, IsBuyer = false, Location1 = "Supplier Dock", IsActive = true });
+        context.LoadStatuses.Add(new LoadStatus { Id = 5, Status = "Booked" });
+        context.Products.Add(new Product { Id = 6, Name = "PET", IsActive = true });
+        context.PackageTypes.Add(new PackageType { Id = 7, Type = "Bales", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct
+        {
+            Id = 8,
+            Supplier = 2,
+            Location = 4,
+            Product = 6,
+            Packaging = 7,
+            IsActive = true,
+            SupplierProductRates =
+            [
+                new SupplierProductRate
+                {
+                    Id = 9,
+                    Price = 12.34m,
+                    EffectiveDate = new DateTime(2026, 9, 1),
+                    IsActive = true,
+                },
+            ],
+        });
+        context.SupplierProducts.Add(new SupplierProduct
+        {
+            Id = 10,
+            Supplier = 2,
+            Location = 4,
+            Product = 6,
+            Packaging = 7,
+            IsActive = true,
+        });
     }
 
     private static EcoGoodzIdentityDbContext CreateIdentityContext()
