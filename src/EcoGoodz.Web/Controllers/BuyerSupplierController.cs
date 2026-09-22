@@ -206,31 +206,213 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
         return RedirectToAction(nameof(Index));
     }
 
+    public async Task<IActionResult> SearchBuyers(string? q)
+    {
+        var query = Context.Buyers
+            .AsNoTracking()
+            .Where(b => b.IsActive == true);
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(b => b.Name != null && b.Name.Contains(q));
+        }
+
+        var results = await query
+            .OrderBy(b => b.Name)
+            .Take(50)
+            .Select(b => new { value = b.Id.ToString(), text = b.Name ?? "(unnamed buyer)" })
+            .ToListAsync();
+
+        return Json(results);
+    }
+
+    public async Task<IActionResult> SearchSuppliers(string? q)
+    {
+        var query = Context.Suppliers
+            .AsNoTracking()
+            .Where(s => s.IsActive == true);
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(s => s.Name != null && s.Name.Contains(q));
+        }
+
+        var results = await query
+            .OrderBy(s => s.Name)
+            .Take(50)
+            .Select(s => new { value = s.Id.ToString(), text = s.Name ?? "(unnamed supplier)" })
+            .ToListAsync();
+
+        return Json(results);
+    }
+
+    public async Task<IActionResult> SearchBuyerLocations(string? q)
+    {
+        var results = await SearchLocationsAsync(q, isBuyer: true);
+        return Json(results);
+    }
+
+    public async Task<IActionResult> SearchSupplierLocations(string? q)
+    {
+        var results = await SearchLocationsAsync(q, isBuyer: false);
+        return Json(results);
+    }
+
     private async Task PopulateOptionsAsync(BuyerSupplierFormViewModel model)
     {
-        model.BuyerOptions = await Context.Buyers
-            .Where(b => b.IsActive == true)
-            .OrderBy(b => b.Name)
-            .Select(b => new SelectListItem { Value = b.Id.ToString(), Text = b.Name })
-            .ToListAsync();
-        model.SupplierOptions = await Context.Suppliers
-            .Where(s => s.IsActive == true)
-            .OrderBy(s => s.Name)
-            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Name })
-            .ToListAsync();
-        model.BuyerLocationOptions = await Context.Locations
-            .Where(l => l.IsActive && l.IsBuyer == true)
-            .OrderBy(l => l.Location1)
-            .Select(l => new SelectListItem { Value = l.Id.ToString(), Text = l.Location1 })
-            .ToListAsync();
-        model.SupplierLocationOptions = await Context.Locations
-            .Where(l => l.IsActive && l.IsBuyer == false)
-            .OrderBy(l => l.Location1)
-            .Select(l => new SelectListItem { Value = l.Id.ToString(), Text = l.Location1 })
-            .ToListAsync();
+        model.BuyerOptions = await GetSelectedBuyerOptionsAsync(model.Buyer);
+        model.SupplierOptions = await GetSelectedSupplierOptionsAsync(model.Supplier);
+        model.BuyerLocationOptions = await GetSelectedLocationOptionsAsync(model.BuyerLocation);
+        model.SupplierLocationOptions = await GetSelectedLocationOptionsAsync(model.SupplierLocation);
         model.StatusOptions = await Context.SupplierBuyerStatuses
             .OrderBy(s => s.Status)
             .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Status })
             .ToListAsync();
+    }
+
+    private async Task<List<SelectListItem>> GetSelectedBuyerOptionsAsync(int? selectedId)
+    {
+        if (selectedId is null)
+        {
+            return [];
+        }
+
+        return await Context.Buyers
+            .AsNoTracking()
+            .Where(b => b.Id == selectedId)
+            .OrderBy(b => b.Name)
+            .Select(b => new SelectListItem { Value = b.Id.ToString(), Text = b.Name, Selected = true })
+            .ToListAsync();
+    }
+
+    private async Task<List<SelectListItem>> GetSelectedSupplierOptionsAsync(int? selectedId)
+    {
+        if (selectedId is null)
+        {
+            return [];
+        }
+
+        return await Context.Suppliers
+            .AsNoTracking()
+            .Where(s => s.Id == selectedId)
+            .OrderBy(s => s.Name)
+            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Name, Selected = true })
+            .ToListAsync();
+    }
+
+    private async Task<List<SelectListItem>> GetSelectedLocationOptionsAsync(int? selectedId)
+    {
+        if (selectedId is null)
+        {
+            return [];
+        }
+
+        var selectedLocations = await (
+                from location in Context.Locations.AsNoTracking()
+                join buyer in Context.Buyers.AsNoTracking() on location.ClientId equals buyer.Id into buyerJoin
+                from buyer in buyerJoin.DefaultIfEmpty()
+                join supplier in Context.Suppliers.AsNoTracking() on location.ClientId equals supplier.Id into supplierJoin
+                from supplier in supplierJoin.DefaultIfEmpty()
+                join state in Context.States.AsNoTracking() on location.State equals state.Id into stateJoin
+                from state in stateJoin.DefaultIfEmpty()
+                where location.Id == selectedId
+                select new
+                {
+                    location.Id,
+                    location.Location1,
+                    location.City,
+                    StateName = state != null ? state.StateName : null,
+                    ClientName = location.IsBuyer == true
+                        ? buyer != null ? buyer.Name : null
+                        : supplier != null ? supplier.Name : null,
+                })
+            .OrderBy(l => l.Location1)
+                .ToListAsync();
+
+        return selectedLocations
+                .Select(l => new SelectListItem
+                {
+                    Value = l.Id.ToString(),
+                    Text = FormatLocationLabel(l.Location1, l.ClientName, l.City, l.StateName),
+                Selected = true,
+            })
+                .ToList();
+    }
+
+    private async Task<List<SelectOption>> SearchLocationsAsync(string? q, bool isBuyer)
+    {
+        var query =
+            from location in Context.Locations.AsNoTracking()
+            join buyer in Context.Buyers.AsNoTracking() on location.ClientId equals buyer.Id into buyerJoin
+            from buyer in buyerJoin.DefaultIfEmpty()
+            join supplier in Context.Suppliers.AsNoTracking() on location.ClientId equals supplier.Id into supplierJoin
+            from supplier in supplierJoin.DefaultIfEmpty()
+            join state in Context.States.AsNoTracking() on location.State equals state.Id into stateJoin
+            from state in stateJoin.DefaultIfEmpty()
+            join country in Context.Countries.AsNoTracking() on location.Country equals country.Id into countryJoin
+            from country in countryJoin.DefaultIfEmpty()
+            where location.IsActive && location.IsBuyer == isBuyer
+            select new
+            {
+                location.Id,
+                location.Location1,
+                location.City,
+                StateName = state != null ? state.StateName : null,
+                CountryName = country != null ? country.CountryName : null,
+                ClientName = isBuyer
+                    ? buyer != null ? buyer.Name : null
+                    : supplier != null ? supplier.Name : null,
+            };
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(l =>
+                (l.Location1 != null && l.Location1.Contains(q))
+                || (l.ClientName != null && l.ClientName.Contains(q))
+                || (l.City != null && l.City.Contains(q))
+                || (l.StateName != null && l.StateName.Contains(q))
+                || (l.CountryName != null && l.CountryName.Contains(q)));
+        }
+
+        var locations = await query
+            .OrderBy(l => l.Location1)
+            .Take(50)
+            .ToListAsync();
+
+        return locations
+            .Select(l => new SelectOption
+            {
+                Value = l.Id.ToString(),
+                Text = FormatLocationLabel(l.Location1, l.ClientName, l.City, l.StateName),
+            })
+            .ToList();
+    }
+
+    private static string FormatLocationLabel(string? location, string? client, string? city, string? state)
+    {
+        var label = string.IsNullOrWhiteSpace(location) ? "(unnamed location)" : location.Trim();
+
+        if (!string.IsNullOrWhiteSpace(client))
+        {
+            label += " - " + client.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(city))
+        {
+            label += " - " + city.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(state))
+        {
+            label += ", " + state.Trim();
+        }
+
+        return label;
+    }
+
+    private sealed class SelectOption
+    {
+        public required string Value { get; init; }
+        public required string Text { get; init; }
     }
 }

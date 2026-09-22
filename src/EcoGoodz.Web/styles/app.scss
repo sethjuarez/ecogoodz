@@ -46,3 +46,36 @@
   font-variant-numeric: tabular-nums;
   font-family: var(--font-monospace);
 }
+
+.ts-wrapper .ts-control,
+.ts-wrapper.single.input-active .ts-control {
+  background: var(--tblr-bg-surface, #fff);
+  border-color: var(--tblr-border-color);
+  color: var(--tblr-body-color);
+}
+
+.ts-dropdown,
+.ts-dropdown.form-control,
+.ts-dropdown.form-select {
+  z-index: 1050;
+  background: var(--tblr-bg-surface, #fff);
+  border-color: var(--tblr-border-color);
+  color: var(--tblr-body-color);
+}
+
+.ts-dropdown .dropdown-input,
+.ts-dropdown .dropdown-input-wrap,
+.ts-dropdown .option {
+  background: var(--tblr-bg-surface, #fff);
+  color: var(--tblr-body-color);
+}
+
+.ts-dropdown .active {
+  background: var(--tblr-active-bg, #f3f4f6);
+  color: var(--tblr-body-color);
+}
+
+.ts-dropdown .no-results {
+  background: var(--tblr-bg-surface, #fff);
+  color: var(--tblr-secondary);
+}

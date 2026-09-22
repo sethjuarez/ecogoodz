@@ -4,8 +4,8 @@
   "description": "Build-time-only npm project: compiles the Tabler-based Sass theme into wwwroot/css. No runtime Node/JS dependency on the server.",
   "private": true,
   "scripts": {
-    "build:css": "sass styles/app.scss:wwwroot/css/app.css --load-path=node_modules --no-source-map --style=compressed",
-    "build:js": "node -e \"const fs=require('fs');fs.mkdirSync('wwwroot/js',{recursive:true});fs.cpSync('node_modules/@tabler/core/dist/js/tabler.min.js','wwwroot/js/tabler.min.js');fs.cpSync('node_modules/@tabler/core/dist/js/tabler.min.js.map','wwwroot/js/tabler.min.js.map');\"",
+    "build:css": "sass styles/app.scss:wwwroot/css/app.css --load-path=node_modules --no-source-map --style=compressed && node -e \"const fs=require('fs');fs.mkdirSync('wwwroot/css',{recursive:true});fs.cpSync('node_modules/tom-select/dist/css/tom-select.bootstrap5.min.css','wwwroot/css/tom-select.bootstrap5.min.css');\"",
+    "build:js": "node -e \"const fs=require('fs');fs.mkdirSync('wwwroot/js',{recursive:true});fs.cpSync('node_modules/@tabler/core/dist/js/tabler.min.js','wwwroot/js/tabler.min.js');fs.cpSync('node_modules/@tabler/core/dist/js/tabler.min.js.map','wwwroot/js/tabler.min.js.map');fs.cpSync('node_modules/tom-select/dist/js/tom-select.complete.min.js','wwwroot/js/tom-select.complete.min.js');\"",
     "build": "npm run build:css && npm run build:js",
     "watch:css": "sass --watch styles/app.scss:wwwroot/css/app.css --load-path=node_modules --style=expanded",
     "postinstall": "npm run build"
@@ -16,6 +16,7 @@
   "type": "commonjs",
   "dependencies": {
     "@tabler/core": "^1.5.1",
-    "sass": "^1.104.1"
+    "sass": "^1.104.1",
+    "tom-select": "^2.6.2"
   }
 }

@@ -13,6 +13,7 @@
         separate Bootstrap/site.css/tokens.css anymore; see styles/app.scss for the
         single source of truth on brand colors/fonts.
     -->
+    <link rel="stylesheet" href="~/css/tom-select.bootstrap5.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
 </head>
 <body>
@@ -114,6 +115,7 @@
     </div>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/js/tabler.min.js" asp-append-version="true"></script>
+    <script src="~/js/tom-select.complete.min.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
