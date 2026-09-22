@@ -26,8 +26,8 @@ modules that were already deferred or retired.
 | `SupplierController` | `SupplierController`, `SupplierProductController`, related child controllers | **Core complete; auxiliaries partial** | Supplier CRUD, detail page, products/locations/contacts/communications/notes links are rebuilt. Not rebuilt: favorites, status/substatus AJAX, supplier tracking wizard, add-new-buyer helper, packaging/product lookup helpers, report fragments, and last-five-load partials as standalone widgets. |
 | `ProductController` | `ProductController` | **Partial** | Product CRUD and parent category selection are rebuilt. Legacy separate parent-product create/edit endpoints are represented by one product form. Not rebuilt: markup color / margin-parameter matrix (`ProductMarkUpColor`) and its overlap validation. |
 | `PackageTypeController` | `PackageTypeController` | **Complete** | CRUD/list behavior is rebuilt; legacy DataTables JSON endpoint is replaced by paged server-rendered list. |
-| `LocationController` | `LocationController` | **Partial** | Location CRUD is rebuilt with buyer/supplier ownership and key fields. Not rebuilt: copy-from-existing-location workflow that clones contacts and buyer products, drayage/nearest-port/payment/status fields beyond the current form's core fields, and favorite handling. |
-| `ContactController` | `ContactController` | **Core complete; copy helper missing** | Contact CRUD and primary-contact invariant are rebuilt. Legacy `SetPrimaryContact` behavior is covered by create/edit primary flag. Not rebuilt: `CopyContact` helper for duplicating contacts across locations. |
+| `LocationController` | `LocationController` | **Core complete; extended fields partial** | Location CRUD and copy-from-existing-location workflow are rebuilt. Copy preserves hidden legacy logistics fields and clones non-dock contacts plus buyer products/packages. Some extended logistics fields are still not directly editable on the current form, and favorite handling is not rebuilt. |
+| `ContactController` | `ContactController` | **Complete for CRUD/copy** | Contact CRUD, primary-contact invariant, and legacy `CopyContact` behavior are rebuilt. `SetPrimaryContact` behavior is covered by create/edit primary flag. |
 | `CommunicationController` | `CommunicationController` | **Complete for CRUD** | Communication list/create/edit/deactivate is rebuilt for buyer/supplier clients. Legacy DataTables JSON endpoint is replaced by current list UI. Higher-level communication reports remain deferred in reporting. |
 | `NotesController` | `NoteController` | **Complete for CRUD** | Note list/create/edit/deactivate is rebuilt across supported scopes. Legacy DataTables JSON endpoint is replaced by current list UI. |
 | `TaskController` | `StaffTaskController` | **Partial** | Staff task create/edit/list/toggle done/deactivate is rebuilt. Not rebuilt: multi-assignee task creation/editing, per-user headline board AJAX endpoints, home-task partials, read/unread handling, and headline-specific task lists. |
@@ -61,24 +61,22 @@ core app" to "full 1:1 legacy parity":
    goal, company, email, and account-manager dashboard reports.
 2. **Product markup color/margin matrix**: legacy `ProductMarkUpColor` editing and
    conflict validation.
-3. **Location copy workflow**: copying contacts and buyer products from an
-   existing location into a new location.
-4. **Contact copy workflow**: duplicating a contact across locations.
-5. **Task board parity**: multi-assignee tasks, dedicated headline CRUD, per-user
+3. **Task board parity**: multi-assignee tasks, dedicated headline CRUD, per-user
    headline/task board AJAX views, and read/unread behavior.
-6. **Supplier/buyer tracking wizards**: legacy buyer/supplier tracking and
+4. **Supplier/buyer tracking wizards**: legacy buyer/supplier tracking and
    supplier-product-to-buyer wizard flows.
-7. **Bulk rate propagation/history surfaces**: supplier-rate propagation to tied
+5. **Bulk rate propagation/history surfaces**: supplier-rate propagation to tied
    buyer/supplier product rates, and explicit rate history tables.
-8. **Favorites/status helper workflows**: add-to-favorite and quick status/substatus
+6. **Favorites/status helper workflows**: add-to-favorite and quick status/substatus
    endpoints on buyer/supplier pages.
-9. **Load export and specialized lookup endpoints**: legacy export and account
+7. **Load export and specialized lookup endpoints**: legacy export and account
    manager-specific lookup helpers.
 
 ## Recommendation
 
 Do not treat the missing items above as bugs in the restored core app. Convert
 only staff-confirmed gaps into scoped issues, with the legacy controller/action
-names copied into the issue. The highest-risk parity candidates are the product
-markup matrix, location/contact copy workflows, and task multi-assignment because
-they are operational data-entry accelerators rather than broad reporting surfaces.
+names copied into the issue. The highest-risk parity candidates are now the task
+multi-assignment/headline board, product markup matrix, and rate propagation
+surfaces because they are operational data-entry accelerators rather than broad
+reporting surfaces.

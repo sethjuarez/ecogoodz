@@ -12,6 +12,7 @@
         <div class="col-auto ms-auto d-flex gap-2">
             <a asp-controller="Contact" asp-action="Index" asp-route-locationId="@Model.Id" class="btn">Contacts</a>
             <a asp-controller="Note" asp-action="Index" asp-route-scope="@(Model.ClientType == "Supplier" ? "SupplierLocation" : "BuyerLocation")" asp-route-id="@Model.Id" class="btn">Notes</a>
+            <a asp-action="Create" asp-route-copyFromId="@Model.Id" class="btn">Copy location</a>
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
             <a asp-action="Index" class="btn">Back to list</a>
         </div>

@@ -203,6 +203,53 @@ public class ContactController : Controller
         return RedirectToAction(nameof(Index), new { locationId = contact.Location });
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Copy(int id)
+    {
+        var source = await _context.Contacts
+            .AsNoTracking()
+            .Include(c => c.ContactNavigation)
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (source is null)
+        {
+            return NotFound();
+        }
+
+        var copy = new Contact
+        {
+            ClientId = source.ClientId,
+            IsBuyer = source.IsBuyer,
+            Location = source.Location,
+            IsPrimaryContact = false,
+            IsDockContact = source.IsDockContact,
+            IsActive = true,
+            CreateOn = DateTime.UtcNow,
+            CreatedBy = User.GetLegacyUserId(),
+            ContactNavigation = new ContactInformation
+            {
+                FirstName = source.ContactNavigation.FirstName,
+                LastName = source.ContactNavigation.LastName,
+                Title = source.ContactNavigation.Title,
+                Email = source.ContactNavigation.Email,
+                OfficePhone = source.ContactNavigation.OfficePhone,
+                CellPhone = source.ContactNavigation.CellPhone,
+                Address = source.ContactNavigation.Address,
+                City = source.ContactNavigation.City,
+                State = source.ContactNavigation.State,
+                Country = source.ContactNavigation.Country,
+                PinCode = source.ContactNavigation.PinCode,
+                IsActive = true,
+            },
+        };
+
+        _context.Contacts.Add(copy);
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index), new { locationId = source.Location });
+    }
+
     private async Task ValidateAndApplyLocationAsync(ContactFormViewModel model)
     {
         if (!model.LocationId.HasValue)

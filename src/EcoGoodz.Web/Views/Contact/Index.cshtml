@@ -63,7 +63,12 @@
                             }
                         </td>
                         <td class="text-end">
-                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm">Edit</a>
+                            <div class="d-flex justify-content-end gap-2">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm">Edit</a>
+                                <form asp-action="Copy" asp-route-id="@item.Id" method="post">
+                                    <button type="submit" class="btn btn-sm">Copy</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 }

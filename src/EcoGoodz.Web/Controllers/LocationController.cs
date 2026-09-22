@@ -166,9 +166,37 @@ public class LocationController : PagedListController<LocationController.Locatio
         return View(location);
     }
 
-    public async Task<IActionResult> Create()
+    public async Task<IActionResult> Create(int? copyFromId)
     {
         var model = new LocationFormViewModel();
+        if (copyFromId.HasValue)
+        {
+            var source = await Context.Locations.AsNoTracking().FirstOrDefaultAsync(l => l.Id == copyFromId.Value);
+            if (source is null)
+            {
+                return NotFound();
+            }
+
+            model = new LocationFormViewModel
+            {
+                CopyLocationId = source.Id,
+                CopyLocationName = source.Location1,
+                ClientType = source.IsBuyer == true ? BuyerClientType : source.IsBuyer == false ? SupplierClientType : null,
+                BuyerClientId = source.IsBuyer == true ? source.ClientId : null,
+                SupplierClientId = source.IsBuyer == false ? source.ClientId : null,
+                Country = source.Country,
+                State = source.State,
+                City = source.City,
+                Address = source.Address,
+                PinCode = source.PinCode,
+                DockHours = source.DockHours,
+                PaymentTerms = source.PaymentTerms,
+                BuyerStatus = source.BuyerStatus,
+                SupplierStatus = source.SupplierStatus,
+                IsActive = true,
+            };
+        }
+
         await PopulateOptionsAsync(model);
         return View(model);
     }
@@ -177,6 +205,8 @@ public class LocationController : PagedListController<LocationController.Locatio
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(LocationFormViewModel model)
     {
+        var copySource = await ValidateCopySourceAsync(model);
+
         if (!ModelState.IsValid)
         {
             await PopulateOptionsAsync(model);
@@ -195,15 +225,39 @@ public class LocationController : PagedListController<LocationController.Locatio
             PinCode = model.PinCode,
             DockHours = model.DockHours,
             PaymentTerms = model.PaymentTerms,
+            NpaymentTerms = copySource?.NpaymentTerms,
             BuyerStatus = model.BuyerStatus,
             SupplierStatus = model.SupplierStatus,
+            Drayage1 = copySource?.Drayage1,
+            Drayage2 = copySource?.Drayage2,
+            Drayage3 = copySource?.Drayage3,
+            NearestPort1 = copySource?.NearestPort1,
+            NearestPort2 = copySource?.NearestPort2,
+            NearestPort3 = copySource?.NearestPort3,
+            OtherStatus = copySource?.OtherStatus,
+            PictureLink = copySource?.PictureLink,
+            ScaleTickets = copySource?.ScaleTickets,
             IsActive = model.IsActive,
             CreateOn = DateTime.UtcNow,
             CreatedBy = User.GetLegacyUserId(),
         };
 
         Context.Locations.Add(location);
-        await Context.SaveChangesAsync();
+
+        if (Context.Database.IsRelational())
+        {
+            await using var transaction = await Context.Database.BeginTransactionAsync();
+            await Context.SaveChangesAsync();
+            await CopyLocationChildrenAsync(copySource, location);
+            await Context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        else
+        {
+            await Context.SaveChangesAsync();
+            await CopyLocationChildrenAsync(copySource, location);
+            await Context.SaveChangesAsync();
+        }
 
         return RedirectToAction(nameof(Index));
     }
@@ -348,4 +402,104 @@ public class LocationController : PagedListController<LocationController.Locatio
         model.ClientType == BuyerClientType ? model.BuyerClientId :
         model.ClientType == SupplierClientType ? model.SupplierClientId :
         null;
+
+    private async Task<Data.Models.Location?> ValidateCopySourceAsync(LocationFormViewModel model)
+    {
+        if (!model.CopyLocationId.HasValue)
+        {
+            return null;
+        }
+
+        var source = await Context.Locations.AsNoTracking().FirstOrDefaultAsync(l => l.Id == model.CopyLocationId.Value);
+        if (source is null)
+        {
+            ModelState.AddModelError(nameof(model.CopyLocationId), "Choose a valid location to copy.");
+            return null;
+        }
+
+        model.CopyLocationName = source.Location1;
+        if (source.IsBuyer != GetIsBuyer(model.ClientType) || source.ClientId != GetClientId(model))
+        {
+            ModelState.AddModelError(nameof(model.CopyLocationId), "The copied location must belong to the same buyer or supplier.");
+        }
+
+        return source;
+    }
+
+    private async Task CopyLocationChildrenAsync(Data.Models.Location? source, Data.Models.Location target)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        var userId = User.GetLegacyUserId();
+        var now = DateTime.UtcNow;
+
+        var contacts = await Context.Contacts
+            .AsNoTracking()
+            .Include(contact => contact.ContactNavigation)
+            .Where(contact => contact.Location == source.Id && contact.IsActive && contact.IsDockContact != true)
+            .ToListAsync();
+
+        foreach (var contact in contacts)
+        {
+            target.Contacts.Add(new Data.Models.Contact
+            {
+                ContactNavigation = new Data.Models.ContactInformation
+                {
+                    FirstName = contact.ContactNavigation.FirstName,
+                    LastName = contact.ContactNavigation.LastName,
+                    Title = contact.ContactNavigation.Title,
+                    Email = contact.ContactNavigation.Email,
+                    OfficePhone = contact.ContactNavigation.OfficePhone,
+                    CellPhone = contact.ContactNavigation.CellPhone,
+                    Address = contact.ContactNavigation.Address,
+                    City = contact.ContactNavigation.City,
+                    State = contact.ContactNavigation.State,
+                    Country = contact.ContactNavigation.Country,
+                    PinCode = contact.ContactNavigation.PinCode,
+                    IsActive = true,
+                },
+                ClientId = target.ClientId,
+                IsBuyer = target.IsBuyer,
+                IsPrimaryContact = contact.IsPrimaryContact,
+                IsDockContact = contact.IsDockContact,
+                IsActive = true,
+                CreateOn = now,
+                CreatedBy = userId,
+            });
+        }
+
+        if (target.IsBuyer != true)
+        {
+            return;
+        }
+
+        var buyerProducts = await Context.BuyerProducts
+            .AsNoTracking()
+            .Include(product => product.BuyerProductPackagings)
+            .Where(product => product.Location == source.Id && product.IsActive)
+            .ToListAsync();
+
+        foreach (var buyerProduct in buyerProducts)
+        {
+            target.BuyerProducts.Add(new Data.Models.BuyerProduct
+            {
+                Buyer = target.ClientId,
+                Product = buyerProduct.Product,
+                OtherProduct = buyerProduct.OtherProduct,
+                IsActive = true,
+                CreateOn = now,
+                CreatedBy = userId,
+                BuyerProductPackagings = buyerProduct.BuyerProductPackagings
+                    .Select(packaging => new Data.Models.BuyerProductPackaging
+                    {
+                        Packaging = packaging.Packaging,
+                        OtherPackaging = packaging.OtherPackaging,
+                    })
+                    .ToList(),
+            });
+        }
+    }
 }

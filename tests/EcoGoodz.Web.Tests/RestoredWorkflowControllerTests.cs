@@ -10,6 +10,7 @@ using EcoGoodz.Web.Models.BuyerSupplier;
 using EcoGoodz.Web.Models.Communication;
 using EcoGoodz.Web.Models.Contact;
 using EcoGoodz.Web.Models.Load;
+using EcoGoodz.Web.Models.Location;
 using EcoGoodz.Web.Models.Note;
 using EcoGoodz.Web.Models.Report;
 using EcoGoodz.Web.Models.StaffTask;
@@ -70,6 +71,163 @@ public class RestoredWorkflowControllerTests
         Assert.True(created.IsBuyer);
         Assert.Equal(99, created.CreatedBy);
         Assert.Equal("New", created.ContactNavigation.FirstName);
+    }
+
+    [Fact]
+    public async Task ContactCopy_DuplicatesContactAsNonPrimary()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 10, Name = "Buyer One", IsActive = true });
+        context.Locations.Add(new Location { Id = 20, Location1 = "Main Dock", ClientId = 10, IsBuyer = true, IsActive = true });
+        context.Contacts.Add(new Contact
+        {
+            Id = 30,
+            ClientId = 10,
+            Location = 20,
+            IsBuyer = true,
+            IsPrimaryContact = true,
+            IsDockContact = true,
+            IsActive = true,
+            ContactNavigation = new ContactInformation
+            {
+                Id = 31,
+                FirstName = "Existing",
+                LastName = "Primary",
+                Email = "existing@example.com",
+                OfficePhone = "555-0100",
+                IsActive = true,
+            },
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ContactController(context));
+
+        var result = await controller.Copy(30);
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Index", redirect.ActionName);
+        Assert.Equal(20, redirect.RouteValues!["locationId"]);
+
+        var copy = await context.Contacts
+            .Include(contact => contact.ContactNavigation)
+            .SingleAsync(contact => contact.Id != 30);
+        Assert.Equal(10, copy.ClientId);
+        Assert.Equal(20, copy.Location);
+        Assert.True(copy.IsBuyer);
+        Assert.False(copy.IsPrimaryContact);
+        Assert.True(copy.IsDockContact);
+        Assert.Equal(99, copy.CreatedBy);
+        Assert.Equal("Existing", copy.ContactNavigation.FirstName);
+        Assert.Equal("existing@example.com", copy.ContactNavigation.Email);
+        Assert.Equal("555-0100", copy.ContactNavigation.OfficePhone);
+    }
+
+    [Fact]
+    public async Task LocationCreate_WithCopySource_ClonesContactsAndBuyerProducts()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer", IsActive = true });
+        context.PackageTypes.Add(new PackageType { Id = 2, Type = "Bales", IsActive = true });
+        context.Products.Add(new Product { Id = 3, Name = "PET", IsActive = true });
+        context.Locations.Add(new Location
+        {
+            Id = 4,
+            ClientId = 1,
+            IsBuyer = true,
+            Location1 = "Source Dock",
+            DockHours = "8-5",
+            Drayage1 = 12.50m,
+            NearestPort1 = "Tacoma",
+            IsActive = true,
+            Contacts =
+            [
+                new Contact
+                {
+                    Id = 5,
+                    ClientId = 1,
+                    IsBuyer = true,
+                    IsPrimaryContact = true,
+                    IsDockContact = false,
+                    IsActive = true,
+                    ContactNavigation = new ContactInformation
+                    {
+                        Id = 6,
+                        FirstName = "Primary",
+                        LastName = "Contact",
+                        Email = "primary@example.com",
+                        IsActive = true,
+                    },
+                },
+                new Contact
+                {
+                    Id = 7,
+                    ClientId = 1,
+                    IsBuyer = true,
+                    IsDockContact = true,
+                    IsActive = true,
+                    ContactNavigation = new ContactInformation
+                    {
+                        Id = 8,
+                        FirstName = "Dock",
+                        IsActive = true,
+                    },
+                },
+            ],
+            BuyerProducts =
+            [
+                new BuyerProduct
+                {
+                    Id = 9,
+                    Buyer = 1,
+                    Product = 3,
+                    IsActive = true,
+                    BuyerProductPackagings =
+                    [
+                        new BuyerProductPackaging
+                        {
+                            Id = 10,
+                            Packaging = 2,
+                        },
+                    ],
+                },
+            ],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LocationController(context));
+
+        var result = await controller.Create(new LocationFormViewModel
+        {
+            Name = "Copied Dock",
+            CopyLocationId = 4,
+            ClientType = "Buyer",
+            BuyerClientId = 1,
+            DockHours = "7-3",
+            IsActive = true,
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var copied = await context.Locations
+            .Include(location => location.Contacts)
+                .ThenInclude(contact => contact.ContactNavigation)
+            .Include(location => location.BuyerProducts)
+                .ThenInclude(product => product.BuyerProductPackagings)
+            .SingleAsync(location => location.Id != 4);
+        Assert.Equal("Copied Dock", copied.Location1);
+        Assert.Equal("7-3", copied.DockHours);
+        Assert.Equal(12.50m, copied.Drayage1);
+        Assert.Equal("Tacoma", copied.NearestPort1);
+
+        var contact = Assert.Single(copied.Contacts);
+        Assert.Equal("Primary", contact.ContactNavigation.FirstName);
+        Assert.Equal("primary@example.com", contact.ContactNavigation.Email);
+        Assert.True(contact.IsPrimaryContact);
+        Assert.False(contact.IsDockContact);
+
+        var buyerProduct = Assert.Single(copied.BuyerProducts);
+        Assert.Equal(3, buyerProduct.Product);
+        Assert.Equal(99, buyerProduct.CreatedBy);
+        Assert.Equal(2, Assert.Single(buyerProduct.BuyerProductPackagings).Packaging);
     }
 
     [Fact]
