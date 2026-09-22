@@ -53,6 +53,10 @@
   letter-spacing: .04em;
 }
 
+.navbar-expand-md .navbar-collapse > .navbar-nav {
+  gap: .75rem;
+}
+
 .page-header {
   margin-top: .25rem;
 }
