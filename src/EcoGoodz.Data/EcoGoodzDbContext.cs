@@ -781,6 +781,8 @@ public partial class EcoGoodzDbContext : DbContext
 
             entity.ToTable("Location");
 
+            entity.Property<string>("CitySort").HasComputedColumnSql("CONVERT(nvarchar(450), [City])", stored: true);
+            entity.Property<string>("LocationSort").HasComputedColumnSql("CONVERT(nvarchar(450), [Location])", stored: true);
             entity.Property(e => e.CreateOn).HasColumnType("datetime");
             entity.Property(e => e.Drayage1).HasColumnType("decimal(18, 4)");
             entity.Property(e => e.Drayage2).HasColumnType("decimal(18, 4)");
@@ -861,6 +863,7 @@ public partial class EcoGoodzDbContext : DbContext
             entity.ToTable("PackageType");
 
             entity.Property(e => e.CreateOn).HasColumnType("datetime");
+            entity.Property<string>("TypeSort").HasComputedColumnSql("CONVERT(nvarchar(450), [Type])", stored: true);
             entity.Property(e => e.Type).HasMaxLength(100);
             entity.Property(e => e.UpdatedOn).HasColumnType("datetime");
         });
@@ -884,6 +887,7 @@ public partial class EcoGoodzDbContext : DbContext
             entity.ToTable("Product");
 
             entity.Property(e => e.CreateOn).HasColumnType("datetime");
+            entity.Property<string>("NameSort").HasComputedColumnSql("CONVERT(nvarchar(450), [Name])", stored: true);
             entity.Property(e => e.Name).HasMaxLength(100);
             entity.Property(e => e.UpdatedOn).HasColumnType("datetime");
         });

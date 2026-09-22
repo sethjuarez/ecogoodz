@@ -28,8 +28,11 @@ public class BuyerProductController : PagedListController<BuyerProductController
         {
             BuyerProduct = buyerProduct,
             BuyerName = buyer.Name,
+            BuyerNameSort = buyer != null ? EF.Property<string>(buyer, "NameSort") : null,
             LocationName = location.Location1,
+            LocationNameSort = location != null ? EF.Property<string>(location, "LocationSort") : null,
             ProductName = product.Name,
+            ProductNameSort = product != null ? EF.Property<string>(product, "NameSort") : null,
         };
 
     protected override IQueryable<BuyerProductRow> ApplySearch(IQueryable<BuyerProductRow> query, string searchTerm) =>
@@ -42,9 +45,9 @@ public class BuyerProductController : PagedListController<BuyerProductController
     protected override IReadOnlyDictionary<string, Expression<Func<BuyerProductRow, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<BuyerProductRow, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["buyer"] = r => r.BuyerName,
-            ["location"] = r => r.LocationName,
-            ["product"] = r => r.ProductName ?? r.BuyerProduct.OtherProduct,
+            ["buyer"] = r => r.BuyerNameSort,
+            ["location"] = r => r.LocationNameSort,
+            ["product"] = r => r.ProductNameSort ?? r.BuyerProduct.OtherProduct,
             ["active"] = r => r.BuyerProduct.IsActive,
         };
 
@@ -315,8 +318,11 @@ public class BuyerProductController : PagedListController<BuyerProductController
     {
         public required BuyerProduct BuyerProduct { get; init; }
         public string? BuyerName { get; init; }
+        public string? BuyerNameSort { get; init; }
         public string? LocationName { get; init; }
+        public string? LocationNameSort { get; init; }
         public string? ProductName { get; init; }
+        public string? ProductNameSort { get; init; }
     }
 
     private sealed record SelectOption(string Value, string Text);
