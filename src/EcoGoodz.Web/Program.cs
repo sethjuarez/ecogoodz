@@ -149,8 +149,20 @@ using (var scope = app.Services.CreateScope())
     await LegacyUserMigrator.MigrateAsync(scope.ServiceProvider);
 
     var legacyContext = scope.ServiceProvider.GetRequiredService<EcoGoodzDbContext>();
-    await LegacyDatabaseIndexes.EnsureAsync(legacyContext);
+    var indexLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("LegacyDatabaseIndexes");
+    await LegacyDatabaseIndexes.EnsureComputedColumnsAsync(legacyContext, indexLogger);
 }
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    _ = Task.Run(async () =>
+    {
+        using var indexScope = app.Services.CreateScope();
+        var legacyContext = indexScope.ServiceProvider.GetRequiredService<EcoGoodzDbContext>();
+        var indexLogger = indexScope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("LegacyDatabaseIndexes");
+        await LegacyDatabaseIndexes.EnsureIndexesAsync(legacyContext, indexLogger);
+    });
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
