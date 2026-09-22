@@ -1,0 +1,42 @@
+@model EcoGoodz.Web.Models.BuyerSupplier.BuyerSupplierFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<div class="mb-3">
+    <label asp-for="Buyer" class="form-label"></label>
+    <select asp-for="Buyer" asp-items="Model.BuyerOptions" class="form-select">
+        <option value="">-- choose buyer --</option>
+    </select>
+    <span asp-validation-for="Buyer" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="BuyerLocation" class="form-label"></label>
+    <select asp-for="BuyerLocation" asp-items="Model.BuyerLocationOptions" class="form-select">
+        <option value="">-- choose buyer location --</option>
+    </select>
+    <span asp-validation-for="BuyerLocation" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="Supplier" class="form-label"></label>
+    <select asp-for="Supplier" asp-items="Model.SupplierOptions" class="form-select">
+        <option value="">-- choose supplier --</option>
+    </select>
+    <span asp-validation-for="Supplier" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="SupplierLocation" class="form-label"></label>
+    <select asp-for="SupplierLocation" asp-items="Model.SupplierLocationOptions" class="form-select">
+        <option value="">-- choose supplier location --</option>
+    </select>
+    <span asp-validation-for="SupplierLocation" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="Status" class="form-label"></label>
+    <select asp-for="Status" asp-items="Model.StatusOptions" class="form-select">
+        <option value="">-- none --</option>
+    </select>
+    <span asp-validation-for="Status" class="text-danger"></span>
+</div>
+<label class="form-check form-switch mb-3">
+    <input asp-for="IsActive" class="form-check-input" type="checkbox" />
+    <span class="form-check-label">Active</span>
+</label>

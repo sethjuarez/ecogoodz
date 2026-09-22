@@ -1,0 +1,65 @@
+@model EcoGoodz.Web.Models.PackageType.PackageTypeDetailsViewModel
+@{
+    ViewData["Title"] = Model.Type;
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Package types</div>
+            <h2 class="page-title">@Model.Type</h2>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+<div class="row row-deck row-cards">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <div class="datagrid">
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Active</div>
+                        <div class="datagrid-content">
+                            @if (Model.IsActive)
+                            {
+                                <span class="badge bg-success-lt">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary-lt">Inactive</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Created</div>
+                        <div class="datagrid-content">@Model.CreateOn</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Updated</div>
+                        <div class="datagrid-content">@Model.UpdatedOn</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="text-secondary">Buyer products</div>
+                        <div class="h1 m-0">@Model.BuyerProductCount</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-secondary">Supplier products</div>
+                        <div class="h1 m-0">@Model.SupplierProductCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,90 @@
+@model EcoGoodz.Web.Models.Location.LocationFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<div class="row">
+    <div class="col-12 col-md-6 mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-6 mb-3">
+        <label asp-for="ClientType" class="form-label"></label>
+        <select asp-for="ClientType" asp-items="Model.ClientTypeOptions" class="form-select">
+            <option value="">-- no client --</option>
+        </select>
+        <span asp-validation-for="ClientType" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-6 mb-3">
+        <label asp-for="BuyerClientId" class="form-label"></label>
+        <select asp-for="BuyerClientId" asp-items="Model.BuyerOptions" class="form-select">
+            <option value="">-- choose buyer --</option>
+        </select>
+        <span asp-validation-for="BuyerClientId" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-6 mb-3">
+        <label asp-for="SupplierClientId" class="form-label"></label>
+        <select asp-for="SupplierClientId" asp-items="Model.SupplierOptions" class="form-select">
+            <option value="">-- choose supplier --</option>
+        </select>
+        <span asp-validation-for="SupplierClientId" class="text-danger"></span>
+    </div>
+    <div class="col-12 mb-3">
+        <label asp-for="Address" class="form-label"></label>
+        <input asp-for="Address" class="form-control" />
+        <span asp-validation-for="Address" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-4 mb-3">
+        <label asp-for="City" class="form-label"></label>
+        <input asp-for="City" class="form-control" />
+        <span asp-validation-for="City" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-4 mb-3">
+        <label asp-for="State" class="form-label"></label>
+        <select asp-for="State" asp-items="Model.StateOptions" class="form-select">
+            <option value="">-- none --</option>
+        </select>
+        <span asp-validation-for="State" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-4 mb-3">
+        <label asp-for="Country" class="form-label"></label>
+        <select asp-for="Country" asp-items="Model.CountryOptions" class="form-select">
+            <option value="">-- none --</option>
+        </select>
+        <span asp-validation-for="Country" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-6 mb-3">
+        <label asp-for="PinCode" class="form-label"></label>
+        <input asp-for="PinCode" class="form-control" />
+        <span asp-validation-for="PinCode" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-6 mb-3">
+        <label asp-for="DockHours" class="form-label"></label>
+        <input asp-for="DockHours" class="form-control" />
+        <span asp-validation-for="DockHours" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-4 mb-3">
+        <label asp-for="PaymentTerms" class="form-label"></label>
+        <select asp-for="PaymentTerms" asp-items="Model.PaymentTermOptions" class="form-select">
+            <option value="">-- none --</option>
+        </select>
+        <span asp-validation-for="PaymentTerms" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-4 mb-3">
+        <label asp-for="BuyerStatus" class="form-label"></label>
+        <select asp-for="BuyerStatus" asp-items="Model.BuyerStatusOptions" class="form-select">
+            <option value="">-- none --</option>
+        </select>
+        <span asp-validation-for="BuyerStatus" class="text-danger"></span>
+    </div>
+    <div class="col-12 col-md-4 mb-3">
+        <label asp-for="SupplierStatus" class="form-label"></label>
+        <select asp-for="SupplierStatus" asp-items="Model.SupplierStatusOptions" class="form-select">
+            <option value="">-- none --</option>
+        </select>
+        <span asp-validation-for="SupplierStatus" class="text-danger"></span>
+    </div>
+</div>
+<label class="form-check form-switch mb-3">
+    <input asp-for="IsActive" class="form-check-input" type="checkbox" />
+    <span class="form-check-label">Active</span>
+</label>

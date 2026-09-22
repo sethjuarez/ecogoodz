@@ -194,9 +194,8 @@ public class AccountController : Controller
         var resetUrl = Url.Action(nameof(ResetPassword), "Account",
             new { email = model.Email, t = encodedToken }, Request.Scheme);
 
-        // TODO: send resetUrl via the app's real email service once configured.
-        // For local/dev validation (no mail server wired up yet) the link is
-        // surfaced directly in the UI instead of emailed. Both conditions below
+        // For local/dev validation the link can be surfaced directly in the UI
+        // in addition to the real email send. Both conditions below
         // must hold - environment name alone is not trusted, since an accidental
         // "Development" value on the live server would otherwise let anyone take
         // over any migrated (passwordless) account instantly.
@@ -205,8 +204,7 @@ public class AccountController : Controller
             TempData["DevResetUrl"] = resetUrl;
         }
 
-        // Always attempt the real send too (this is the production path - the
-        // GoDaddy Reports@ecogoodz.com relay the legacy app already used). Failures
+        // Always attempt the real send too. Failures
         // are logged, not surfaced: the confirmation page must look identical
         // whether or not the account exists AND whether or not the send succeeded,
         // or the response itself becomes an enumeration/oracle signal.

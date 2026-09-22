@@ -1,0 +1,295 @@
+using System.Linq.Expressions;
+using EcoGoodz.Data;
+using EcoGoodz.Web.Controllers.Shared;
+using EcoGoodz.Web.Identity;
+using EcoGoodz.Web.Models.Location;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+
+namespace EcoGoodz.Web.Controllers;
+
+public class LocationController : PagedListController<LocationController.LocationRow, LocationListItemViewModel>
+{
+    private const string BuyerClientType = "Buyer";
+    private const string SupplierClientType = "Supplier";
+
+    public LocationController(EcoGoodzDbContext context) : base(context)
+    {
+    }
+
+    protected override IQueryable<LocationRow> GetBaseQuery() =>
+        from location in Context.Locations
+        join buyer in Context.Buyers on location.ClientId equals buyer.Id into buyerJoin
+        from buyer in buyerJoin.DefaultIfEmpty()
+        join supplier in Context.Suppliers on location.ClientId equals supplier.Id into supplierJoin
+        from supplier in supplierJoin.DefaultIfEmpty()
+        select new LocationRow
+        {
+            Location = location,
+            BuyerName = location.IsBuyer == true ? buyer.Name : null,
+            SupplierName = location.IsBuyer == false ? supplier.Name : null,
+        };
+
+    protected override IQueryable<LocationRow> ApplySearch(IQueryable<LocationRow> query, string searchTerm) =>
+        query.Where(r =>
+            (r.Location.Location1 != null && r.Location.Location1.Contains(searchTerm))
+            || (r.Location.City != null && r.Location.City.Contains(searchTerm))
+            || (r.Location.Address != null && r.Location.Address.Contains(searchTerm))
+            || (r.Location.StateNavigation != null && r.Location.StateNavigation.StateName != null && r.Location.StateNavigation.StateName.Contains(searchTerm))
+            || (r.Location.CountryNavigation != null && r.Location.CountryNavigation.CountryName != null && r.Location.CountryNavigation.CountryName.Contains(searchTerm))
+            || (r.BuyerName != null && r.BuyerName.Contains(searchTerm))
+            || (r.SupplierName != null && r.SupplierName.Contains(searchTerm)));
+
+    protected override IReadOnlyDictionary<string, Expression<Func<LocationRow, object?>>> SortColumns { get; } =
+        new Dictionary<string, Expression<Func<LocationRow, object?>>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["name"] = r => r.Location.Location1,
+            ["client"] = r => r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
+            ["city"] = r => r.Location.City,
+            ["state"] = r => r.Location.StateNavigation != null ? r.Location.StateNavigation.StateName : null,
+            ["country"] = r => r.Location.CountryNavigation != null ? r.Location.CountryNavigation.CountryName : null,
+            ["active"] = r => r.Location.IsActive,
+        };
+
+    protected override string DefaultSortColumn => "name";
+
+    protected override Expression<Func<LocationRow, LocationListItemViewModel>> ProjectionExpression =>
+        r => new LocationListItemViewModel
+        {
+            Id = r.Location.Id,
+            Name = r.Location.Location1 ?? string.Empty,
+            ClientName = r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
+            City = r.Location.City,
+            StateName = r.Location.StateNavigation != null ? r.Location.StateNavigation.StateName : null,
+            CountryName = r.Location.CountryNavigation != null ? r.Location.CountryNavigation.CountryName : null,
+            IsActive = r.Location.IsActive,
+        };
+
+    public sealed class LocationRow
+    {
+        public required Data.Models.Location Location { get; init; }
+        public string? BuyerName { get; init; }
+        public string? SupplierName { get; init; }
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        var location = await GetBaseQuery()
+            .Where(r => r.Location.Id == id)
+            .Select(r => new LocationDetailsViewModel
+            {
+                Id = r.Location.Id,
+                Name = r.Location.Location1 ?? string.Empty,
+                ClientType = r.Location.IsBuyer == true ? BuyerClientType : r.Location.IsBuyer == false ? SupplierClientType : null,
+                ClientName = r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
+                Address = r.Location.Address,
+                City = r.Location.City,
+                StateName = r.Location.StateNavigation != null ? r.Location.StateNavigation.StateName : null,
+                CountryName = r.Location.CountryNavigation != null ? r.Location.CountryNavigation.CountryName : null,
+                PinCode = r.Location.PinCode,
+                DockHours = r.Location.DockHours,
+                PaymentTermsName = r.Location.PaymentTermsNavigation != null ? r.Location.PaymentTermsNavigation.Term : null,
+                BuyerStatusName = r.Location.BuyerStatusNavigation != null ? r.Location.BuyerStatusNavigation.Status : null,
+                SupplierStatusName = r.Location.SupplierStatusNavigation != null ? r.Location.SupplierStatusNavigation.Status : null,
+                IsActive = r.Location.IsActive,
+                CreateOn = r.Location.CreateOn,
+                UpdatedOn = r.Location.UpdatedOn,
+                BuyerProductCount = r.Location.BuyerProducts.Count,
+                SupplierProductCount = r.Location.SupplierProducts.Count,
+                LoadCount = r.Location.LoadBuyerLocationNavigations.Count + r.Location.LoadSupplierLocationNavigations.Count,
+                MatchCount = r.Location.BuyerSupplierBuyerLocationNavigations.Count + r.Location.BuyerSupplierSupplierLocationNavigations.Count,
+            })
+            .FirstOrDefaultAsync();
+
+        if (location is null)
+        {
+            return NotFound();
+        }
+
+        return View(location);
+    }
+
+    public async Task<IActionResult> Create()
+    {
+        var model = new LocationFormViewModel();
+        await PopulateOptionsAsync(model);
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Create(LocationFormViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
+        var location = new Data.Models.Location
+        {
+            Location1 = model.Name,
+            IsBuyer = GetIsBuyer(model.ClientType),
+            ClientId = GetClientId(model),
+            Country = model.Country,
+            State = model.State,
+            City = model.City,
+            Address = model.Address,
+            PinCode = model.PinCode,
+            DockHours = model.DockHours,
+            PaymentTerms = model.PaymentTerms,
+            BuyerStatus = model.BuyerStatus,
+            SupplierStatus = model.SupplierStatus,
+            IsActive = model.IsActive,
+            CreateOn = DateTime.UtcNow,
+            CreatedBy = User.GetLegacyUserId(),
+        };
+
+        Context.Locations.Add(location);
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    public async Task<IActionResult> Edit(int id)
+    {
+        var location = await Context.Locations.FindAsync(id);
+        if (location is null)
+        {
+            return NotFound();
+        }
+
+        var model = new LocationFormViewModel
+        {
+            Id = location.Id,
+            Name = location.Location1 ?? string.Empty,
+            ClientType = location.IsBuyer == true ? BuyerClientType : location.IsBuyer == false ? SupplierClientType : null,
+            BuyerClientId = location.IsBuyer == true ? location.ClientId : null,
+            SupplierClientId = location.IsBuyer == false ? location.ClientId : null,
+            Country = location.Country,
+            State = location.State,
+            City = location.City,
+            Address = location.Address,
+            PinCode = location.PinCode,
+            DockHours = location.DockHours,
+            PaymentTerms = location.PaymentTerms,
+            BuyerStatus = location.BuyerStatus,
+            SupplierStatus = location.SupplierStatus,
+            IsActive = location.IsActive,
+        };
+
+        await PopulateOptionsAsync(model);
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Edit(int id, LocationFormViewModel model)
+    {
+        if (id != model.Id)
+        {
+            return NotFound();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
+        var location = await Context.Locations.FindAsync(id);
+        if (location is null)
+        {
+            return NotFound();
+        }
+
+        location.Location1 = model.Name;
+        location.IsBuyer = GetIsBuyer(model.ClientType);
+        location.ClientId = GetClientId(model);
+        location.Country = model.Country;
+        location.State = model.State;
+        location.City = model.City;
+        location.Address = model.Address;
+        location.PinCode = model.PinCode;
+        location.DockHours = model.DockHours;
+        location.PaymentTerms = model.PaymentTerms;
+        location.BuyerStatus = model.BuyerStatus;
+        location.SupplierStatus = model.SupplierStatus;
+        location.IsActive = model.IsActive;
+        location.UpdatedOn = DateTime.UtcNow;
+        location.UpdatedBy = User.GetLegacyUserId();
+
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Deactivate(int id)
+    {
+        var location = await Context.Locations.FindAsync(id);
+        if (location is null)
+        {
+            return NotFound();
+        }
+
+        location.IsActive = false;
+        location.UpdatedOn = DateTime.UtcNow;
+        location.UpdatedBy = User.GetLegacyUserId();
+
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    private async Task PopulateOptionsAsync(LocationFormViewModel model)
+    {
+        model.ClientTypeOptions = GetClientTypeOptions();
+        model.BuyerOptions = await Context.Buyers
+            .Where(b => b.IsActive == true)
+            .OrderBy(b => b.Name)
+            .Select(b => new SelectListItem { Value = b.Id.ToString(), Text = b.Name })
+            .ToListAsync();
+        model.SupplierOptions = await Context.Suppliers
+            .Where(s => s.IsActive == true)
+            .OrderBy(s => s.Name)
+            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Name })
+            .ToListAsync();
+        model.CountryOptions = await Context.Countries
+            .OrderBy(c => c.CountryName)
+            .Select(c => new SelectListItem { Value = c.Id.ToString(), Text = c.CountryName })
+            .ToListAsync();
+        model.StateOptions = await Context.States
+            .OrderBy(s => s.StateName)
+            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.StateName })
+            .ToListAsync();
+        model.PaymentTermOptions = await Context.PaymentTerms
+            .OrderBy(p => p.Term)
+            .Select(p => new SelectListItem { Value = p.Id.ToString(), Text = p.Term })
+            .ToListAsync();
+        model.BuyerStatusOptions = await Context.BuyerStatuses
+            .OrderBy(s => s.Status)
+            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Status })
+            .ToListAsync();
+        model.SupplierStatusOptions = await Context.SupplierStatuses
+            .OrderBy(s => s.Status)
+            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Status })
+            .ToListAsync();
+    }
+
+    private static IEnumerable<SelectListItem> GetClientTypeOptions()
+    {
+        yield return new SelectListItem { Value = BuyerClientType, Text = BuyerClientType };
+        yield return new SelectListItem { Value = SupplierClientType, Text = SupplierClientType };
+    }
+
+    private static bool? GetIsBuyer(string? clientType) =>
+        clientType == BuyerClientType ? true : clientType == SupplierClientType ? false : null;
+
+    private static int? GetClientId(LocationFormViewModel model) =>
+        model.ClientType == BuyerClientType ? model.BuyerClientId :
+        model.ClientType == SupplierClientType ? model.SupplierClientId :
+        null;
+}
