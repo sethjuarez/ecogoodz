@@ -1,0 +1,25 @@
+@model EcoGoodz.Web.Models.StaffTask.StaffTaskHeadlineFormViewModel
+@{
+    ViewData["Title"] = "Edit task headline";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Task headlines</div>
+            <h2 class="page-title">Edit task headline</h2>
+        </div>
+    </div>
+</div>
+
+<form asp-action="EditHeadline" asp-route-id="@Model.Id" method="post" class="card">
+    @await Html.PartialAsync("_HeadlineForm", Model)
+    <div class="card-footer text-end">
+        <a asp-action="Headlines" class="btn">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save changes</button>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

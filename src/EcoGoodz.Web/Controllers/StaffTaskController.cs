@@ -109,6 +109,203 @@ public class StaffTaskController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    public async Task<IActionResult> Headlines()
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        var headlines = await _context.TaskHeadlines
+            .Where(headline => headline.UserId == userId && headline.IsActive == true && headline.Headline != "Assigned")
+            .OrderByDescending(headline => headline.Id)
+            .Select(headline => new StaffTaskHeadlineListItemViewModel
+            {
+                Id = headline.Id,
+                Headline = headline.Headline ?? string.Empty,
+                OpenTaskCount = headline.AssignTasks.Count(task =>
+                    task.IsActive
+                    && task.Task != null
+                    && task.Task.IsActive
+                    && !task.IsDone
+                    && task.AssignedTo == userId),
+            })
+            .ToListAsync();
+
+        return View(headlines);
+    }
+
+    public IActionResult CreateHeadline()
+    {
+        return User.GetLegacyUserId() is null
+            ? Forbid()
+            : View(new StaffTaskHeadlineFormViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateHeadline(StaffTaskHeadlineFormViewModel model)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        if (IsReservedAssignedHeadline(model.Headline))
+        {
+            ModelState.AddModelError(nameof(model.Headline), "Assigned is a reserved task headline.");
+            return View(model);
+        }
+
+        var duplicate = await _context.TaskHeadlines.AnyAsync(headline =>
+            headline.UserId == userId
+            && headline.IsActive == true
+            && headline.Headline == model.Headline);
+        if (duplicate)
+        {
+            ModelState.AddModelError(nameof(model.Headline), "You already have a task headline with this name.");
+            return View(model);
+        }
+
+        _context.TaskHeadlines.Add(new TaskHeadline
+        {
+            UserId = userId,
+            Headline = model.Headline,
+            IsActive = true,
+            CreateOn = DateTime.UtcNow,
+            CreatedBy = userId,
+        });
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Headlines));
+    }
+
+    public async Task<IActionResult> EditHeadline(int id)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        var headline = await _context.TaskHeadlines
+            .AsNoTracking()
+            .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId && h.IsActive == true);
+
+        if (headline is null)
+        {
+            return NotFound();
+        }
+
+        return View(new StaffTaskHeadlineFormViewModel
+        {
+            Id = headline.Id,
+            Headline = headline.Headline ?? string.Empty,
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditHeadline(int id, StaffTaskHeadlineFormViewModel model)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        if (id != model.Id)
+        {
+            return NotFound();
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        if (IsReservedAssignedHeadline(model.Headline))
+        {
+            ModelState.AddModelError(nameof(model.Headline), "Assigned is a reserved task headline.");
+            return View(model);
+        }
+
+        var headline = await _context.TaskHeadlines
+            .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId && h.IsActive == true);
+        if (headline is null)
+        {
+            return NotFound();
+        }
+
+        var duplicate = await _context.TaskHeadlines.AnyAsync(existing =>
+            existing.Id != id
+            && existing.UserId == userId
+            && existing.IsActive == true
+            && existing.Headline == model.Headline);
+        if (duplicate)
+        {
+            ModelState.AddModelError(nameof(model.Headline), "You already have a task headline with this name.");
+            return View(model);
+        }
+
+        headline.Headline = model.Headline;
+        headline.UpdatedOn = DateTime.UtcNow;
+        headline.UpdatedBy = userId;
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Headlines));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeactivateHeadline(int id)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        var headline = await _context.TaskHeadlines
+            .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId && h.IsActive == true);
+        if (headline is null)
+        {
+            return NotFound();
+        }
+
+        var hasOpenTasks = await _context.AssignTasks.AnyAsync(task =>
+            task.TaskHeadline == id
+            && task.AssignedTo == userId
+            && task.IsActive
+            && task.Task != null
+            && task.Task.IsActive
+            && !task.IsDone);
+        if (hasOpenTasks)
+        {
+            TempData["Error"] = "Complete or move open tasks before deleting this headline.";
+            return RedirectToAction(nameof(Headlines));
+        }
+
+        headline.IsActive = false;
+        headline.UpdatedOn = DateTime.UtcNow;
+        headline.UpdatedBy = userId;
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Headlines));
+    }
+
+    private static bool IsReservedAssignedHeadline(string? headline)
+    {
+        return string.Equals(headline?.Trim(), "Assigned", StringComparison.OrdinalIgnoreCase);
+    }
+
     public async Task<IActionResult> Edit(int id)
     {
         var assignTask = await _context.AssignTasks

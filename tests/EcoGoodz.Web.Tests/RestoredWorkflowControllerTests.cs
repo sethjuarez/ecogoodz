@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -344,6 +345,160 @@ public class RestoredWorkflowControllerTests
         Assert.Equal([5, 6], task.AssignTasks.OrderBy(a => a.AssignedTo).Select(a => a.AssignedTo).ToList());
         Assert.All(task.AssignTasks, assignment => Assert.Equal("Assigned", context.TaskHeadlines.Single(h => h.Id == assignment.TaskHeadline).Headline));
         Assert.Equal(2, await context.TaskHeadlines.CountAsync(h => h.Headline == "Assigned"));
+    }
+
+    [Fact]
+    public async Task StaffTaskHeadlineCreate_AddsHeadlineForCurrentUser()
+    {
+        await using var context = CreateContext();
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = await controller.CreateHeadline(new StaffTaskHeadlineFormViewModel
+        {
+            Headline = "Follow-up",
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var headline = await context.TaskHeadlines.SingleAsync();
+        Assert.Equal("Follow-up", headline.Headline);
+        Assert.Equal(99, headline.UserId);
+        Assert.Equal(99, headline.CreatedBy);
+        Assert.True(headline.IsActive);
+    }
+
+    [Fact]
+    public async Task StaffTaskHeadlineCreate_RejectsReservedAssignedHeadline()
+    {
+        await using var context = CreateContext();
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = await controller.CreateHeadline(new StaffTaskHeadlineFormViewModel
+        {
+            Headline = " assigned ",
+        });
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Empty(context.TaskHeadlines);
+    }
+
+    [Fact]
+    public async Task StaffTaskHeadlines_ListsCurrentUserHeadlinesExcludingAssigned()
+    {
+        await using var context = CreateContext();
+        context.TaskHeadlines.AddRange(
+            new TaskHeadline { Id = 1, UserId = 99, Headline = "Assigned", IsActive = true },
+            new TaskHeadline { Id = 2, UserId = 99, Headline = "Calls", IsActive = true },
+            new TaskHeadline { Id = 3, UserId = 100, Headline = "Other user's calls", IsActive = true });
+        context.Tasks.AddRange(
+            new TaskItem
+            {
+                Id = 4,
+                Description = "Call buyer",
+                IsActive = true,
+                AssignTasks =
+                [
+                    new AssignTask { Id = 5, AssignedTo = 99, TaskHeadline = 2, IsActive = true, IsDone = false },
+                ],
+            },
+            new TaskItem
+            {
+                Id = 6,
+                Description = "Inactive parent task",
+                IsActive = false,
+                AssignTasks =
+                [
+                    new AssignTask { Id = 7, AssignedTo = 99, TaskHeadline = 2, IsActive = true, IsDone = false },
+                ],
+            });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Headlines());
+        var model = Assert.IsAssignableFrom<IReadOnlyList<StaffTaskHeadlineListItemViewModel>>(result.Model);
+
+        var headline = Assert.Single(model);
+        Assert.Equal("Calls", headline.Headline);
+        Assert.Equal(1, headline.OpenTaskCount);
+    }
+
+    [Fact]
+    public async Task StaffTaskHeadlineDeactivate_BlocksWhenOpenTasksExist()
+    {
+        await using var context = CreateContext();
+        context.TaskHeadlines.Add(new TaskHeadline { Id = 1, UserId = 99, Headline = "Calls", IsActive = true });
+        context.Tasks.Add(new TaskItem
+        {
+            Id = 2,
+            Description = "Call buyer",
+            IsActive = true,
+            AssignTasks =
+            [
+                new AssignTask
+                {
+                    Id = 3,
+                    AssignedTo = 99,
+                    TaskHeadline = 1,
+                    IsActive = true,
+                    IsDone = false,
+                },
+            ],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+        controller.TempData = new TempDataDictionary(new DefaultHttpContext(), new TestTempDataProvider());
+
+        var result = await controller.DeactivateHeadline(1);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.True((await context.TaskHeadlines.FindAsync(1))!.IsActive);
+        Assert.Equal("Complete or move open tasks before deleting this headline.", controller.TempData["Error"]);
+    }
+
+    [Fact]
+    public async Task StaffTaskHeadlineDeactivate_IgnoresInactiveParentTasks()
+    {
+        await using var context = CreateContext();
+        context.TaskHeadlines.Add(new TaskHeadline { Id = 1, UserId = 99, Headline = "Calls", IsActive = true });
+        context.Tasks.Add(new TaskItem
+        {
+            Id = 2,
+            Description = "Deleted task",
+            IsActive = false,
+            AssignTasks =
+            [
+                new AssignTask
+                {
+                    Id = 3,
+                    AssignedTo = 99,
+                    TaskHeadline = 1,
+                    IsActive = true,
+                    IsDone = false,
+                },
+            ],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = await controller.DeactivateHeadline(1);
+
+        Assert.IsType<RedirectToActionResult>(result);
+        Assert.False((await context.TaskHeadlines.FindAsync(1))!.IsActive);
+    }
+
+    [Fact]
+    public async Task StaffTaskHeadlineEdit_DoesNotAllowEditingAnotherUsersHeadline()
+    {
+        await using var context = CreateContext();
+        context.TaskHeadlines.Add(new TaskHeadline { Id = 1, UserId = 100, Headline = "Other user", IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        Assert.IsType<NotFoundResult>(await controller.EditHeadline(1));
     }
 
     [Fact]
@@ -801,5 +956,21 @@ public class RestoredWorkflowControllerTests
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) },
         };
         return controller;
+    }
+
+    private sealed class TestTempDataProvider : ITempDataProvider
+    {
+        private readonly Dictionary<string, object> _data = [];
+
+        public IDictionary<string, object> LoadTempData(HttpContext context) => _data;
+
+        public void SaveTempData(HttpContext context, IDictionary<string, object> values)
+        {
+            _data.Clear();
+            foreach (var value in values)
+            {
+                _data[value.Key] = value.Value;
+            }
+        }
     }
 }
