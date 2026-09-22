@@ -16,7 +16,7 @@ match.
 | Controller | Legacy size | What it does |
 |---|---|---|
 | `BuyerSupplierController` | 1447 lines / 27 actions | The buyer&lt;-&gt;supplier matching engine - assigns which suppliers serve which buyer (and vice versa) per location, sets/edits negotiated rates with markup, shows recent loads per match. This is the operational core; Load records reference these matches. |
-| `BuyerProductController` / `BuyerProductRateController` | 306 + 228 lines | First-pass buyer wanted-product CRUD is rebuilt. Buyer product rate history is still pending because rates attach to buyer/supplier product assignments rather than directly to `BuyerProduct`. |
+| `BuyerProductController` / `BuyerProductRateController` | 306 + 228 lines | First-pass buyer wanted-product CRUD is rebuilt. Buyer-side rates can now be added to products assigned on a buyer/supplier match. Full rate edit/delete history screens are still pending. |
 | `SupplierProductController` / `SupplierProductRateController` | 630 + 306 lines | First-pass supplier offered-product CRUD and supplier product rate history are rebuilt. Legacy wizard flows and buyer-assignment automation are intentionally deferred. |
 | `LocationController` | 202 lines | Already has a DbSet and is referenced heavily by Buyer/Supplier/Load - needs its own CRUD UI (currently only used as a dropdown source). |
 | `PackageTypeController` | 129 lines | Small reference/lookup table (used on Load/Product forms). |
@@ -82,8 +82,8 @@ accumulated many that were built once and never opened again.
 
 1. **Location + PackageType CRUD** (small, unblocks the rest of Tier 1's forms).
 2. **BuyerSupplier matching** (the biggest single win - the actual trading workflow).
-3. Finish buyer/supplier product assignment rates and decide whether the legacy
-   supplier-product-to-buyer wizard is still needed.
+3. Decide whether the legacy supplier-product-to-buyer wizard and full rate
+   edit/history screens are still needed.
 4. Revisit Tier 2 based on what the user says staff actually use day-to-day.
 5. Tier 3 reports - only after confirming with the user which ones matter; do not
    port all of them by default.

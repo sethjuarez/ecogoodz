@@ -16,6 +16,11 @@
     </div>
 </div>
 
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
 <div class="row row-deck row-cards">
     <div class="col-12 col-lg-8">
         <div class="card">
@@ -65,6 +70,57 @@
                 </div>
             </div>
         </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h3 class="card-title">Assigned products</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table card-table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Packaging</th>
+                            <th>Buyer rate</th>
+                            <th>Supplier rate</th>
+                            <th class="w-1">Add buyer rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Products.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-secondary py-4">No products assigned to this match yet.</td>
+                            </tr>
+                        }
+                        @foreach (var product in Model.Products)
+                        {
+                            <tr>
+                                <td>@product.ProductName</td>
+                                <td>@product.PackagingName</td>
+                                <td>
+                                    @product.BuyerPrice?.ToString("C")
+                                    <span class="text-secondary">@product.BuyerEffectiveDate?.ToString("yyyy-MM-dd")</span>
+                                </td>
+                                <td>
+                                    @product.SupplierPrice?.ToString("C")
+                                    <span class="text-secondary">@product.SupplierEffectiveDate?.ToString("yyyy-MM-dd")</span>
+                                </td>
+                                <td>
+                                    <form asp-action="AddProductRate" method="post" class="d-flex gap-2 align-items-start">
+                                        <input type="hidden" name="BuyerSupplierId" value="@Model.Id" />
+                                        <input type="hidden" name="BuyerSupplierProductId" value="@product.Id" />
+                                        <input class="form-control form-control-sm" name="Price" placeholder="Price" aria-label="Buyer price" />
+                                        <input class="form-control form-control-sm" name="EffectiveDate" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" aria-label="Effective date" />
+                                        <button type="submit" class="btn btn-sm">Add</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <div class="col-12 col-lg-4">
         <div class="card">
@@ -80,6 +136,36 @@
                     </div>
                 </div>
             </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h3 class="card-title">Assign product</h3>
+                </div>
+                <div class="card-body">
+                    <form asp-action="AddProduct" method="post">
+                        <input asp-for="NewProduct.BuyerSupplierId" name="BuyerSupplierId" type="hidden" value="@Model.Id" />
+                        <div class="mb-3">
+                            <label asp-for="NewProduct.SupplierProduct" class="form-label"></label>
+                            <select asp-for="NewProduct.SupplierProduct" name="SupplierProduct" asp-items="Model.NewProduct.SupplierProductOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchSupplierProducts", "BuyerSupplier", new { buyerSupplierId = Model.Id })">
+                                <option value="">-- choose supplier product --</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="NewProduct.Price" class="form-label"></label>
+                            <input asp-for="NewProduct.Price" name="Price" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="NewProduct.EffectiveDate" class="form-label"></label>
+                            <input asp-for="NewProduct.EffectiveDate" name="EffectiveDate" class="form-control" type="date" />
+                        </div>
+                        <button type="submit" class="btn btn-primary">Assign product</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
+
+    @section Scripts {
+        @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    }
 </div>

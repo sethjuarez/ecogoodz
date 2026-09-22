@@ -13,4 +13,6 @@ public class BuyerSupplierDetailsViewModel
     public DateTime? UpdatedOn { get; set; }
     public int ProductCount { get; set; }
     public int LoadCount { get; set; }
+    public IReadOnlyList<BuyerSupplierProductListItemViewModel> Products { get; set; } = [];
+    public BuyerSupplierProductFormViewModel NewProduct { get; set; } = new();
 }

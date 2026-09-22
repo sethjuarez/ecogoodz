@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using EcoGoodz.Data;
+using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.BuyerSupplier;
@@ -90,6 +91,53 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             && l.Supplier == matchKeys.Supplier
             && l.BuyerLocation == matchKeys.BuyerLocation
             && l.SupplierLocation == matchKeys.SupplierLocation);
+
+        match.Products = await Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product => product.BuyerSupplierId == id)
+            .Select(product => new BuyerSupplierProductListItemViewModel
+            {
+                Id = product.Id,
+                ProductName = product.SupplierProductNavigation != null && product.SupplierProductNavigation.ProductNavigation != null
+                    ? product.SupplierProductNavigation.ProductNavigation.Name ?? string.Empty
+                    : string.Empty,
+                PackagingName = product.SupplierProductNavigation != null
+                    ? product.SupplierProductNavigation.PackagingNavigation != null
+                        ? product.SupplierProductNavigation.PackagingNavigation.Type
+                        : product.SupplierProductNavigation.OtherPackaging
+                    : null,
+                BuyerPrice = product.BuyerProductRates
+                    .Where(rate => rate.IsActive)
+                    .OrderByDescending(rate => rate.EffectiveDate)
+                    .Select(rate => rate.Price)
+                    .FirstOrDefault(),
+                BuyerEffectiveDate = product.BuyerProductRates
+                    .Where(rate => rate.IsActive)
+                    .OrderByDescending(rate => rate.EffectiveDate)
+                    .Select(rate => rate.EffectiveDate)
+                    .FirstOrDefault(),
+                SupplierPrice = product.SupplierProductNavigation != null
+                    ? product.SupplierProductNavigation.SupplierProductRates
+                        .Where(rate => rate.IsActive)
+                        .OrderByDescending(rate => rate.EffectiveDate)
+                        .Select(rate => rate.Price)
+                        .FirstOrDefault()
+                    : null,
+                SupplierEffectiveDate = product.SupplierProductNavigation != null
+                    ? product.SupplierProductNavigation.SupplierProductRates
+                        .Where(rate => rate.IsActive)
+                        .OrderByDescending(rate => rate.EffectiveDate)
+                        .Select(rate => rate.EffectiveDate)
+                        .FirstOrDefault()
+                    : null,
+            })
+            .OrderBy(product => product.ProductName)
+            .ToListAsync();
+        match.NewProduct = new BuyerSupplierProductFormViewModel
+        {
+            BuyerSupplierId = id,
+            EffectiveDate = DateTime.Today,
+        };
 
         return View(match);
     }
@@ -256,6 +304,153 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
     {
         var results = await SearchLocationsAsync(q, isBuyer: false);
         return Json(results);
+    }
+
+    public async Task<IActionResult> SearchSupplierProducts(int buyerSupplierId, string? q)
+    {
+        var match = await Context.BuyerSuppliers
+            .AsNoTracking()
+            .Where(m => m.Id == buyerSupplierId)
+            .Select(m => new { m.Supplier, m.SupplierLocation })
+            .FirstOrDefaultAsync();
+
+        if (match is null)
+        {
+            return NotFound();
+        }
+
+        var assignedProductIds = Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product => product.BuyerSupplierId == buyerSupplierId)
+            .Select(product => product.SupplierProduct);
+
+        var query = Context.SupplierProducts
+            .AsNoTracking()
+            .Where(product =>
+                product.IsActive
+                && product.Supplier == match.Supplier
+                && product.Location == match.SupplierLocation
+                && !assignedProductIds.Contains(product.Id));
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(product =>
+                (product.ProductNavigation != null && product.ProductNavigation.Name != null && product.ProductNavigation.Name.Contains(q))
+                || (product.PackagingNavigation != null && product.PackagingNavigation.Type != null && product.PackagingNavigation.Type.Contains(q))
+                || (product.OtherPackaging != null && product.OtherPackaging.Contains(q)));
+        }
+
+        var results = await query
+            .OrderBy(product => product.ProductNavigation != null ? product.ProductNavigation.Name : null)
+            .ThenBy(product => product.PackagingNavigation != null ? product.PackagingNavigation.Type : product.OtherPackaging)
+            .Take(50)
+            .Select(product => new SelectOption
+            {
+                Value = product.Id.ToString(),
+                Text = ((product.ProductNavigation != null ? product.ProductNavigation.Name : null) ?? "(unnamed product)")
+                    + (product.PackagingNavigation != null && product.PackagingNavigation.Type != null
+                        ? " - " + product.PackagingNavigation.Type
+                        : product.OtherPackaging != null ? " - " + product.OtherPackaging : string.Empty),
+            })
+            .ToListAsync();
+
+        return Json(results);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddProduct(BuyerSupplierProductFormViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
+        }
+
+        var matchExists = await Context.BuyerSuppliers.AnyAsync(m => m.Id == model.BuyerSupplierId);
+        if (!matchExists)
+        {
+            return NotFound();
+        }
+
+        var duplicateAssignment = await Context.BuyerSupplierProducts.AnyAsync(product =>
+            product.BuyerSupplierId == model.BuyerSupplierId
+            && product.SupplierProduct == model.SupplierProduct);
+
+        if (duplicateAssignment)
+        {
+            TempData["Error"] = "That supplier product is already assigned to this match.";
+            return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
+        }
+
+        var assignment = new BuyerSupplierProduct
+        {
+            BuyerSupplierId = model.BuyerSupplierId,
+            SupplierProduct = model.SupplierProduct,
+            CreateOn = DateTime.UtcNow,
+            CreatedBy = User.GetLegacyUserId(),
+        };
+
+        Context.BuyerSupplierProducts.Add(assignment);
+        await Context.SaveChangesAsync();
+
+        Context.BuyerProductRates.Add(new BuyerProductRate
+        {
+            BuyerSupplierProductId = assignment.Id,
+            Price = model.Price,
+            EffectiveDate = model.EffectiveDate,
+            CreatedDate = DateTime.UtcNow,
+            UserId = User.GetLegacyUserId(),
+            IsActive = true,
+        });
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddProductRate(BuyerProductRateFormViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
+        }
+
+        var assignment = await Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(product =>
+                product.Id == model.BuyerSupplierProductId
+                && product.BuyerSupplierId == model.BuyerSupplierId);
+
+        if (assignment is null)
+        {
+            return NotFound();
+        }
+
+        var duplicateRate = await Context.BuyerProductRates.AnyAsync(rate =>
+            rate.BuyerSupplierProductId == model.BuyerSupplierProductId
+            && rate.EffectiveDate.HasValue
+            && model.EffectiveDate.HasValue
+            && rate.EffectiveDate.Value.Date == model.EffectiveDate.Value.Date);
+
+        if (duplicateRate)
+        {
+            TempData["Error"] = "A buyer rate already exists for that effective date.";
+            return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
+        }
+
+        Context.BuyerProductRates.Add(new BuyerProductRate
+        {
+            BuyerSupplierProductId = model.BuyerSupplierProductId,
+            Price = model.Price,
+            EffectiveDate = model.EffectiveDate,
+            CreatedDate = DateTime.UtcNow,
+            UserId = User.GetLegacyUserId(),
+            IsActive = true,
+        });
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
     }
 
     private async Task PopulateOptionsAsync(BuyerSupplierFormViewModel model)
