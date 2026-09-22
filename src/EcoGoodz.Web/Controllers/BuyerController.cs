@@ -3,6 +3,7 @@ using EcoGoodz.Data;
 using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Buyer;
+using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -45,6 +46,52 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
                 : null,
             IsActive = b.IsActive ?? false,
         };
+
+    public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
+    {
+        if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
+        {
+            return await base.Index(search, sort, desc, page, pageSize);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await Context.Buyers.AsNoTracking().CountAsync();
+        var pageBuyers = Context.Buyers
+            .AsNoTracking()
+            .OrderBy(buyer => buyer.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
+
+        var items = await (
+                from buyer in pageBuyers
+                join accountManager in Context.Users.AsNoTracking() on buyer.AccountManager equals accountManager.Id into accountManagerJoin
+                from accountManager in accountManagerJoin.DefaultIfEmpty()
+                orderby buyer.Id
+                select new BuyerListItemViewModel
+                {
+                    Id = buyer.Id,
+                    Name = buyer.Name ?? string.Empty,
+                    AccountManagerName = accountManager != null
+                        ? accountManager.FirstName + " " + accountManager.LastName
+                        : null,
+                    IsActive = buyer.IsActive ?? false,
+                })
+            .ToListAsync();
+
+        return View("Index", new PagedResult<BuyerListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+            },
+        });
+    }
 
     public async Task<IActionResult> Details(int id)
     {

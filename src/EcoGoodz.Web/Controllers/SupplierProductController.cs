@@ -3,6 +3,7 @@ using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
+using EcoGoodz.Web.Models.Shared;
 using EcoGoodz.Web.Models.SupplierProduct;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -75,6 +76,68 @@ public class SupplierProductController : PagedListController<SupplierProductCont
                 .FirstOrDefault(),
             IsActive = r.SupplierProduct.IsActive,
         };
+
+    public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
+    {
+        if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
+        {
+            return await base.Index(search, sort, desc, page, pageSize);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await Context.SupplierProducts.AsNoTracking().CountAsync();
+        var pageSupplierProducts = Context.SupplierProducts
+            .AsNoTracking()
+            .OrderBy(supplierProduct => supplierProduct.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
+
+        var items = await (
+                from supplierProduct in pageSupplierProducts
+                join supplier in Context.Suppliers.AsNoTracking() on supplierProduct.Supplier equals supplier.Id into supplierJoin
+                from supplier in supplierJoin.DefaultIfEmpty()
+                join location in Context.Locations.AsNoTracking() on supplierProduct.Location equals location.Id into locationJoin
+                from location in locationJoin.DefaultIfEmpty()
+                join product in Context.Products.AsNoTracking() on supplierProduct.Product equals product.Id into productJoin
+                from product in productJoin.DefaultIfEmpty()
+                join packaging in Context.PackageTypes.AsNoTracking() on supplierProduct.Packaging equals packaging.Id into packagingJoin
+                from packaging in packagingJoin.DefaultIfEmpty()
+                orderby supplierProduct.Id
+                select new SupplierProductListItemViewModel
+                {
+                    Id = supplierProduct.Id,
+                    SupplierName = supplier.Name ?? string.Empty,
+                    LocationName = location.Location1 ?? string.Empty,
+                    ProductName = product.Name ?? string.Empty,
+                    PackagingName = packaging.Type ?? supplierProduct.OtherPackaging,
+                    CurrentPrice = supplierProduct.SupplierProductRates
+                        .Where(rate => rate.IsActive)
+                        .OrderByDescending(rate => rate.EffectiveDate)
+                        .Select(rate => rate.Price)
+                        .FirstOrDefault(),
+                    CurrentEffectiveDate = supplierProduct.SupplierProductRates
+                        .Where(rate => rate.IsActive)
+                        .OrderByDescending(rate => rate.EffectiveDate)
+                        .Select(rate => rate.EffectiveDate)
+                        .FirstOrDefault(),
+                    IsActive = supplierProduct.IsActive,
+                })
+            .ToListAsync();
+
+        return View("Index", new PagedResult<SupplierProductListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+            },
+        });
+    }
 
     public async Task<IActionResult> Details(int id)
     {
