@@ -1512,6 +1512,42 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task LoadSupplierAccountManagerLookup_ReturnsLocationsAndManager()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new User { Id = 99, FirstName = "Ava", LastName = "Manager", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 3, Name = "Supplier", AccountManager = 99, IsActive = true });
+        context.SupplierStatuses.AddRange(
+            new SupplierStatus { Id = 1, Status = "Parent" },
+            new SupplierStatus { Id = 2, Status = "Supplier Parent" },
+            new SupplierStatus { Id = 3, Status = "Approved", ParentStatusId = 2 },
+            new SupplierStatus { Id = 4, Status = "Dormant", ParentStatusId = 4 });
+        context.Locations.AddRange(
+            new Location { Id = 5, ClientId = 3, IsBuyer = false, SupplierStatus = 3, Location1 = "Approved Dock", IsActive = true },
+            new Location { Id = 6, ClientId = 3, IsBuyer = false, SupplierStatus = 4, Location1 = "Dormant Dock", IsActive = true },
+            new Location { Id = 7, ClientId = 3, IsBuyer = true, SupplierStatus = 3, Location1 = "Buyer Dock", IsActive = true },
+            new Location { Id = 8, ClientId = 3, IsBuyer = false, SupplierStatus = 2, Location1 = "Parent Status Dock", IsActive = true },
+            new Location { Id = 9, ClientId = 3, IsBuyer = null, SupplierStatus = 3, Location1 = "Null Side Dock", IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+
+        var result = Assert.IsType<JsonResult>(await controller.GetLoadBySupplierAcctMgr(3));
+        var value = result.Value!;
+        Assert.Equal(99, value.GetType().GetProperty("accountmgrID")!.GetValue(value));
+
+        var locations = Assert.IsAssignableFrom<IEnumerable<object>>(value.GetType().GetProperty("locationList")!.GetValue(value)).ToList();
+        Assert.Equal(2, locations.Count);
+        Assert.Equal([5, 9], locations.Select(location => location.GetType().GetProperty("id")!.GetValue(location)).ToList());
+        Assert.Equal(["Approved Dock", "Null Side Dock"], locations.Select(location => location.GetType().GetProperty("text")!.GetValue(location)).ToList());
+
+        var managers = Assert.IsAssignableFrom<IEnumerable<object>>(value.GetType().GetProperty("supplierAccountManagerList")!.GetValue(value));
+        var manager = Assert.Single(managers);
+        Assert.Equal(99, manager.GetType().GetProperty("id")!.GetValue(manager));
+        Assert.Equal("Ava Manager", manager.GetType().GetProperty("text")!.GetValue(manager));
+    }
+
+    [Fact]
     public async Task StaffUserCreate_AddsLegacyUserAndDefaultTaskHeadlines()
     {
         await using var context = CreateContext();

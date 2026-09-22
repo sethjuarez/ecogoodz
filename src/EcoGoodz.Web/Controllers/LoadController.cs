@@ -216,6 +216,55 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         return File(bytes, "text/csv", "loads.csv");
     }
 
+    public async Task<IActionResult> GetLoadBySupplierAcctMgr(int id)
+    {
+        var supplier = await Context.Suppliers
+            .AsNoTracking()
+            .Where(supplier => supplier.Id == id)
+            .Select(supplier => new
+            {
+                supplier.Id,
+                supplier.AccountManager,
+            })
+            .FirstOrDefaultAsync();
+        if (supplier is null)
+        {
+            return NotFound();
+        }
+
+        var locationList = await Context.Locations
+            .AsNoTracking()
+            .Where(location =>
+                location.ClientId == supplier.Id
+                && location.IsActive
+                && (location.IsBuyer == false || location.IsBuyer == null)
+                && location.SupplierStatus != null
+                && location.SupplierStatusNavigation != null
+                && location.SupplierStatusNavigation.ParentStatusId == 2)
+            .OrderBy(location => location.Location1)
+            .Select(location => new { id = location.Id, text = location.Location1 })
+            .ToListAsync();
+
+        var supplierAccountManagerList = await Context.Users
+            .AsNoTracking()
+            .Where(user => supplier.AccountManager != null && user.Id == supplier.AccountManager)
+            .OrderBy(user => user.FirstName)
+            .ThenBy(user => user.LastName)
+            .Select(user => new
+            {
+                id = user.Id,
+                text = user.FirstName == user.LastName ? user.FirstName : user.FirstName + " " + user.LastName,
+            })
+            .ToListAsync();
+
+        return Json(new
+        {
+            locationList,
+            supplierAccountManagerList,
+            accountmgrID = supplier.AccountManager,
+        });
+    }
+
     public async Task<IActionResult> Create()
     {
         var model = new LoadFormViewModel();
