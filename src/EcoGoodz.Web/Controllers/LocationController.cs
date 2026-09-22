@@ -3,6 +3,7 @@ using EcoGoodz.Data;
 using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Location;
+using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -71,6 +72,61 @@ public class LocationController : PagedListController<LocationController.Locatio
         public required Data.Models.Location Location { get; init; }
         public string? BuyerName { get; init; }
         public string? SupplierName { get; init; }
+    }
+
+    public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
+    {
+        if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
+        {
+            return await base.Index(search, sort, desc, page, pageSize);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await Context.Locations.AsNoTracking().CountAsync();
+        var pageLocations = Context.Locations
+            .AsNoTracking()
+            .OrderBy(location => location.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
+
+        var items = await (
+                from location in pageLocations
+                join buyer in Context.Buyers.AsNoTracking() on location.ClientId equals buyer.Id into buyerJoin
+                from buyer in buyerJoin.DefaultIfEmpty()
+                join supplier in Context.Suppliers.AsNoTracking() on location.ClientId equals supplier.Id into supplierJoin
+                from supplier in supplierJoin.DefaultIfEmpty()
+                join state in Context.States.AsNoTracking() on location.State equals state.Id into stateJoin
+                from state in stateJoin.DefaultIfEmpty()
+                join country in Context.Countries.AsNoTracking() on location.Country equals country.Id into countryJoin
+                from country in countryJoin.DefaultIfEmpty()
+                orderby location.Id
+                select new LocationListItemViewModel
+                {
+                    Id = location.Id,
+                    Name = location.Location1 ?? string.Empty,
+                    ClientName = location.IsBuyer == true
+                        ? buyer.Name
+                        : location.IsBuyer == false ? supplier.Name : null,
+                    City = location.City,
+                    StateName = state.StateName,
+                    CountryName = country.CountryName,
+                    IsActive = location.IsActive,
+                })
+            .ToListAsync();
+
+        return View("Index", new PagedResult<LocationListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+            },
+        });
     }
 
     public async Task<IActionResult> Details(int id)
