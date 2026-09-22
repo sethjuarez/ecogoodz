@@ -5,7 +5,7 @@
     // Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "..." })
     var placeholder = ViewData["Placeholder"] as string ?? "Search…";
 }
-<form method="get" class="d-flex" role="search">
+<form method="get" class="list-search-form" role="search">
     @* Preserve sort state across a new search; page always resets to 1 by omission. *@
     @if (!string.IsNullOrWhiteSpace(Model.SortColumn))
     {
@@ -19,5 +19,13 @@
     {
         <input type="hidden" name="pageSize" value="@Model.PageSize" />
     }
-    <input type="search" name="search" value="@Model.SearchTerm" class="form-control" placeholder="@placeholder" aria-label="@placeholder" />
+    <div class="input-icon">
+        <span class="input-icon-addon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+                <path d="M21 21l-6 -6" />
+            </svg>
+        </span>
+        <input type="search" name="search" value="@Model.SearchTerm" class="form-control" placeholder="@placeholder" aria-label="@placeholder" />
+    </div>
 </form>

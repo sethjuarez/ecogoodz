@@ -21,7 +21,7 @@
     <div class="alert alert-danger">@error</div>
 }
 
-<div class="row row-deck row-cards">
+<div class="row row-cards">
     <div class="col-12 col-lg-8">
         <div class="card">
             <div class="card-body">
@@ -83,7 +83,7 @@
                             <th>Packaging</th>
                             <th>Buyer rate</th>
                             <th>Supplier rate</th>
-                            <th class="w-1">Add buyer rate</th>
+                            <th class="w-1">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -106,15 +106,8 @@
                                     @product.SupplierPrice?.ToString("C")
                                     <span class="text-secondary">@product.SupplierEffectiveDate?.ToString("yyyy-MM-dd")</span>
                                 </td>
-                                <td>
-                                    <form asp-action="AddProductRate" method="post" class="d-flex gap-2 align-items-start">
-                                        <input type="hidden" name="BuyerSupplierId" value="@Model.Id" />
-                                        <input type="hidden" name="BuyerSupplierProductId" value="@product.Id" />
-                                        <input class="form-control form-control-sm" name="Price" placeholder="Price" aria-label="Buyer price" />
-                                        <input class="form-control form-control-sm" name="EffectiveDate" type="date" value="@DateTime.Today.ToString("yyyy-MM-dd")" aria-label="Effective date" />
-                                        <button type="submit" class="btn btn-sm">Add</button>
-                                    </form>
-                                    <a asp-action="ProductDetails" asp-route-id="@product.Id" class="btn btn-sm btn-link px-0">History</a>
+                                <td class="text-end">
+                                    <a asp-action="ProductDetails" asp-route-id="@product.Id" class="btn btn-sm">Rates</a>
                                 </td>
                             </tr>
                         }
@@ -137,31 +130,31 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h3 class="card-title">Assign product</h3>
-                </div>
-                <div class="card-body">
-                    <form asp-action="AddProduct" method="post">
-                        <input asp-for="NewProduct.BuyerSupplierId" name="BuyerSupplierId" type="hidden" value="@Model.Id" />
-                        <div class="mb-3">
-                            <label asp-for="NewProduct.SupplierProduct" class="form-label"></label>
-                            <select asp-for="NewProduct.SupplierProduct" name="SupplierProduct" asp-items="Model.NewProduct.SupplierProductOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchSupplierProducts", "BuyerSupplier", new { buyerSupplierId = Model.Id })">
-                                <option value="">-- choose supplier product --</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label asp-for="NewProduct.Price" class="form-label"></label>
-                            <input asp-for="NewProduct.Price" name="Price" class="form-control" />
-                        </div>
-                        <div class="mb-3">
-                            <label asp-for="NewProduct.EffectiveDate" class="form-label"></label>
-                            <input asp-for="NewProduct.EffectiveDate" name="EffectiveDate" class="form-control" type="date" />
-                        </div>
-                        <button type="submit" class="btn btn-primary">Assign product</button>
-                    </form>
-                </div>
+        <div class="card mt-3">
+            <div class="card-header">
+                <h3 class="card-title">Assign product</h3>
+            </div>
+            <div class="card-body">
+                <form asp-action="AddProduct" method="post">
+                    <input asp-for="NewProduct.BuyerSupplierId" name="BuyerSupplierId" type="hidden" value="@Model.Id" />
+                    <div class="mb-3">
+                        <label asp-for="NewProduct.SupplierProduct" class="form-label"></label>
+                        <select asp-for="NewProduct.SupplierProduct" name="SupplierProduct" asp-items="Model.NewProduct.SupplierProductOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchSupplierProducts", "BuyerSupplier", new { buyerSupplierId = Model.Id })">
+                            <option value="">-- choose supplier product --</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="NewProduct.Price" class="form-label"></label>
+                        <input asp-for="NewProduct.Price" name="Price" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="NewProduct.EffectiveDate" class="form-label"></label>
+                        <input asp-for="NewProduct.EffectiveDate" name="EffectiveDate" class="form-control" type="date" />
+                    </div>
+                    <button type="submit" class="btn btn-primary">Assign product</button>
+                </form>
             </div>
         </div>
     </div>
