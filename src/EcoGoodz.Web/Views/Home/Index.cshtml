@@ -6,6 +6,7 @@
 <div class="page-header d-print-none mb-3">
     <div class="row g-2 align-items-center">
         <div class="col">
+            <div class="page-pretitle">Operations workspace</div>
             <h2 class="page-title">Dashboard</h2>
             <div class="text-secondary mt-1">Welcome back — here's what's moving right now.</div>
         </div>
@@ -14,55 +15,103 @@
 
 <div class="row row-deck row-cards mb-3">
     <div class="col-sm-6 col-lg-3">
-        <div class="card">
+        <div class="card eg-metric-card">
             <div class="card-body">
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center justify-content-between">
                     <div class="subheader">Active buyers</div>
+                    <span class="eg-icon-bubble" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><path d="M9 7a4 4 0 1 0 0 8" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                    </span>
                 </div>
                 <div class="h1 mb-0">@Model.ActiveBuyerCount</div>
-                <a asp-controller="Buyer" asp-action="Index" class="stretched-link"></a>
+                <div class="text-secondary small">Companies buying material</div>
+                <a asp-controller="Buyer" asp-action="Index" class="stretched-link" aria-label="Open buyers"></a>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card">
+        <div class="card eg-metric-card">
             <div class="card-body">
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center justify-content-between">
                     <div class="subheader">Active suppliers</div>
+                    <span class="eg-icon-bubble" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18" /><path d="M5 7l1 12h12l1-12" /><path d="M9 7V4h6v3" /></svg>
+                    </span>
                 </div>
                 <div class="h1 mb-0">@Model.ActiveSupplierCount</div>
-                <a asp-controller="Supplier" asp-action="Index" class="stretched-link"></a>
+                <div class="text-secondary small">Sources ready to ship</div>
+                <a asp-controller="Supplier" asp-action="Index" class="stretched-link" aria-label="Open suppliers"></a>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card">
+        <div class="card eg-metric-card">
             <div class="card-body">
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center justify-content-between">
                     <div class="subheader">Active products</div>
+                    <span class="eg-icon-bubble" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" /><path d="M12 12v9" /><path d="m4 7.5 8 4.5 8-4.5" /></svg>
+                    </span>
                 </div>
                 <div class="h1 mb-0">@Model.ActiveProductCount</div>
-                <a asp-controller="Product" asp-action="Index" class="stretched-link"></a>
+                <div class="text-secondary small">Catalog items in use</div>
+                <a asp-controller="Product" asp-action="Index" class="stretched-link" aria-label="Open products"></a>
             </div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
-        <div class="card">
+        <div class="card eg-metric-card">
             <div class="card-body">
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center justify-content-between">
                     <div class="subheader">Active loads</div>
+                    <span class="eg-icon-bubble" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v8H3z" /><path d="M14 10h4l3 3v2h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></svg>
+                    </span>
                 </div>
                 <div class="h1 mb-0">@Model.ActiveLoadCount</div>
                 <div class="text-secondary small">@Model.LoadsThisMonth shipped this month</div>
-                <a asp-controller="Load" asp-action="Index" class="stretched-link"></a>
+                <a asp-controller="Load" asp-action="Index" class="stretched-link" aria-label="Open loads"></a>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card">
+<div class="eg-action-grid mb-3">
+    <a asp-controller="Load" asp-action="Create" class="eg-action-card">
+        <span class="eg-icon-bubble" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
+        </span>
+        <span>
+            <span class="eg-action-title">Book a load</span>
+            <span class="eg-action-copy">Create a shipment and attach product lines.</span>
+        </span>
+    </a>
+    <a asp-controller="BuyerSupplier" asp-action="Create" class="eg-action-card">
+        <span class="eg-icon-bubble" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10h10" /><path d="M7 14h10" /><path d="M12 3v18" /></svg>
+        </span>
+        <span>
+            <span class="eg-action-title">Match buyer & supplier</span>
+            <span class="eg-action-copy">Connect partners, locations, and products.</span>
+        </span>
+    </a>
+    <a asp-controller="Report" asp-action="LastLoadShipped" class="eg-action-card">
+        <span class="eg-icon-bubble" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18" /><path d="m7 16 3-3 3 2 5-7" /></svg>
+        </span>
+        <span>
+            <span class="eg-action-title">Find stale accounts</span>
+            <span class="eg-action-copy">Run the last-load report for follow-up.</span>
+        </span>
+    </a>
+</div>
+
+<div class="card eg-table-card">
     <div class="card-header">
-        <h3 class="card-title">Recent loads</h3>
+        <div>
+            <div class="eg-card-kicker">Activity</div>
+            <h3 class="card-title mb-0">Recent loads</h3>
+        </div>
         <div class="card-actions">
             <a asp-controller="Load" asp-action="Index" class="btn btn-sm">View all</a>
         </div>
@@ -81,7 +130,14 @@
                 @if (Model.RecentLoads.Count == 0)
                 {
                     <tr>
-                        <td colspan="4" class="text-center text-secondary py-4">No loads yet.</td>
+                        <td colspan="4">
+                            <div class="eg-empty-state">
+                                <span class="eg-icon-bubble" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v8H3z" /><path d="M14 10h4l3 3v2h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></svg>
+                                </span>
+                                <div>No loads yet.</div>
+                            </div>
+                        </td>
                     </tr>
                 }
                 @foreach (var load in Model.RecentLoads)
