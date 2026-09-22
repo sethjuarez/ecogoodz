@@ -1,0 +1,21 @@
+@model IReadOnlyList<EcoGoodz.Web.Models.Shared.RelationshipSummaryItemViewModel>
+
+<div class="eg-stat-stack">
+    @foreach (var item in Model)
+    {
+        if (!string.IsNullOrWhiteSpace(item.Controller) && !string.IsNullOrWhiteSpace(item.Action))
+        {
+            <a asp-controller="@item.Controller" asp-action="@item.Action" asp-all-route-data="@item.RouteValues" class="eg-stat-row eg-stat-link">
+                <span>@item.Label</span>
+                <strong>@item.Value</strong>
+            </a>
+        }
+        else
+        {
+            <div class="eg-stat-row">
+                <span>@item.Label</span>
+                <strong>@item.Value</strong>
+            </div>
+        }
+    }
+</div>

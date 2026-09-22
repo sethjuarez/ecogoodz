@@ -1,0 +1,11 @@
+@model EcoGoodz.Web.Models.StaffTask.StaffTaskHeadlineFormViewModel
+
+<div class="card-body">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input asp-for="Id" type="hidden" />
+    <div class="mb-3">
+        <label asp-for="Headline" class="form-label"></label>
+        <input asp-for="Headline" class="form-control" />
+        <span asp-validation-for="Headline" class="text-danger"></span>
+    </div>
+</div>

@@ -1,0 +1,58 @@
+@model EcoGoodz.Web.Models.StaffUser.StaffUserListItemViewModel
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Staff users</div>
+            <h2 class="page-title">@Model.Name</h2>
+            <div class="text-secondary mt-1">@Model.UserName</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="datagrid">
+            <div class="datagrid-item">
+                <div class="datagrid-title">Username</div>
+                <div class="datagrid-content">@Model.UserName</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Email</div>
+                <div class="datagrid-content"><a href="mailto:@Model.Email">@Model.Email</a></div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Office phone</div>
+                <div class="datagrid-content">@Model.OfficePhone</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Cell phone</div>
+                <div class="datagrid-content">@Model.CellPhone</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Role</div>
+                <div class="datagrid-content">@Model.RoleName</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Active</div>
+                <div class="datagrid-content">
+                    @if (Model.IsActive)
+                    {
+                        <span class="badge bg-success-lt">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary-lt">Inactive</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

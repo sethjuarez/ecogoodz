@@ -1,0 +1,140 @@
+@model EcoGoodz.Web.Models.SupplierProduct.SupplierProductAssignToBuyersViewModel
+@{
+    ViewData["Title"] = "Assign product to buyers";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Supplier products</div>
+            <h2 class="page-title">Assign @Model.ProductName to buyers</h2>
+            <div class="text-secondary">@Model.SupplierName - @Model.SupplierLocationName</div>
+        </div>
+        <div class="col-auto ms-auto">
+            <a asp-action="Details" asp-route-id="@Model.ProductId" class="btn">Back to product</a>
+        </div>
+    </div>
+</div>
+
+<form asp-action="AssignToBuyers" method="post" id="assign-buyers-form">
+    <input asp-for="ProductId" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="row row-cards">
+        <div class="col-12 col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Existing buyer/supplier matches</h3>
+                </div>
+                <div class="card-body">
+                    @if (Model.TiedBuyers.Count == 0)
+                    {
+                        <div class="text-secondary">No existing buyer/supplier matches need this product.</div>
+                    }
+                    @for (var i = 0; i < Model.TiedBuyers.Count; i++)
+                    {
+                        <div class="border rounded p-3 mb-3 assign-buyer-card">
+                            <input asp-for="TiedBuyers[i].BuyerId" type="hidden" />
+                            <div class="form-check mb-2">
+                                <input asp-for="TiedBuyers[i].IsSelected" class="form-check-input js-assign-buyer-toggle" />
+                                <label asp-for="TiedBuyers[i].IsSelected" class="form-check-label">@Model.TiedBuyers[i].BuyerName</label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Locations</label>
+                                @foreach (var location in Model.TiedBuyers[i].Locations)
+                                {
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="TiedBuyers[@i].SelectedLocationIds" value="@location.Id" checked="@Model.TiedBuyers[i].SelectedLocationIds.Contains(location.Id)" />
+                                        <span class="form-check-label">@location.Name</span>
+                                    </label>
+                                }
+                                <span asp-validation-for="TiedBuyers[i].SelectedLocationIds" class="text-danger"></span>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col">
+                                    <label asp-for="TiedBuyers[i].Rate" class="form-label"></label>
+                                    <input asp-for="TiedBuyers[i].Rate" class="form-control" />
+                                    <span asp-validation-for="TiedBuyers[i].Rate" class="text-danger"></span>
+                                </div>
+                                <div class="col">
+                                    <label asp-for="TiedBuyers[i].EffectiveDate" class="form-label"></label>
+                                    <input asp-for="TiedBuyers[i].EffectiveDate" class="form-control" type="date" />
+                                    <span asp-validation-for="TiedBuyers[i].EffectiveDate" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Active/proposed buyer locations without a match</h3>
+                </div>
+                <div class="card-body">
+                    @if (Model.ActiveBuyers.Count == 0)
+                    {
+                        <div class="text-secondary">No active buyer locations are available.</div>
+                    }
+                    @for (var i = 0; i < Model.ActiveBuyers.Count; i++)
+                    {
+                        <div class="border rounded p-3 mb-3 assign-buyer-card">
+                            <input asp-for="ActiveBuyers[i].BuyerId" type="hidden" />
+                            <div class="form-check mb-2">
+                                <input asp-for="ActiveBuyers[i].IsSelected" class="form-check-input js-assign-buyer-toggle" />
+                                <label asp-for="ActiveBuyers[i].IsSelected" class="form-check-label">@Model.ActiveBuyers[i].BuyerName</label>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Locations</label>
+                                @foreach (var location in Model.ActiveBuyers[i].Locations)
+                                {
+                                    <label class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="ActiveBuyers[@i].SelectedLocationIds" value="@location.Id" checked="@Model.ActiveBuyers[i].SelectedLocationIds.Contains(location.Id)" />
+                                        <span class="form-check-label">@location.Name</span>
+                                    </label>
+                                }
+                                <span asp-validation-for="ActiveBuyers[i].SelectedLocationIds" class="text-danger"></span>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col">
+                                    <label asp-for="ActiveBuyers[i].Rate" class="form-label"></label>
+                                    <input asp-for="ActiveBuyers[i].Rate" class="form-control" />
+                                    <span asp-validation-for="ActiveBuyers[i].Rate" class="text-danger"></span>
+                                </div>
+                                <div class="col">
+                                    <label asp-for="ActiveBuyers[i].EffectiveDate" class="form-label"></label>
+                                    <input asp-for="ActiveBuyers[i].EffectiveDate" class="form-control" type="date" />
+                                    <span asp-validation-for="ActiveBuyers[i].EffectiveDate" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3 text-end">
+        <button type="submit" class="btn btn-primary">Assign selected buyers</button>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        document.getElementById('assign-buyers-form')?.addEventListener('submit', function () {
+            document.querySelectorAll('.assign-buyer-card').forEach(function (card) {
+                const selected = card.querySelector('.js-assign-buyer-toggle')?.checked;
+                if (selected) {
+                    return;
+                }
+
+                card.querySelectorAll('input, select, textarea, button').forEach(function (control) {
+                    control.disabled = true;
+                });
+            });
+        });
+    </script>
+}

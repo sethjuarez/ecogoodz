@@ -1,0 +1,70 @@
+@model EcoGoodz.Web.Models.Product.ProductMarkupViewModel
+@{
+    ViewData["Title"] = "Markup colors";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Products</div>
+            <h2 class="page-title">Markup colors</h2>
+            <div class="text-secondary">@Model.ProductName</div>
+        </div>
+        <div class="col-auto ms-auto">
+            <a asp-action="Details" asp-route-id="@Model.ProductId" class="btn">Back to product</a>
+        </div>
+    </div>
+</div>
+
+<form asp-action="Markup" method="post">
+    <input asp-for="ProductId" type="hidden" />
+    <input asp-for="ProductName" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Margin ranges</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table card-table table-vcenter">
+                <thead>
+                    <tr>
+                        <th>Color</th>
+                        <th>Minimum margin</th>
+                        <th>Maximum margin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < Model.MarkupColors.Count; i++)
+                    {
+                        <tr>
+                            <td>
+                                <input asp-for="MarkupColors[i].Id" type="hidden" />
+                                <input asp-for="MarkupColors[i].MarkUpColorId" type="hidden" />
+                                <input asp-for="MarkupColors[i].Color" type="hidden" />
+                                <input asp-for="MarkupColors[i].ColorCode" type="hidden" />
+                                <span class="badge" style="background-color:@Model.MarkupColors[i].ColorCode;color:#fff">@Model.MarkupColors[i].Color</span>
+                            </td>
+                            <td>
+                                <input asp-for="MarkupColors[i].MinRate" class="form-control" />
+                                <span asp-validation-for="MarkupColors[i].MinRate" class="text-danger"></span>
+                            </td>
+                            <td>
+                                <input asp-for="MarkupColors[i].MaxRate" class="form-control" />
+                                <span asp-validation-for="MarkupColors[i].MaxRate" class="text-danger"></span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex gap-2 justify-content-end">
+            <a asp-action="Details" asp-route-id="@Model.ProductId" class="btn">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save markup colors</button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

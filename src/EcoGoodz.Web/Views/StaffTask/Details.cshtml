@@ -1,0 +1,69 @@
+@model EcoGoodz.Web.Models.StaffTask.StaffTaskListItemViewModel
+@{
+    ViewData["Title"] = "Task";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Tasks</div>
+            <h2 class="page-title">@Model.Description</h2>
+            <div class="text-secondary mt-1">@Model.Headline</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            @if (Model.IsCreatedByCurrentUser)
+            {
+                <a asp-action="EditGroup" asp-route-taskId="@Model.TaskId" class="btn">Edit group</a>
+            }
+            <a asp-action="Index" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="datagrid">
+            <div class="datagrid-item">
+                <div class="datagrid-title">Due</div>
+                <div class="datagrid-content">@Model.DueDate?.ToString("yyyy-MM-dd")</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Assigned to</div>
+                <div class="datagrid-content">@Model.AssignedToName</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Headline</div>
+                <div class="datagrid-content">@Model.Headline</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Created by</div>
+                <div class="datagrid-content">@Model.CreatedByName</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Status</div>
+                <div class="datagrid-content">
+                    @if (Model.IsDone)
+                    {
+                        <span class="badge bg-success-lt">Done</span>
+                    }
+                    else if (Model.DueDate.HasValue && Model.DueDate.Value.Date < DateTime.Today)
+                    {
+                        <span class="badge bg-danger-lt">Overdue</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning-lt">Open</span>
+                    }
+                </div>
+            </div>
+            @if (Model.DoneDate.HasValue)
+            {
+                <div class="datagrid-item">
+                    <div class="datagrid-title">Done date</div>
+                    <div class="datagrid-content">@Model.DoneDate?.ToString("yyyy-MM-dd")</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>

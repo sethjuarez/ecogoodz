@@ -1,3 +1,5 @@
+using EcoGoodz.Web.Models.Shared;
+
 namespace EcoGoodz.Web.Models.BuyerSupplier;
 
 public class BuyerSupplierProductDetailsViewModel
@@ -11,5 +13,6 @@ public class BuyerSupplierProductDetailsViewModel
     public decimal? SupplierPrice { get; set; }
     public DateTime? SupplierEffectiveDate { get; set; }
     public IReadOnlyList<BuyerProductRateListItemViewModel> Rates { get; set; } = [];
+    public IReadOnlyList<RateChangeHistoryItemViewModel> RateHistory { get; set; } = [];
     public BuyerProductRateFormViewModel NewRate { get; set; } = new();
 }

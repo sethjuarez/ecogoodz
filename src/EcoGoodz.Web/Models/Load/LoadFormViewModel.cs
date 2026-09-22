@@ -15,6 +15,12 @@ public class LoadFormViewModel
     [Display(Name = "Supplier")]
     public int? Supplier { get; set; }
 
+    [Display(Name = "Buyer location")]
+    public int? BuyerLocation { get; set; }
+
+    [Display(Name = "Supplier location")]
+    public int? SupplierLocation { get; set; }
+
     [Display(Name = "Status")]
     public int? LoadStatus { get; set; }
 
@@ -36,7 +42,13 @@ public class LoadFormViewModel
     [Display(Name = "Active")]
     public bool IsActive { get; set; } = true;
 
+    [Display(Name = "Product lines")]
+    public List<int> SupplierProductIds { get; set; } = [];
+
     public IEnumerable<SelectListItem> BuyerOptions { get; set; } = Enumerable.Empty<SelectListItem>();
     public IEnumerable<SelectListItem> SupplierOptions { get; set; } = Enumerable.Empty<SelectListItem>();
+    public IEnumerable<SelectListItem> BuyerLocationOptions { get; set; } = Enumerable.Empty<SelectListItem>();
+    public IEnumerable<SelectListItem> SupplierLocationOptions { get; set; } = Enumerable.Empty<SelectListItem>();
+    public IEnumerable<SelectListItem> SupplierProductOptions { get; set; } = Enumerable.Empty<SelectListItem>();
     public IEnumerable<SelectListItem> StatusOptions { get; set; } = Enumerable.Empty<SelectListItem>();
 }

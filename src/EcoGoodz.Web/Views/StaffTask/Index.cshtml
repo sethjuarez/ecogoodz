@@ -1,0 +1,81 @@
+@model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.StaffTask.StaffTaskListItemViewModel>
+@{
+    ViewData["Title"] = "Tasks";
+    var includeCompleted = string.Equals(Context.Request.Query["includeCompleted"], "true", StringComparison.OrdinalIgnoreCase);
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <h2 class="page-title">Tasks</h2>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount shown</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Board" class="btn">Task board</a>
+            <a asp-action="Headlines" class="btn">Manage headlines</a>
+            <a asp-action="Index" asp-route-includeCompleted="@(!includeCompleted)" class="btn">@(includeCompleted ? "Hide completed" : "Show completed")</a>
+            <a asp-action="Create" class="btn btn-primary">New task</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Task</th>
+                    <th>Due</th>
+                    <th>Assigned to</th>
+                    <th>Headline</th>
+                    <th>Created by</th>
+                    <th>Status</th>
+                    <th class="w-1"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-secondary py-4">No tasks found.</td></tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Description</a></td>
+                        <td>@item.DueDate?.ToShortDateString()</td>
+                        <td>@item.AssignedToName</td>
+                        <td>@item.Headline</td>
+                        <td>@item.CreatedByName</td>
+                        <td>
+                            @if (item.IsDone)
+                            {
+                                <span class="badge bg-success-lt">Done</span>
+                            }
+                            else if (item.DueDate.HasValue && item.DueDate.Value.Date < DateTime.Today)
+                            {
+                                <span class="badge bg-danger-lt">Overdue</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning-lt">Open</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm">Edit</a>
+                                @if (item.IsCreatedByCurrentUser)
+                                {
+                                    <a asp-action="EditGroup" asp-route-taskId="@item.TaskId" asp-route-returnUrl="@(Context.Request.Path + Context.Request.QueryString)" class="btn btn-sm">Edit group</a>
+                                }
+                                <form asp-action="ToggleDone" asp-route-id="@item.Id" asp-route-done="@(!item.IsDone)" method="post">
+                                    <button type="submit" class="btn btn-sm">@(item.IsDone ? "Reopen" : "Done")</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @await Html.PartialAsync("_ListPagination", Model.Page)
+</div>

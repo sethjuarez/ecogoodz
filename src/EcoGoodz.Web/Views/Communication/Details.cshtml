@@ -1,0 +1,48 @@
+@model EcoGoodz.Web.Models.Communication.CommunicationListItemViewModel
+@{
+    ViewData["Title"] = "Communication";
+    var clientType = Model.IsBuyer ? "Buyer" : "Supplier";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Communications</div>
+            <h2 class="page-title">@Model.ClientName</h2>
+            <div class="text-secondary mt-1">@Model.TypeName on @Model.Date?.ToString("yyyy-MM-dd")</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" asp-route-clientType="@clientType" asp-route-clientId="@Model.ClientId" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="datagrid">
+            <div class="datagrid-item">
+                <div class="datagrid-title">Client</div>
+                <div class="datagrid-content">
+                    <a asp-controller="@clientType" asp-action="Details" asp-route-id="@Model.ClientId">@Model.ClientName</a>
+                </div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Type</div>
+                <div class="datagrid-content">@Model.TypeName</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Date</div>
+                <div class="datagrid-content">@Model.Date?.ToString("yyyy-MM-dd")</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Created by</div>
+                <div class="datagrid-content">@Model.CreatedByName</div>
+            </div>
+            <div class="datagrid-item datagrid-item-full">
+                <div class="datagrid-title">Note</div>
+                <div class="datagrid-content">@Model.Note</div>
+            </div>
+        </div>
+    </div>
+</div>

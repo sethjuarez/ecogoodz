@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="../tests/EcoGoodz.Web.Tests/EcoGoodz.Web.Tests.csproj" />
   <Project Path="EcoGoodz.Data/EcoGoodz.Data.csproj" />
   <Project Path="EcoGoodz.Web/EcoGoodz.Web.csproj" />
 </Solution>

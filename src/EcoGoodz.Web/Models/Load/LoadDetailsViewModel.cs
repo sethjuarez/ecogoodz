@@ -5,8 +5,12 @@ public class LoadDetailsViewModel
     public int Id { get; set; }
     public string? BuyerName { get; set; }
     public int? BuyerId { get; set; }
+    public string? BuyerLocationName { get; set; }
+    public int? BuyerLocationId { get; set; }
     public string? SupplierName { get; set; }
     public int? SupplierId { get; set; }
+    public string? SupplierLocationName { get; set; }
+    public int? SupplierLocationId { get; set; }
     public string? StatusName { get; set; }
     public DateTime? ShipmentDate { get; set; }
     public string? Container { get; set; }
@@ -30,4 +34,15 @@ public class LoadDetailsViewModel
     public DateTime? CreateOn { get; set; }
     public DateTime? UpdatedOn { get; set; }
     public int ProductLineCount { get; set; }
+    public IReadOnlyList<LoadProductLineViewModel> ProductLines { get; set; } = [];
+}
+
+public class LoadProductLineViewModel
+{
+    public int SupplierProductId { get; set; }
+    public string? SupplierName { get; set; }
+    public string? ProductName { get; set; }
+    public string? PackagingName { get; set; }
+    public decimal? CurrentPrice { get; set; }
+    public DateTime? EffectiveDate { get; set; }
 }

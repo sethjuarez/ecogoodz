@@ -1,0 +1,63 @@
+@model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.Communication.CommunicationListItemViewModel>
+@{
+    ViewData["Title"] = "Communications";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <h2 class="page-title">Communications</h2>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
+        </div>
+        <div class="col-auto ms-auto">
+            <a asp-action="Create" asp-route-clientType="@Context.Request.Query["clientType"]" asp-route-clientId="@Context.Request.Query["clientId"]" class="btn btn-primary">Log communication</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Type</th>
+                    <th>Note</th>
+                    <th>Created by</th>
+                    <th class="w-1"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-secondary py-4">No communications found.</td></tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    var clientController = item.IsBuyer ? "Buyer" : "Supplier";
+                    <tr>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Date?.ToShortDateString()</a></td>
+                        <td>
+                            @if (item.ClientId.HasValue)
+                            {
+                                <a asp-controller="@clientController" asp-action="Details" asp-route-id="@item.ClientId" class="text-reset">@item.ClientName</a>
+                            }
+                            else
+                            {
+                                @item.ClientName
+                            }
+                        </td>
+                        <td>@item.TypeName</td>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Note</a></td>
+                        <td>@item.CreatedByName</td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm">Edit</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @await Html.PartialAsync("_ListPagination", Model.Page)
+</div>

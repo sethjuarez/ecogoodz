@@ -1,0 +1,64 @@
+@model EcoGoodz.Web.Models.Contact.ContactListItemViewModel
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Contacts</div>
+            <h2 class="page-title">@Model.Name</h2>
+            <div class="text-secondary mt-1">@Model.Title</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" asp-route-locationId="@Model.LocationId" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="datagrid">
+            <div class="datagrid-item">
+                <div class="datagrid-title">Client</div>
+                <div class="datagrid-content">@Model.ClientName</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Location</div>
+                <div class="datagrid-content">
+                    <a asp-controller="Location" asp-action="Details" asp-route-id="@Model.LocationId">@Model.LocationName</a>
+                </div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Email</div>
+                <div class="datagrid-content"><a href="mailto:@Model.Email">@Model.Email</a></div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Office phone</div>
+                <div class="datagrid-content">@Model.OfficePhone</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Cell phone</div>
+                <div class="datagrid-content">@Model.CellPhone</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Flags</div>
+                <div class="datagrid-content">
+                    @if (Model.IsPrimaryContact)
+                    {
+                        <span class="badge bg-primary-lt">Primary</span>
+                    }
+                    @if (Model.IsDockContact)
+                    {
+                        <span class="badge bg-info-lt">Dock</span>
+                    }
+                    @if (!Model.IsActive)
+                    {
+                        <span class="badge bg-secondary-lt">Inactive</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

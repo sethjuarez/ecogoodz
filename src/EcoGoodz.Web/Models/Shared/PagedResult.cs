@@ -30,6 +30,8 @@ public sealed class PageInfo
     /// </summary>
     public string? SortColumn { get; init; }
     public bool SortDescending { get; init; }
+    public IReadOnlyDictionary<string, string?> AdditionalQueryParameters { get; init; } =
+        new Dictionary<string, string?>();
 
     public int TotalPages => PageSize <= 0 ? 0 : (int)Math.Ceiling(TotalCount / (double)PageSize);
     public bool HasPreviousPage => PageNumber > 1;

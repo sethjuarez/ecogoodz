@@ -1,0 +1,71 @@
+@model EcoGoodz.Web.Models.Note.NoteListItemViewModel
+@{
+    ViewData["Title"] = "Note";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Notes</div>
+            <h2 class="page-title">@(Model.ProductName ?? Model.LocationName ?? "Note")</h2>
+            <div class="text-secondary mt-1">@Model.Scope note from @Model.Date?.ToString("yyyy-MM-dd")</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="datagrid">
+            <div class="datagrid-item">
+                <div class="datagrid-title">Scope</div>
+                <div class="datagrid-content">@Model.Scope</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Context</div>
+                <div class="datagrid-content">
+                    @if (Model.ProductId.HasValue)
+                    {
+                        <a asp-controller="SupplierProduct" asp-action="Details" asp-route-id="@Model.ProductId">@Model.ProductName</a>
+                    }
+                    else if (Model.LocationId.HasValue)
+                    {
+                        <a asp-controller="Location" asp-action="Details" asp-route-id="@Model.LocationId">@Model.LocationName</a>
+                    }
+                    else
+                    {
+                        @(Model.ProductName ?? Model.LocationName)
+                    }
+                </div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Date</div>
+                <div class="datagrid-content">@Model.Date?.ToString("yyyy-MM-dd")</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Created by</div>
+                <div class="datagrid-content">@Model.CreatedByName</div>
+            </div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Status</div>
+                <div class="datagrid-content">
+                    @if (Model.IsActive)
+                    {
+                        <span class="badge bg-success-lt">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary-lt">Inactive</span>
+                    }
+                </div>
+            </div>
+            <div class="datagrid-item datagrid-item-full">
+                <div class="datagrid-title">Note</div>
+                <div class="datagrid-content">@Model.Notes</div>
+            </div>
+        </div>
+    </div>
+</div>

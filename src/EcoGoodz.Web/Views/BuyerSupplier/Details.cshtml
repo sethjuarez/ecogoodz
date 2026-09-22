@@ -1,15 +1,49 @@
 @model EcoGoodz.Web.Models.BuyerSupplier.BuyerSupplierDetailsViewModel
 @{
-    ViewData["Title"] = "Buyer/Supplier match";
+    ViewData["Title"] = $"{Model.BuyerName} → {Model.SupplierName}";
+    var loadRouteValues = new Dictionary<string, string>();
+    if (Model.BuyerId.HasValue)
+    {
+        loadRouteValues["buyerId"] = Model.BuyerId.Value.ToString();
+    }
+
+    if (Model.SupplierId.HasValue)
+    {
+        loadRouteValues["supplierId"] = Model.SupplierId.Value.ToString();
+    }
+
+    if (Model.BuyerLocationId.HasValue)
+    {
+        loadRouteValues["buyerLocationId"] = Model.BuyerLocationId.Value.ToString();
+    }
+
+    if (Model.SupplierLocationId.HasValue)
+    {
+        loadRouteValues["supplierLocationId"] = Model.SupplierLocationId.Value.ToString();
+    }
+
+    var relationshipSummary = new List<EcoGoodz.Web.Models.Shared.RelationshipSummaryItemViewModel>
+    {
+        new() { Label = "Products", Value = Model.ProductCount.ToString() },
+        new()
+        {
+            Label = "Loads",
+            Value = Model.LoadCount.ToString(),
+            Controller = "Load",
+            Action = "Index",
+            RouteValues = loadRouteValues,
+        },
+    };
 }
 
-<div class="page-header d-print-none mb-3">
+<div class="page-header d-print-none mb-3 eg-list-workspace">
     <div class="row g-2 align-items-center">
         <div class="col">
             <div class="page-pretitle">Buyer/Supplier matches</div>
             <h2 class="page-title">@Model.BuyerName &rarr; @Model.SupplierName</h2>
+            <div class="text-secondary mt-1">Deal lane connecting buyer, supplier, locations, assigned products, rates, and load activity.</div>
         </div>
-        <div class="col-auto ms-auto d-flex gap-2">
+        <div class="col-auto ms-auto eg-command-bar">
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
             <a asp-action="Index" class="btn">Back to list</a>
         </div>
@@ -28,19 +62,55 @@
                 <div class="datagrid">
                     <div class="datagrid-item">
                         <div class="datagrid-title">Buyer</div>
-                        <div class="datagrid-content">@Model.BuyerName</div>
+                        <div class="datagrid-content">
+                            @if (Model.BuyerId.HasValue)
+                            {
+                                <a asp-controller="Buyer" asp-action="Details" asp-route-id="@Model.BuyerId">@Model.BuyerName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Buyer location</div>
-                        <div class="datagrid-content">@Model.BuyerLocationName</div>
+                        <div class="datagrid-content">
+                            @if (Model.BuyerLocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@Model.BuyerLocationId">@Model.BuyerLocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Supplier</div>
-                        <div class="datagrid-content">@Model.SupplierName</div>
+                        <div class="datagrid-content">
+                            @if (Model.SupplierId.HasValue)
+                            {
+                                <a asp-controller="Supplier" asp-action="Details" asp-route-id="@Model.SupplierId">@Model.SupplierName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Supplier location</div>
-                        <div class="datagrid-content">@Model.SupplierLocationName</div>
+                        <div class="datagrid-content">
+                            @if (Model.SupplierLocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@Model.SupplierLocationId">@Model.SupplierLocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Status</div>
@@ -118,17 +188,14 @@
     </div>
     <div class="col-12 col-lg-4">
         <div class="card">
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-6">
-                        <div class="text-secondary">Products</div>
-                        <div class="h1 m-0">@Model.ProductCount</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-secondary">Loads</div>
-                        <div class="h1 m-0">@Model.LoadCount</div>
-                    </div>
+            <div class="card-header">
+                <div>
+                    <div class="eg-card-kicker">Snapshot</div>
+                    <h3 class="card-title mb-0">Relationship activity</h3>
                 </div>
+            </div>
+            <div class="card-body">
+                @await Html.PartialAsync("_RelationshipSummary", relationshipSummary)
             </div>
         </div>
 

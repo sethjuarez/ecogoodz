@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
+using EcoGoodz.Web.Extensions;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.BuyerProduct;
 using EcoGoodz.Web.Models.Shared;
@@ -55,6 +57,9 @@ public class BuyerProductController : PagedListController<BuyerProductController
         r => new BuyerProductListItemViewModel
         {
             Id = r.BuyerProduct.Id,
+            BuyerId = r.BuyerProduct.Buyer,
+            LocationId = r.BuyerProduct.Location,
+            ProductId = r.BuyerProduct.Product,
             BuyerName = r.BuyerName ?? string.Empty,
             LocationName = r.LocationName ?? string.Empty,
             ProductName = r.ProductName ?? r.BuyerProduct.OtherProduct ?? "(other product)",
@@ -66,6 +71,15 @@ public class BuyerProductController : PagedListController<BuyerProductController
 
     public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
+        var buyerId = ReadIntQuery("buyerId");
+        var locationId = ReadIntQuery("locationId");
+        var productId = ReadIntQuery("productId");
+        var hasScope = buyerId.HasValue || locationId.HasValue || productId.HasValue;
+        if (hasScope)
+        {
+            return await ScopedIndex(search, sort, desc, page, pageSize, buyerId, locationId, productId);
+        }
+
         if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
         {
             return await base.Index(search, sort, desc, page, pageSize);
@@ -93,6 +107,9 @@ public class BuyerProductController : PagedListController<BuyerProductController
                 select new BuyerProductListItemViewModel
                 {
                     Id = buyerProduct.Id,
+                    BuyerId = buyerProduct.Buyer,
+                    LocationId = buyerProduct.Location,
+                    ProductId = buyerProduct.Product,
                     BuyerName = buyer.Name ?? string.Empty,
                     LocationName = location.Location1 ?? string.Empty,
                     ProductName = product.Name ?? buyerProduct.OtherProduct ?? "(other product)",
@@ -115,6 +132,91 @@ public class BuyerProductController : PagedListController<BuyerProductController
             },
         });
     }
+
+    private async Task<IActionResult> ScopedIndex(
+        string? search,
+        string? sort,
+        bool desc,
+        int page,
+        int pageSize,
+        int? buyerId,
+        int? locationId,
+        int? productId)
+    {
+        var query = GetBaseQuery().AsNoTracking();
+        if (buyerId.HasValue)
+        {
+            query = query.Where(row => row.BuyerProduct.Buyer == buyerId.Value);
+        }
+
+        if (locationId.HasValue)
+        {
+            query = query.Where(row => row.BuyerProduct.Location == locationId.Value);
+        }
+
+        if (productId.HasValue)
+        {
+            query = query.Where(row => row.BuyerProduct.Product == productId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = ApplySearch(query, search);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await query.CountAsync();
+        var sorted = query.ApplySort(sort, desc, SortColumns, DefaultSortColumn, out var resolvedSort);
+        var items = await sorted
+            .Select(ProjectionExpression)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return View("Index", new PagedResult<BuyerProductListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+                SortColumn = resolvedSort,
+                SortDescending = desc,
+                AdditionalQueryParameters = BuildScopeParameters(buyerId, locationId, productId),
+            },
+        });
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildScopeParameters(int? buyerId, int? locationId, int? productId)
+    {
+        var parameters = new Dictionary<string, string?>();
+        if (buyerId.HasValue)
+        {
+            parameters["buyerId"] = buyerId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (locationId.HasValue)
+        {
+            parameters["locationId"] = locationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (productId.HasValue)
+        {
+            parameters["productId"] = productId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return parameters;
+    }
+
+    private int? ReadIntQuery(string key) =>
+        HttpContext?.Request.Query.TryGetValue(key, out var rawValue) == true
+        && int.TryParse(rawValue.ToString(), CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
 
     public async Task<IActionResult> Details(int id)
     {
@@ -348,17 +450,33 @@ public class BuyerProductController : PagedListController<BuyerProductController
 
     private async Task SavePackagingAsync(int buyerProductId, BuyerProductFormViewModel model)
     {
-        var existing = Context.BuyerProductPackagings.Where(p => p.BuyerProduct == buyerProductId);
-        Context.BuyerProductPackagings.RemoveRange(existing);
+        var existing = await Context.BuyerProductPackagings
+            .Where(p => p.BuyerProduct == buyerProductId)
+            .OrderBy(p => p.Id)
+            .ToListAsync();
+        var editablePackaging = existing.FirstOrDefault();
 
         if (model.Packaging is not null || !string.IsNullOrWhiteSpace(model.OtherPackaging))
         {
-            Context.BuyerProductPackagings.Add(new BuyerProductPackaging
+            if (editablePackaging is null)
             {
-                BuyerProduct = buyerProductId,
-                Packaging = model.Packaging,
-                OtherPackaging = string.IsNullOrWhiteSpace(model.OtherPackaging) ? null : model.OtherPackaging.Trim(),
-            });
+                Context.BuyerProductPackagings.Add(new BuyerProductPackaging
+                {
+                    BuyerProduct = buyerProductId,
+                    Packaging = model.Packaging,
+                    OtherPackaging = string.IsNullOrWhiteSpace(model.OtherPackaging) ? null : model.OtherPackaging.Trim(),
+                });
+            }
+            else
+            {
+                editablePackaging.Packaging = model.Packaging;
+                editablePackaging.OtherPackaging = string.IsNullOrWhiteSpace(model.OtherPackaging) ? null : model.OtherPackaging.Trim();
+            }
+        }
+        else if (editablePackaging is not null)
+        {
+            editablePackaging.Packaging = null;
+            editablePackaging.OtherPackaging = null;
         }
 
         await Context.SaveChangesAsync();

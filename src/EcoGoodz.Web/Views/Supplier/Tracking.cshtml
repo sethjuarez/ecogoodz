@@ -1,0 +1,81 @@
+@model EcoGoodz.Web.Models.Supplier.SupplierTrackingViewModel
+@{
+    ViewData["Title"] = "Supplier tracking";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Suppliers</div>
+            <h2 class="page-title">Supplier tracking</h2>
+            <div class="text-secondary">@Model.UserName</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <form asp-action="Tracking" method="get" class="d-flex gap-2 align-items-center">
+                <select name="userId" asp-items="Model.UserOptions" class="form-select"></select>
+                <button type="submit" class="btn">Load user</button>
+            </form>
+            <a asp-action="AddTrackingProduct" asp-route-userId="@Model.UserId" class="btn btn-primary">Add tracked product</a>
+            <a asp-action="Index" class="btn">Back to suppliers</a>
+        </div>
+    </div>
+</div>
+
+@if (Model.Products.Count == 0)
+{
+    <div class="empty">
+        <p class="empty-title">No tracked products</p>
+        <p class="empty-subtitle text-secondary">Add a product to start tracking supplier locations for this user.</p>
+        <div class="empty-action">
+            <a asp-action="AddTrackingProduct" asp-route-userId="@Model.UserId" class="btn btn-primary">Add tracked product</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row row-cards">
+        @foreach (var product in Model.Products)
+        {
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">@product.ProductName</h3>
+                            <div class="text-secondary">Tracking row @product.UserProductId</div>
+                        </div>
+                        <div class="card-actions">
+                            <a asp-action="AddTrackingSupplier" asp-route-userProductId="@product.UserProductId" class="btn btn-sm">Add supplier</a>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table card-table table-vcenter">
+                            <thead>
+                                <tr>
+                                    <th>Supplier</th>
+                                    <th>Location</th>
+                                    <th>Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (product.Suppliers.Count == 0)
+                                {
+                                    <tr>
+                                        <td colspan="3" class="text-center text-secondary py-4">No suppliers tracked for this product.</td>
+                                    </tr>
+                                }
+                                @foreach (var supplier in product.Suppliers)
+                                {
+                                    <tr>
+                                        <td>@supplier.SupplierName</td>
+                                        <td>@supplier.LocationName</td>
+                                        <td>@supplier.SupplierNote</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

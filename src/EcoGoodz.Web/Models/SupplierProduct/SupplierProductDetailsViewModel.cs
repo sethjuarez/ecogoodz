@@ -1,3 +1,5 @@
+using EcoGoodz.Web.Models.Shared;
+
 namespace EcoGoodz.Web.Models.SupplierProduct;
 
 public class SupplierProductDetailsViewModel
@@ -14,5 +16,6 @@ public class SupplierProductDetailsViewModel
     public DateTime? CreateOn { get; set; }
     public DateTime? UpdatedOn { get; set; }
     public IReadOnlyList<SupplierProductRateListItemViewModel> Rates { get; set; } = [];
+    public IReadOnlyList<RateChangeHistoryItemViewModel> RateHistory { get; set; } = [];
     public SupplierProductRateFormViewModel NewRate { get; set; } = new();
 }

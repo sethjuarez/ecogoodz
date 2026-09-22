@@ -1,0 +1,22 @@
+@model EcoGoodz.Web.Models.StaffTask.StaffTaskFormViewModel
+@{
+    ViewData["Title"] = "Edit task group";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Tasks</div>
+            <h2 class="page-title">Edit task group</h2>
+            <div class="text-secondary mt-1">Update the task details and assignee set for this task.</div>
+        </div>
+    </div>
+</div>
+
+<form asp-action="EditGroup" asp-route-taskId="@Model.TaskId" method="post" class="card">
+    @await Html.PartialAsync("_Form", Model, new ViewDataDictionary(ViewData) { ["AllowMultipleAssignees"] = true, ["ShowHeadline"] = false, ["ShowIsActive"] = false })
+    <div class="card-footer d-flex justify-content-between">
+        <button type="submit" class="btn btn-primary">Save group task</button>
+        <a href="@(string.IsNullOrWhiteSpace(Model.ReturnUrl) ? Url.Action("Index") : Model.ReturnUrl)" class="btn">Cancel</a>
+    </div>
+</form>

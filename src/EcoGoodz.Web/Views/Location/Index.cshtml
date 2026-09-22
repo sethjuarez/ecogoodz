@@ -3,13 +3,19 @@
     ViewData["Title"] = "Locations";
 }
 
-<div class="page-header d-print-none mb-3">
+<div class="page-header d-print-none mb-3 eg-list-workspace">
     <div class="row g-2 align-items-center">
         <div class="col">
+            <div class="page-pretitle">Relationship hub</div>
             <h2 class="page-title">Locations</h2>
-            <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount total locations. Locations connect clients, contacts, products, matches, notes, and loads.</div>
+            <nav class="eg-view-tabs" aria-label="Location views">
+                <a asp-action="Index" class="eg-view-tab active" aria-current="page">All locations</a>
+                <a asp-controller="Contact" asp-action="Index" class="eg-view-tab">Contacts</a>
+                <a asp-controller="Note" asp-action="Index" class="eg-view-tab">Notes</a>
+            </nav>
         </div>
-        <div class="col-auto ms-auto d-flex gap-2">
+        <div class="col-auto ms-auto eg-command-bar">
             @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search locations…" })
             <a asp-action="Create" class="btn btn-primary text-nowrap">New location</a>
         </div>
@@ -41,7 +47,24 @@
                 {
                     <tr>
                         <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></td>
-                        <td>@item.ClientName</td>
+                        <td>
+                            @if (item.IsBuyer == true && item.ClientId.HasValue)
+                            {
+                                <a asp-controller="Buyer" asp-action="Details" asp-route-id="@item.ClientId" class="text-reset">@item.ClientName</a>
+                            }
+                            else if (item.IsBuyer == false && item.ClientId.HasValue)
+                            {
+                                <a asp-controller="Supplier" asp-action="Details" asp-route-id="@item.ClientId" class="text-reset">@item.ClientName</a>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(item.ClientName))
+                            {
+                                @item.ClientName
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
                         <td>@item.City</td>
                         <td>@item.StateName</td>
                         <td>@item.CountryName</td>

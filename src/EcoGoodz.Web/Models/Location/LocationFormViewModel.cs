@@ -7,6 +7,10 @@ public class LocationFormViewModel : IValidatableObject
 {
     public int Id { get; set; }
 
+    public int? CopyLocationId { get; set; }
+
+    public string? CopyLocationName { get; set; }
+
     [Required]
     [StringLength(200)]
     [Display(Name = "Location name")]

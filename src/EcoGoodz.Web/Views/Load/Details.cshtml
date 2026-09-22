@@ -25,6 +25,32 @@
             <div class="card-body">
                 <div class="datagrid">
                     <div class="datagrid-item">
+                        <div class="datagrid-title">Buyer location</div>
+                        <div class="datagrid-content">
+                            @if (Model.BuyerLocationId is not null)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@Model.BuyerLocationId">@Model.BuyerLocationName</a>
+                            }
+                            else
+                            {
+                                @Model.BuyerLocationName
+                            }
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Supplier location</div>
+                        <div class="datagrid-content">
+                            @if (Model.SupplierLocationId is not null)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@Model.SupplierLocationId">@Model.SupplierLocationName</a>
+                            }
+                            else
+                            {
+                                @Model.SupplierLocationName
+                            }
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
                         <div class="datagrid-title">Status</div>
                         <div class="datagrid-content">@Model.StatusName</div>
                     </div>
@@ -112,6 +138,47 @@
                         <div class="datagrid-content">@Model.FreightAmountBilled?.ToString("C")</div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h3 class="card-title">Products</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="table card-table table-vcenter">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Supplier</th>
+                            <th>Packaging</th>
+                            <th>Current supplier price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.ProductLines.Count == 0)
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center text-secondary py-4">No product lines attached.</td>
+                            </tr>
+                        }
+                        @foreach (var product in Model.ProductLines)
+                        {
+                            <tr>
+                                <td><a asp-controller="SupplierProduct" asp-action="Details" asp-route-id="@product.SupplierProductId">@product.ProductName</a></td>
+                                <td>@product.SupplierName</td>
+                                <td>@product.PackagingName</td>
+                                <td>
+                                    @product.CurrentPrice?.ToString("C")
+                                    @if (product.EffectiveDate is not null)
+                                    {
+                                        <span class="text-secondary">as of @product.EffectiveDate.Value.ToString("yyyy-MM-dd")</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
         </div>
 

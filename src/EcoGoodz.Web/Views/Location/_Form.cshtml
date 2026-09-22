@@ -1,6 +1,15 @@
 @model EcoGoodz.Web.Models.Location.LocationFormViewModel
 
 <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<input asp-for="CopyLocationId" type="hidden" />
+@if (Model.CopyLocationId.HasValue)
+{
+    <div class="alert alert-info" role="alert">
+        Copying logistics, non-dock contacts, and buyer products from <strong>@Model.CopyLocationName</strong>.
+        Choose a new location name and adjust address details before saving.
+    </div>
+    <span asp-validation-for="CopyLocationId" class="text-danger"></span>
+}
 <div class="row">
     <div class="col-12 col-md-6 mb-3">
         <label asp-for="Name" class="form-label"></label>

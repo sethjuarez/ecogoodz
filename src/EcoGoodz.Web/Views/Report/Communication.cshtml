@@ -1,0 +1,95 @@
+@model EcoGoodz.Web.Models.Report.CommunicationReportViewModel
+@{
+    ViewData["Title"] = "Communication report";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <h2 class="page-title">Communication report</h2>
+            <div class="text-secondary mt-1">
+                Daily buyer/supplier communication and product-status activity by report-enabled user.
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="get" class="card mb-3">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label asp-for="StartDate" class="form-label">Start date</label>
+                <input asp-for="StartDate" class="form-control" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="EndDate" class="form-label">End date</label>
+                <input asp-for="EndDate" class="form-control" type="date" />
+                <span asp-validation-for="EndDate" class="text-danger"></span>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Run</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">@Model.Rows.Count days</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    @foreach (var user in Model.Users)
+                    {
+                        <th>@user.Name</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Users.Count == 0)
+                {
+                    <tr>
+                        <td colspan="1" class="text-center text-secondary py-4">No report-enabled users have communication activity.</td>
+                    </tr>
+                }
+                else if (Model.Rows.Count == 0)
+                {
+                    <tr>
+                        <td colspan="@(Model.Users.Count + 1)" class="text-center text-secondary py-4">No communication activity found.</td>
+                    </tr>
+                }
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td class="text-nowrap">@row.Date.ToString("yyyy-MM-dd")</td>
+                        @foreach (var cell in row.UserCells)
+                        {
+                            <td>
+                                @foreach (var count in cell.Counts.Where(count => count.TotalCount > 0))
+                                {
+                                    <div>
+                                        <strong>@count.Label</strong>:
+                                        @if (count.IsProductMetric)
+                                        {
+                                            @count.TotalCount
+                                        }
+                                        else
+                                        {
+                                            <span>@count.BuyerCount buyer</span>
+                                            <span class="text-secondary">/</span>
+                                            <span>@count.SupplierCount supplier</span>
+                                        }
+                                    </div>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

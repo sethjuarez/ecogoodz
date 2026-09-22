@@ -45,9 +45,9 @@ public class LocationController : PagedListController<LocationController.Locatio
     protected override IReadOnlyDictionary<string, Expression<Func<LocationRow, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<LocationRow, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["name"] = r => r.Location.Location1,
+            ["name"] = r => EF.Property<string>(r.Location, "LocationSort"),
             ["client"] = r => r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
-            ["city"] = r => r.Location.City,
+            ["city"] = r => EF.Property<string>(r.Location, "CitySort"),
             ["state"] = r => r.Location.StateNavigation != null ? r.Location.StateNavigation.StateName : null,
             ["country"] = r => r.Location.CountryNavigation != null ? r.Location.CountryNavigation.CountryName : null,
             ["active"] = r => r.Location.IsActive,
@@ -59,6 +59,8 @@ public class LocationController : PagedListController<LocationController.Locatio
         r => new LocationListItemViewModel
         {
             Id = r.Location.Id,
+            ClientId = r.Location.ClientId,
+            IsBuyer = r.Location.IsBuyer,
             Name = r.Location.Location1 ?? string.Empty,
             ClientName = r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
             City = r.Location.City,
@@ -105,6 +107,8 @@ public class LocationController : PagedListController<LocationController.Locatio
                 select new LocationListItemViewModel
                 {
                     Id = location.Id,
+                    ClientId = location.ClientId,
+                    IsBuyer = location.IsBuyer,
                     Name = location.Location1 ?? string.Empty,
                     ClientName = location.IsBuyer == true
                         ? buyer.Name
@@ -131,12 +135,14 @@ public class LocationController : PagedListController<LocationController.Locatio
 
     public async Task<IActionResult> Details(int id)
     {
+        var userId = User.GetLegacyUserId();
         var location = await GetBaseQuery()
             .Where(r => r.Location.Id == id)
             .Select(r => new LocationDetailsViewModel
             {
                 Id = r.Location.Id,
                 Name = r.Location.Location1 ?? string.Empty,
+                ClientId = r.Location.ClientId,
                 ClientType = r.Location.IsBuyer == true ? BuyerClientType : r.Location.IsBuyer == false ? SupplierClientType : null,
                 ClientName = r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
                 Address = r.Location.Address,
@@ -153,8 +159,12 @@ public class LocationController : PagedListController<LocationController.Locatio
                 UpdatedOn = r.Location.UpdatedOn,
                 BuyerProductCount = r.Location.BuyerProducts.Count,
                 SupplierProductCount = r.Location.SupplierProducts.Count,
-                LoadCount = r.Location.LoadBuyerLocationNavigations.Count + r.Location.LoadSupplierLocationNavigations.Count,
-                MatchCount = r.Location.BuyerSupplierBuyerLocationNavigations.Count + r.Location.BuyerSupplierSupplierLocationNavigations.Count,
+                LoadCount = Context.Loads.Count(load => load.BuyerLocation == r.Location.Id || load.SupplierLocation == r.Location.Id),
+                MatchCount = Context.BuyerSuppliers.Count(match => match.BuyerLocation == r.Location.Id || match.SupplierLocation == r.Location.Id),
+                IsFavorite = userId.HasValue
+                    && r.Location.Favorites.Any(favorite =>
+                        favorite.UserId == userId.Value
+                        && favorite.IsBuyer == (r.Location.IsBuyer == true)),
             })
             .FirstOrDefaultAsync();
 
@@ -166,9 +176,88 @@ public class LocationController : PagedListController<LocationController.Locatio
         return View(location);
     }
 
-    public async Task<IActionResult> Create()
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleFavorite(int id)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        var location = await Context.Locations
+            .AsNoTracking()
+            .Where(location => location.Id == id)
+            .Select(location => new { location.Id, location.IsBuyer })
+            .FirstOrDefaultAsync();
+        if (location is null)
+        {
+            return NotFound();
+        }
+
+        if (location.IsBuyer is null)
+        {
+            return BadRequest();
+        }
+
+        var isBuyer = location.IsBuyer.Value;
+        var favorites = await Context.Favorites
+            .Where(favorite =>
+            favorite.UserId == userId.Value
+            && favorite.Location == location.Id
+            && favorite.IsBuyer == isBuyer)
+            .ToListAsync();
+        if (favorites.Count == 0)
+        {
+            Context.Favorites.Add(new Data.Models.Favorite
+            {
+                UserId = userId.Value,
+                Location = location.Id,
+                IsBuyer = isBuyer,
+            });
+        }
+        else
+        {
+            Context.Favorites.RemoveRange(favorites);
+        }
+
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    public async Task<IActionResult> Create(int? copyFromId)
     {
         var model = new LocationFormViewModel();
+        if (copyFromId.HasValue)
+        {
+            var source = await Context.Locations.AsNoTracking().FirstOrDefaultAsync(l => l.Id == copyFromId.Value);
+            if (source is null)
+            {
+                return NotFound();
+            }
+
+            model = new LocationFormViewModel
+            {
+                CopyLocationId = source.Id,
+                CopyLocationName = source.Location1,
+                ClientType = source.IsBuyer == true ? BuyerClientType : source.IsBuyer == false ? SupplierClientType : null,
+                BuyerClientId = source.IsBuyer == true ? source.ClientId : null,
+                SupplierClientId = source.IsBuyer == false ? source.ClientId : null,
+                Country = source.Country,
+                State = source.State,
+                City = source.City,
+                Address = source.Address,
+                PinCode = source.PinCode,
+                DockHours = source.DockHours,
+                PaymentTerms = source.PaymentTerms,
+                BuyerStatus = source.BuyerStatus,
+                SupplierStatus = source.SupplierStatus,
+                IsActive = true,
+            };
+        }
+
         await PopulateOptionsAsync(model);
         return View(model);
     }
@@ -177,6 +266,8 @@ public class LocationController : PagedListController<LocationController.Locatio
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(LocationFormViewModel model)
     {
+        var copySource = await ValidateCopySourceAsync(model);
+
         if (!ModelState.IsValid)
         {
             await PopulateOptionsAsync(model);
@@ -195,15 +286,39 @@ public class LocationController : PagedListController<LocationController.Locatio
             PinCode = model.PinCode,
             DockHours = model.DockHours,
             PaymentTerms = model.PaymentTerms,
+            NpaymentTerms = copySource?.NpaymentTerms,
             BuyerStatus = model.BuyerStatus,
             SupplierStatus = model.SupplierStatus,
+            Drayage1 = copySource?.Drayage1,
+            Drayage2 = copySource?.Drayage2,
+            Drayage3 = copySource?.Drayage3,
+            NearestPort1 = copySource?.NearestPort1,
+            NearestPort2 = copySource?.NearestPort2,
+            NearestPort3 = copySource?.NearestPort3,
+            OtherStatus = copySource?.OtherStatus,
+            PictureLink = copySource?.PictureLink,
+            ScaleTickets = copySource?.ScaleTickets,
             IsActive = model.IsActive,
             CreateOn = DateTime.UtcNow,
             CreatedBy = User.GetLegacyUserId(),
         };
 
         Context.Locations.Add(location);
-        await Context.SaveChangesAsync();
+
+        if (Context.Database.IsRelational())
+        {
+            await using var transaction = await Context.Database.BeginTransactionAsync();
+            await Context.SaveChangesAsync();
+            await CopyLocationChildrenAsync(copySource, location);
+            await Context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        else
+        {
+            await Context.SaveChangesAsync();
+            await CopyLocationChildrenAsync(copySource, location);
+            await Context.SaveChangesAsync();
+        }
 
         return RedirectToAction(nameof(Index));
     }
@@ -348,4 +463,104 @@ public class LocationController : PagedListController<LocationController.Locatio
         model.ClientType == BuyerClientType ? model.BuyerClientId :
         model.ClientType == SupplierClientType ? model.SupplierClientId :
         null;
+
+    private async Task<Data.Models.Location?> ValidateCopySourceAsync(LocationFormViewModel model)
+    {
+        if (!model.CopyLocationId.HasValue)
+        {
+            return null;
+        }
+
+        var source = await Context.Locations.AsNoTracking().FirstOrDefaultAsync(l => l.Id == model.CopyLocationId.Value);
+        if (source is null)
+        {
+            ModelState.AddModelError(nameof(model.CopyLocationId), "Choose a valid location to copy.");
+            return null;
+        }
+
+        model.CopyLocationName = source.Location1;
+        if (source.IsBuyer != GetIsBuyer(model.ClientType) || source.ClientId != GetClientId(model))
+        {
+            ModelState.AddModelError(nameof(model.CopyLocationId), "The copied location must belong to the same buyer or supplier.");
+        }
+
+        return source;
+    }
+
+    private async Task CopyLocationChildrenAsync(Data.Models.Location? source, Data.Models.Location target)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        var userId = User.GetLegacyUserId();
+        var now = DateTime.UtcNow;
+
+        var contacts = await Context.Contacts
+            .AsNoTracking()
+            .Include(contact => contact.ContactNavigation)
+            .Where(contact => contact.Location == source.Id && contact.IsActive && contact.IsDockContact != true)
+            .ToListAsync();
+
+        foreach (var contact in contacts)
+        {
+            target.Contacts.Add(new Data.Models.Contact
+            {
+                ContactNavigation = new Data.Models.ContactInformation
+                {
+                    FirstName = contact.ContactNavigation.FirstName,
+                    LastName = contact.ContactNavigation.LastName,
+                    Title = contact.ContactNavigation.Title,
+                    Email = contact.ContactNavigation.Email,
+                    OfficePhone = contact.ContactNavigation.OfficePhone,
+                    CellPhone = contact.ContactNavigation.CellPhone,
+                    Address = contact.ContactNavigation.Address,
+                    City = contact.ContactNavigation.City,
+                    State = contact.ContactNavigation.State,
+                    Country = contact.ContactNavigation.Country,
+                    PinCode = contact.ContactNavigation.PinCode,
+                    IsActive = true,
+                },
+                ClientId = target.ClientId,
+                IsBuyer = target.IsBuyer,
+                IsPrimaryContact = contact.IsPrimaryContact,
+                IsDockContact = contact.IsDockContact,
+                IsActive = true,
+                CreateOn = now,
+                CreatedBy = userId,
+            });
+        }
+
+        if (target.IsBuyer != true)
+        {
+            return;
+        }
+
+        var buyerProducts = await Context.BuyerProducts
+            .AsNoTracking()
+            .Include(product => product.BuyerProductPackagings)
+            .Where(product => product.Location == source.Id && product.IsActive)
+            .ToListAsync();
+
+        foreach (var buyerProduct in buyerProducts)
+        {
+            target.BuyerProducts.Add(new Data.Models.BuyerProduct
+            {
+                Buyer = target.ClientId,
+                Product = buyerProduct.Product,
+                OtherProduct = buyerProduct.OtherProduct,
+                IsActive = true,
+                CreateOn = now,
+                CreatedBy = userId,
+                BuyerProductPackagings = buyerProduct.BuyerProductPackagings
+                    .Select(packaging => new Data.Models.BuyerProductPackaging
+                    {
+                        Packaging = packaging.Packaging,
+                        OtherPackaging = packaging.OtherPackaging,
+                    })
+                    .ToList(),
+            });
+        }
+    }
 }

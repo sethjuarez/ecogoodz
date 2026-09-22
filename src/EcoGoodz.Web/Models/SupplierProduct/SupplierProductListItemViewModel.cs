@@ -3,6 +3,9 @@ namespace EcoGoodz.Web.Models.SupplierProduct;
 public class SupplierProductListItemViewModel
 {
     public int Id { get; set; }
+    public int? SupplierId { get; set; }
+    public int? LocationId { get; set; }
+    public int? ProductId { get; set; }
     public string SupplierName { get; set; } = string.Empty;
     public string LocationName { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;

@@ -1,0 +1,77 @@
+@model EcoGoodz.Web.Models.Buyer.BuyerTrackingBuyerFormViewModel
+@{
+    ViewData["Title"] = "Add tracked buyer";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Buyer tracking</div>
+            <h2 class="page-title">Add tracked buyer</h2>
+        </div>
+        <div class="col-auto ms-auto">
+            <a asp-action="Tracking" asp-route-userId="@Model.CurrentUserId" class="btn">Back to tracking</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form asp-action="AddTrackingBuyer" method="post">
+            <input asp-for="CurrentUserId" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="mb-3">
+                <label asp-for="BuyerId" class="form-label"></label>
+                <select asp-for="BuyerId" asp-items="Model.BuyerOptions" class="form-select" data-searchable-select="true">
+                    <option value="">Choose a buyer</option>
+                </select>
+                <span asp-validation-for="BuyerId" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="LocationId" class="form-label"></label>
+                <select asp-for="LocationId" asp-items="Model.LocationOptions" class="form-select">
+                    <option value="">Choose a location</option>
+                </select>
+                <span asp-validation-for="LocationId" class="text-danger"></span>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save buyer</button>
+                <a asp-action="Tracking" asp-route-userId="@Model.CurrentUserId" class="btn">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        (() => {
+            const buyer = document.getElementById('BuyerId');
+            const location = document.getElementById('LocationId');
+            const url = '@Url.Action("GetTrackingBuyerLocations", "Buyer")';
+
+            async function loadLocations() {
+                const buyerId = buyer.value;
+                location.innerHTML = '<option value="">Choose a location</option>';
+                if (!buyerId) {
+                    return;
+                }
+
+                const response = await fetch(`${url}?buyerId=${encodeURIComponent(buyerId)}`);
+                if (!response.ok) {
+                    return;
+                }
+
+                const items = await response.json();
+                for (const item of items) {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = item.text;
+                    location.appendChild(option);
+                }
+            }
+
+            buyer?.addEventListener('change', loadLocations);
+        })();
+    </script>
+}

@@ -7,9 +7,11 @@ public class BuyerProductFormViewModel
 {
     public int Id { get; set; }
 
+    [Required]
     [Display(Name = "Buyer")]
     public int? Buyer { get; set; }
 
+    [Required]
     [Display(Name = "Location")]
     public int? Location { get; set; }
 

@@ -45,14 +45,17 @@ whatever Plesk named it for `app.ecogoodz.com` - check IIS Manager or Plesk's
 "IIS Application Pool" section under the domain's hosting settings):
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File ".\deployment\Plesk-StagedDeploy.ps1" -AppPoolName "<app-pool-name-for-app.ecogoodz.com>"
+powershell.exe -ExecutionPolicy Bypass -File ".\deployment\Plesk-StagedDeploy.ps1" -AppPoolName "<app-pool-name-for-app.ecogoodz.com>" -SmokeTestUrl "https://app.ecogoodz.com/healthz" -SmokeTimeoutSeconds 120
 ```
 
 This script runs from the staged checkout. It writes `app_offline.htm`, stops
 the app pool, mirrors the staged publish output into sibling `\httpdocs` with
-`robocopy`, removes `app_offline.htm`, then starts the app pool. Because Git
+`robocopy`, removes `app_offline.htm`, starts the app pool, then polls the
+smoke-test URL until it returns a 2xx/3xx response or times out. Because Git
 pulls into staging first, it never has to overwrite DLLs currently loaded by
-IIS.
+IIS. A failed `robocopy` leaves the app offline for safe manual recovery; a
+failed smoke test reports a non-zero deployment failure clearly in Plesk while
+leaving the app pool running for log inspection.
 
 ### If Plesk cannot replace locked DLLs
 

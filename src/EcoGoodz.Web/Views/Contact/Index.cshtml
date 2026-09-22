@@ -1,0 +1,97 @@
+@model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.Contact.ContactListItemViewModel>
+@{
+    ViewData["Title"] = "Contacts";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <h2 class="page-title">Contacts</h2>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
+        </div>
+        <div class="col-auto ms-auto">
+            <a asp-action="Create" asp-route-locationId="@Context.Request.Query["locationId"]" class="btn btn-primary">New contact</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Client</th>
+                    <th>Location</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Flags</th>
+                    <th class="w-1"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="7" class="text-center text-secondary py-4">No contacts found.</td></tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>
+                            <div><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></div>
+                            <div class="text-secondary">@item.Title</div>
+                        </td>
+                        <td>
+                            @if (item.ClientId.HasValue)
+                            {
+                                <a asp-controller="@(item.IsBuyer ? "Buyer" : "Supplier")" asp-action="Details" asp-route-id="@item.ClientId" class="text-reset">@item.ClientName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.LocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@item.LocationId">@item.LocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td><a href="mailto:@item.Email">@item.Email</a></td>
+                        <td>
+                            <div>@item.OfficePhone</div>
+                            <div class="text-secondary">@item.CellPhone</div>
+                        </td>
+                        <td>
+                            @if (item.IsPrimaryContact)
+                            {
+                                <span class="badge bg-primary-lt">Primary</span>
+                            }
+                            @if (item.IsDockContact)
+                            {
+                                <span class="badge bg-info-lt">Dock</span>
+                            }
+                            @if (!item.IsActive)
+                            {
+                                <span class="badge bg-secondary-lt">Inactive</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <div class="d-flex justify-content-end gap-2">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm">Edit</a>
+                                <form asp-action="Copy" asp-route-id="@item.Id" method="post">
+                                    <button type="submit" class="btn btn-sm">Copy</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @await Html.PartialAsync("_ListPagination", Model.Page)
+</div>

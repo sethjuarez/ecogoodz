@@ -1,0 +1,136 @@
+@model EcoGoodz.Web.Models.Report.LastLoadShippedReportViewModel
+@{
+    ViewData["Title"] = "Last load shipped";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <h2 class="page-title">Last load shipped</h2>
+            <div class="text-secondary mt-1">
+                Shows the most recent shipped/completed load per @(Model.IsBuyerReport ? "buyer" : "supplier").
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="get" class="card mb-3">
+    <div class="card-body">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label asp-for="ClientType" class="form-label">Client type</label>
+                <select asp-for="ClientType" class="form-select">
+                    <option value="Buyer">Buyer</option>
+                    <option value="Supplier">Supplier</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label asp-for="StartDate" class="form-label">Start date</label>
+                <input asp-for="StartDate" class="form-control" type="date" />
+            </div>
+            <div class="col-md-2">
+                <label asp-for="EndDate" class="form-label">End date</label>
+                <input asp-for="EndDate" class="form-control" type="date" />
+            </div>
+            <div class="col-md-3">
+                <label asp-for="AccountManagerId" class="form-label">Account manager</label>
+                <select asp-for="AccountManagerId" class="form-select">
+                    <option value="">All account managers</option>
+                    @foreach (var manager in Model.AccountManagers)
+                    {
+                        <option value="@manager.Id">@manager.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label asp-for="StaleDays" class="form-label">Not shipped in days</label>
+                <input asp-for="StaleDays" class="form-control" type="number" min="1" max="3650" />
+                <span asp-validation-for="StaleDays" class="text-danger"></span>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-primary w-100">Run</button>
+            </div>
+        </div>
+        <div class="text-secondary mt-2">
+            Date filters apply unless "not shipped in days" is set, matching the legacy report behavior.
+        </div>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">@Model.Rows.Count @(Model.IsBuyerReport ? "buyers" : "suppliers")</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+            <thead>
+                <tr>
+                    <th>@(Model.IsBuyerReport ? "Buyer" : "Supplier")</th>
+                    <th>Account manager</th>
+                    <th>Location</th>
+                    <th>Last shipped</th>
+                    <th class="text-end">Days</th>
+                    <th>Products</th>
+                    <th>Last communication</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Rows.Count == 0)
+                {
+                    <tr>
+                        <td colspan="7" class="text-center text-secondary py-4">No matching shipped loads found.</td>
+                    </tr>
+                }
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <td>
+                            @if (row.ClientId.HasValue)
+                            {
+                                <a asp-controller="@(Model.IsBuyerReport ? "Buyer" : "Supplier")" asp-action="Details" asp-route-id="@row.ClientId" class="text-reset">@row.ClientName</a>
+                            }
+                            else
+                            {
+                                @row.ClientName
+                            }
+                        </td>
+                        <td>
+                            @if (row.AccountManagerId.HasValue)
+                            {
+                                <a asp-controller="StaffUser" asp-action="Details" asp-route-id="@row.AccountManagerId" class="text-reset">@(row.AccountManagerName ?? $"User {row.AccountManagerId}")</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (row.LocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@row.LocationId" class="text-reset">@row.LocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td><a asp-controller="Load" asp-action="Details" asp-route-id="@row.LoadId" class="text-reset">@row.ShipmentDate.ToString("yyyy-MM-dd")</a></td>
+                        <td class="text-end">@row.DaysSinceShipment</td>
+                        <td>@row.Products</td>
+                        <td>
+                            @if (row.LastCommunicationId.HasValue)
+                            {
+                                <a asp-controller="Communication" asp-action="Details" asp-route-id="@row.LastCommunicationId" class="text-reset">@(row.LastCommunicationDate?.ToString("yyyy-MM-dd") ?? $"Communication {row.LastCommunicationId}")</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

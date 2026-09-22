@@ -1,0 +1,86 @@
+@model EcoGoodz.Web.Models.SupplierProduct.SupplierProductRatePropagationViewModel
+@{
+    ViewData["Title"] = "Propagate buyer rates";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Supplier product rates</div>
+            <h2 class="page-title">Propagate buyer rates</h2>
+            <div class="text-secondary">@Model.SupplierName - @Model.ProductName</div>
+        </div>
+        <div class="col-auto ms-auto">
+            <a asp-action="Details" asp-route-id="@Model.SupplierProductId" class="btn">Back to supplier product</a>
+        </div>
+    </div>
+</div>
+
+<form asp-action="PropagateBuyerRates" method="post">
+    <input asp-for="SupplierProductId" type="hidden" />
+    <input asp-for="SuggestedRate" type="hidden" />
+    <input asp-for="SuggestedEffectiveDate" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Tied buyer products</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table card-table table-vcenter">
+                <thead>
+                    <tr>
+                        <th class="w-1">Update</th>
+                        <th>Buyer</th>
+                        <th>Location</th>
+                        <th>Current buyer rate</th>
+                        <th>Updated rate</th>
+                        <th>Updated effective date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.BuyerProducts.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-secondary py-4">No active tied buyer products found.</td>
+                        </tr>
+                    }
+                    @for (var i = 0; i < Model.BuyerProducts.Count; i++)
+                    {
+                        <tr>
+                            <td>
+                                <input asp-for="BuyerProducts[i].IsSelected" class="form-check-input" />
+                                <input asp-for="BuyerProducts[i].BuyerSupplierProductId" type="hidden" />
+                                <input asp-for="BuyerProducts[i].BuyerName" type="hidden" />
+                                <input asp-for="BuyerProducts[i].BuyerLocationName" type="hidden" />
+                                <input asp-for="BuyerProducts[i].CurrentRate" type="hidden" />
+                                <input asp-for="BuyerProducts[i].CurrentEffectiveDate" type="hidden" />
+                            </td>
+                            <td>@Model.BuyerProducts[i].BuyerName</td>
+                            <td>@Model.BuyerProducts[i].BuyerLocationName</td>
+                            <td>
+                                @Model.BuyerProducts[i].CurrentRate?.ToString("C")
+                                <span class="text-secondary">@Model.BuyerProducts[i].CurrentEffectiveDate?.ToString("yyyy-MM-dd")</span>
+                            </td>
+                            <td>
+                                <input asp-for="BuyerProducts[i].UpdatedRate" class="form-control" />
+                                <span asp-validation-for="BuyerProducts[i].UpdatedRate" class="text-danger"></span>
+                            </td>
+                            <td>
+                                <input asp-for="BuyerProducts[i].UpdatedEffectiveDate" class="form-control" type="date" />
+                                <span asp-validation-for="BuyerProducts[i].UpdatedEffectiveDate" class="text-danger"></span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer text-end">
+            <button type="submit" class="btn btn-primary" @(Model.BuyerProducts.Count == 0 ? "disabled" : null)>Update selected buyer rates</button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

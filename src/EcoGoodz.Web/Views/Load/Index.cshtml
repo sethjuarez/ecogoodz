@@ -1,6 +1,9 @@
 @model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.Load.LoadListItemViewModel>
 @{
     ViewData["Title"] = "Loads";
+    var exportRouteValues = Model.Page.AdditionalQueryParameters
+        .Where(parameter => parameter.Value is not null)
+        .ToDictionary(parameter => parameter.Key, parameter => parameter.Value!);
 }
 
 <div class="page-header d-print-none mb-3">
@@ -11,18 +14,24 @@
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
             @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search loads…" })
+            <a asp-action="Export" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-all-route-data="@exportRouteValues" class="btn text-nowrap">Export CSV</a>
             <a asp-action="Create" class="btn btn-primary text-nowrap">New load</a>
         </div>
     </div>
 </div>
+
+@await Html.PartialAsync("_ScopedFilterBanner", Model.Page)
 
 <div class="card">
     <div class="table-responsive">
         <table class="table card-table table-vcenter">
             <thead>
                 <tr>
+                    <th>Load</th>
                     <th>@Html.SortableHeader("buyer", "Buyer", Model.Page)</th>
                     <th>@Html.SortableHeader("supplier", "Supplier", Model.Page)</th>
+                    <th>Buyer location</th>
+                    <th>Supplier location</th>
                     <th>@Html.SortableHeader("status", "Status", Model.Page)</th>
                     <th>@Html.SortableHeader("shipmentDate", "Shipment date", Model.Page)</th>
                     <th>@Html.SortableHeader("active", "Active", Model.Page)</th>
@@ -33,14 +42,53 @@
                 @if (Model.Items.Count == 0)
                 {
                     <tr>
-                        <td colspan="6" class="text-center text-secondary py-4">No loads found.</td>
+                        <td colspan="9" class="text-center text-secondary py-4">No loads found.</td>
                     </tr>
                 }
                 @foreach (var item in Model.Items)
                 {
                     <tr>
-                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.BuyerName</a></td>
-                        <td>@item.SupplierName</td>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">#@item.Id</a></td>
+                        <td>
+                            @if (item.BuyerId.HasValue)
+                            {
+                                <a asp-controller="Buyer" asp-action="Details" asp-route-id="@item.BuyerId" class="text-reset">@item.BuyerName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.SupplierId.HasValue)
+                            {
+                                <a asp-controller="Supplier" asp-action="Details" asp-route-id="@item.SupplierId" class="text-reset">@item.SupplierName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.BuyerLocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@item.BuyerLocationId" class="text-reset">@item.BuyerLocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.SupplierLocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@item.SupplierLocationId" class="text-reset">@item.SupplierLocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
                         <td>@item.StatusName</td>
                         <td>@item.ShipmentDate?.ToString("yyyy-MM-dd")</td>
                         <td>

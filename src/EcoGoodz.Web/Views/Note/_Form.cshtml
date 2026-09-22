@@ -1,0 +1,45 @@
+@model EcoGoodz.Web.Models.Note.NoteFormViewModel
+
+<div class="card-body">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input asp-for="Id" type="hidden" />
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label asp-for="Scope" class="form-label"></label>
+            <select asp-for="Scope" asp-items="Model.ScopeOptions" class="form-select"></select>
+        </div>
+        <div class="col-md-8">
+            <label asp-for="BuyerLocation" class="form-label"></label>
+            <select asp-for="BuyerLocation" asp-items="Model.BuyerLocationOptions" class="form-select">
+                <option value="">Choose buyer location</option>
+            </select>
+            <span asp-validation-for="BuyerLocation" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="SupplierLocation" class="form-label"></label>
+            <select asp-for="SupplierLocation" asp-items="Model.SupplierLocationOptions" class="form-select">
+                <option value="">Choose supplier location</option>
+            </select>
+            <span asp-validation-for="SupplierLocation" class="text-danger"></span>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Product" class="form-label"></label>
+            <select asp-for="Product" asp-items="Model.ProductOptions" class="form-select">
+                <option value="">Choose supplier product</option>
+            </select>
+            <span asp-validation-for="Product" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label asp-for="Notes" class="form-label"></label>
+            <textarea asp-for="Notes" class="form-control" rows="6"></textarea>
+            <span asp-validation-for="Notes" class="text-danger"></span>
+        </div>
+        <div class="col-12">
+            <label class="form-check">
+                <input asp-for="IsActive" class="form-check-input" />
+                <span class="form-check-label">Active</span>
+            </label>
+        </div>
+    </div>
+</div>

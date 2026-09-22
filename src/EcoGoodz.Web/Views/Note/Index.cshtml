@@ -1,0 +1,66 @@
+@model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.Note.NoteListItemViewModel>
+@{
+    ViewData["Title"] = "Notes";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <h2 class="page-title">Notes</h2>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
+        </div>
+        <div class="col-auto ms-auto">
+            <a asp-action="Create" asp-route-scope="@Context.Request.Query["scope"]" asp-route-id="@Context.Request.Query["id"]" class="btn btn-primary">New note</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table card-table table-vcenter">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Scope</th>
+                    <th>Context</th>
+                    <th>Note</th>
+                    <th>Created by</th>
+                    <th class="w-1"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="6" class="text-center text-secondary py-4">No notes found.</td></tr>
+                }
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>@item.Date?.ToShortDateString()</td>
+                        <td>@item.Scope</td>
+                        <td>
+                            @if (item.ProductId.HasValue)
+                            {
+                                <a asp-controller="SupplierProduct" asp-action="Details" asp-route-id="@item.ProductId" class="text-reset">@item.ProductName</a>
+                            }
+                            else if (item.LocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@item.LocationId" class="text-reset">@item.LocationName</a>
+                            }
+                            else
+                            {
+                                @(item.ProductName ?? item.LocationName)
+                            }
+                        </td>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Notes</a></td>
+                        <td>@item.CreatedByName</td>
+                        <td class="text-end">
+                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm">Edit</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @await Html.PartialAsync("_ListPagination", Model.Page)
+</div>

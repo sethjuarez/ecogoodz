@@ -1,29 +1,74 @@
 @model EcoGoodz.Web.Models.Supplier.SupplierDetailsViewModel
 @{
     ViewData["Title"] = Model.Name;
+    var relationshipSummary = new List<EcoGoodz.Web.Models.Shared.RelationshipSummaryItemViewModel>
+    {
+        new()
+        {
+            Label = "Products",
+            Value = Model.ProductCount.ToString(),
+            Controller = "SupplierProduct",
+            Action = "Index",
+            RouteValues = new Dictionary<string, string> { ["supplierId"] = Model.Id.ToString() },
+        },
+        new()
+        {
+            Label = "Buyers",
+            Value = Model.BuyerCount.ToString(),
+            Controller = "BuyerSupplier",
+            Action = "Index",
+            RouteValues = new Dictionary<string, string> { ["supplierId"] = Model.Id.ToString() },
+        },
+        new()
+        {
+            Label = "Loads",
+            Value = Model.LoadCount.ToString(),
+            Controller = "Load",
+            Action = "Index",
+            RouteValues = new Dictionary<string, string> { ["supplierId"] = Model.Id.ToString() },
+        },
+    };
 }
 
-<div class="page-header d-print-none mb-3">
+<div class="page-header d-print-none mb-3 eg-list-workspace">
     <div class="row g-2 align-items-center">
         <div class="col">
             <div class="page-pretitle">Suppliers</div>
             <h2 class="page-title">@Model.Name</h2>
+            <div class="text-secondary mt-1">Supplier workspace with profile, relationships, activity, and next actions.</div>
         </div>
-        <div class="col-auto ms-auto d-flex gap-2">
+        <div class="col-auto ms-auto eg-command-bar">
+            <a asp-controller="Communication" asp-action="Index" asp-route-clientType="Supplier" asp-route-clientId="@Model.Id" class="btn">Communications</a>
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
             <a asp-action="Index" class="btn">Back to list</a>
         </div>
     </div>
 </div>
 
-<div class="row row-cards">
+<div class="eg-detail-page">
+<div class="row row-cards mb-3">
     <div class="col-12 col-lg-8">
-        <div class="card">
+        <div class="card eg-profile-card h-100">
+            <div class="card-header">
+                <div>
+                    <div class="eg-card-kicker">Profile</div>
+                    <h3 class="card-title mb-0">Supplier details</h3>
+                </div>
+            </div>
             <div class="card-body">
                 <div class="datagrid">
                     <div class="datagrid-item">
                         <div class="datagrid-title">Account manager</div>
-                        <div class="datagrid-content">@Model.AccountManagerName</div>
+                        <div class="datagrid-content">
+                            @if (Model.AccountManagerId.HasValue)
+                            {
+                                <a asp-controller="StaffUser" asp-action="Details" asp-route-id="@Model.AccountManagerId">@Model.AccountManagerName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Active</div>
@@ -51,24 +96,19 @@
         </div>
     </div>
     <div class="col-12 col-lg-4">
-        <div class="card">
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-4">
-                        <div class="text-secondary">Products</div>
-                        <div class="h1 m-0">@Model.ProductCount</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="text-secondary">Buyers</div>
-                        <div class="h1 m-0">@Model.BuyerCount</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="text-secondary">Loads</div>
-                        <div class="h1 m-0">@Model.LoadCount</div>
-                    </div>
+        <div class="card eg-profile-card h-100">
+            <div class="card-header">
+                <div>
+                    <div class="eg-card-kicker">Snapshot</div>
+                    <h3 class="card-title mb-0">Relationships</h3>
                 </div>
+            </div>
+            <div class="card-body">
+                @await Html.PartialAsync("_RelationshipSummary", relationshipSummary)
             </div>
         </div>
     </div>
 </div>
 
+@await Html.PartialAsync("_RecentLoads", Model.RecentLoads)
+</div>

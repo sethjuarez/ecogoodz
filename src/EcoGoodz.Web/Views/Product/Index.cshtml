@@ -38,7 +38,16 @@
                 {
                     <tr>
                         <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></td>
-                        <td>@item.ParentName</td>
+                        <td>
+                            @if (item.ParentId.HasValue)
+                            {
+                                <a asp-action="Details" asp-route-id="@item.ParentId" class="text-reset">@item.ParentName</a>
+                            }
+                            else
+                            {
+                                @item.ParentName
+                            }
+                        </td>
                         <td>
                             @if (item.IsActive)
                             {
@@ -59,4 +68,3 @@
     </div>
     @await Html.PartialAsync("_ListPagination", Model.Page)
 </div>
-

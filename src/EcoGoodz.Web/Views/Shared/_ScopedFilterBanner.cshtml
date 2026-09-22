@@ -1,0 +1,31 @@
+@model EcoGoodz.Web.Models.Shared.PageInfo
+@functions {
+    private static string FormatScopeLabel(string key) =>
+        key switch
+        {
+            "buyerId" => "Buyer",
+            "supplierId" => "Supplier",
+            "locationId" => "Location",
+            "buyerLocationId" => "Buyer location",
+            "supplierLocationId" => "Supplier location",
+            "productId" => "Product",
+            _ => key,
+        };
+}
+
+@if (Model.AdditionalQueryParameters.Count > 0)
+{
+    <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-3" role="status">
+        <div>
+            <strong>Scoped view</strong>
+            <span class="ms-1">Showing records from a related workspace.</span>
+            <span class="d-inline-flex flex-wrap gap-1 ms-2">
+                @foreach (var parameter in Model.AdditionalQueryParameters)
+                {
+                    <span class="badge bg-info-lt">@FormatScopeLabel(parameter.Key): @parameter.Value</span>
+                }
+            </span>
+        </div>
+        <a asp-action="Index" class="btn btn-sm">Clear filter</a>
+    </div>
+}

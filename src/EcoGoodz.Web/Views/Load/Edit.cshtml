@@ -37,6 +37,22 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            <label asp-for="BuyerLocation" class="form-label"></label>
+                            <select asp-for="BuyerLocation" asp-items="Model.BuyerLocationOptions" class="form-select" data-searchable-select="true">
+                                <option value="">-- select buyer location --</option>
+                            </select>
+                            <span asp-validation-for="BuyerLocation" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="SupplierLocation" class="form-label"></label>
+                            <select asp-for="SupplierLocation" asp-items="Model.SupplierLocationOptions" class="form-select" data-searchable-select="true">
+                                <option value="">-- select supplier location --</option>
+                            </select>
+                            <span asp-validation-for="SupplierLocation" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
                             <label asp-for="LoadStatus" class="form-label"></label>
                             <select asp-for="LoadStatus" asp-items="Model.StatusOptions" class="form-select">
                                 <option value="">-- none --</option>
@@ -64,6 +80,12 @@
                     <div class="mb-3">
                         <label asp-for="FreightCarrier" class="form-label"></label>
                         <input asp-for="FreightCarrier" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="SupplierProductIds" class="form-label"></label>
+                        <select asp-for="SupplierProductIds" asp-items="Model.SupplierProductOptions" class="form-select" multiple size="6" data-searchable-select="true"></select>
+                        <span asp-validation-for="SupplierProductIds" class="text-danger"></span>
+                        <div class="form-hint">Hold Ctrl/Cmd to choose multiple supplier products for this load.</div>
                     </div>
                     <label class="form-check form-switch mb-3">
                         <input asp-for="IsActive" class="form-check-input" type="checkbox" />

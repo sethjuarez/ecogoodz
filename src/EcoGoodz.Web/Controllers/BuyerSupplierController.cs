@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
+using EcoGoodz.Web.Extensions;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.BuyerSupplier;
 using EcoGoodz.Web.Models.Shared;
@@ -50,6 +52,10 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
         m => new BuyerSupplierListItemViewModel
         {
             Id = m.Id,
+            BuyerId = m.Buyer,
+            SupplierId = m.Supplier,
+            BuyerLocationId = m.BuyerLocation,
+            SupplierLocationId = m.SupplierLocation,
             BuyerName = m.BuyerNavigation != null ? m.BuyerNavigation.Name : null,
             SupplierName = m.SupplierNavigation != null ? m.SupplierNavigation.Name : null,
             BuyerLocationName = m.BuyerLocationNavigation != null ? m.BuyerLocationNavigation.Location1 : null,
@@ -60,6 +66,21 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
 
     public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
+        var buyerId = ReadIntQuery("buyerId");
+        var supplierId = ReadIntQuery("supplierId");
+        var buyerLocationId = ReadIntQuery("buyerLocationId");
+        var supplierLocationId = ReadIntQuery("supplierLocationId");
+        var locationId = ReadIntQuery("locationId");
+        var hasScope = buyerId.HasValue
+            || supplierId.HasValue
+            || buyerLocationId.HasValue
+            || supplierLocationId.HasValue
+            || locationId.HasValue;
+        if (hasScope)
+        {
+            return await ScopedIndex(search, sort, desc, page, pageSize, buyerId, supplierId, buyerLocationId, supplierLocationId, locationId);
+        }
+
         if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
         {
             return await base.Index(search, sort, desc, page, pageSize);
@@ -91,6 +112,10 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
                 select new BuyerSupplierListItemViewModel
                 {
                     Id = match.Id,
+                    BuyerId = match.Buyer,
+                    SupplierId = match.Supplier,
+                    BuyerLocationId = match.BuyerLocation,
+                    SupplierLocationId = match.SupplierLocation,
                     BuyerName = buyer.Name,
                     SupplierName = supplier.Name,
                     BuyerLocationName = buyerLocation.Location1,
@@ -113,6 +138,125 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
         });
     }
 
+    private async Task<IActionResult> ScopedIndex(
+        string? search,
+        string? sort,
+        bool desc,
+        int page,
+        int pageSize,
+        int? buyerId,
+        int? supplierId,
+        int? buyerLocationId,
+        int? supplierLocationId,
+        int? locationId)
+    {
+        var query = GetBaseQuery().AsNoTracking();
+        if (buyerId.HasValue)
+        {
+            query = query.Where(match => match.Buyer == buyerId.Value);
+        }
+
+        if (supplierId.HasValue)
+        {
+            query = query.Where(match => match.Supplier == supplierId.Value);
+        }
+
+        if (buyerLocationId.HasValue)
+        {
+            query = query.Where(match => match.BuyerLocation == buyerLocationId.Value);
+        }
+
+        if (supplierLocationId.HasValue)
+        {
+            query = query.Where(match => match.SupplierLocation == supplierLocationId.Value);
+        }
+
+        if (locationId.HasValue)
+        {
+            query = query.Where(match =>
+                match.BuyerLocation == locationId.Value
+                || match.SupplierLocation == locationId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = ApplySearch(query, search);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await query.CountAsync();
+        var sorted = query.ApplySort(sort, desc, SortColumns, DefaultSortColumn, out var resolvedSort);
+        var items = await sorted
+            .Select(ProjectionExpression)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return View("Index", new PagedResult<BuyerSupplierListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+                SortColumn = resolvedSort,
+                SortDescending = desc,
+                AdditionalQueryParameters = BuildScopeParameters(
+                    buyerId,
+                    supplierId,
+                    buyerLocationId,
+                    supplierLocationId,
+                    locationId),
+            },
+        });
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildScopeParameters(
+        int? buyerId,
+        int? supplierId,
+        int? buyerLocationId,
+        int? supplierLocationId,
+        int? locationId)
+    {
+        var parameters = new Dictionary<string, string?>();
+        if (buyerId.HasValue)
+        {
+            parameters["buyerId"] = buyerId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (supplierId.HasValue)
+        {
+            parameters["supplierId"] = supplierId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (buyerLocationId.HasValue)
+        {
+            parameters["buyerLocationId"] = buyerLocationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (supplierLocationId.HasValue)
+        {
+            parameters["supplierLocationId"] = supplierLocationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (locationId.HasValue)
+        {
+            parameters["locationId"] = locationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return parameters;
+    }
+
+    private int? ReadIntQuery(string key) =>
+        HttpContext?.Request.Query.TryGetValue(key, out var rawValue) == true
+        && int.TryParse(rawValue.ToString(), CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+
     public async Task<IActionResult> Details(int id)
     {
         var match = await Context.BuyerSuppliers
@@ -120,6 +264,10 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             .Select(m => new BuyerSupplierDetailsViewModel
             {
                 Id = m.Id,
+                BuyerId = m.Buyer,
+                SupplierId = m.Supplier,
+                BuyerLocationId = m.BuyerLocation,
+                SupplierLocationId = m.SupplierLocation,
                 BuyerName = m.BuyerNavigation != null ? m.BuyerNavigation.Name : null,
                 SupplierName = m.SupplierNavigation != null ? m.SupplierNavigation.Name : null,
                 BuyerLocationName = m.BuyerLocationNavigation != null ? m.BuyerLocationNavigation.Location1 : null,
@@ -142,11 +290,28 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             .Select(m => new { m.Buyer, m.Supplier, m.BuyerLocation, m.SupplierLocation })
             .FirstAsync();
 
-        match.LoadCount = await Context.Loads.CountAsync(l =>
-            l.Buyer == matchKeys.Buyer
-            && l.Supplier == matchKeys.Supplier
-            && l.BuyerLocation == matchKeys.BuyerLocation
-            && l.SupplierLocation == matchKeys.SupplierLocation);
+        var loadsQuery = Context.Loads.AsNoTracking();
+        if (matchKeys.Buyer.HasValue)
+        {
+            loadsQuery = loadsQuery.Where(load => load.Buyer == matchKeys.Buyer.Value);
+        }
+
+        if (matchKeys.Supplier.HasValue)
+        {
+            loadsQuery = loadsQuery.Where(load => load.Supplier == matchKeys.Supplier.Value);
+        }
+
+        if (matchKeys.BuyerLocation.HasValue)
+        {
+            loadsQuery = loadsQuery.Where(load => load.BuyerLocation == matchKeys.BuyerLocation.Value);
+        }
+
+        if (matchKeys.SupplierLocation.HasValue)
+        {
+            loadsQuery = loadsQuery.Where(load => load.SupplierLocation == matchKeys.SupplierLocation.Value);
+        }
+
+        match.LoadCount = await loadsQuery.CountAsync();
 
         match.Products = await Context.BuyerSupplierProducts
             .AsNoTracking()
@@ -163,26 +328,30 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
                         : product.SupplierProductNavigation.OtherPackaging
                     : null,
                 BuyerPrice = product.BuyerProductRates
-                    .Where(rate => rate.IsActive)
+                    .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                     .OrderByDescending(rate => rate.EffectiveDate)
+                    .ThenByDescending(rate => rate.Id)
                     .Select(rate => rate.Price)
                     .FirstOrDefault(),
                 BuyerEffectiveDate = product.BuyerProductRates
-                    .Where(rate => rate.IsActive)
+                    .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                     .OrderByDescending(rate => rate.EffectiveDate)
+                    .ThenByDescending(rate => rate.Id)
                     .Select(rate => rate.EffectiveDate)
                     .FirstOrDefault(),
                 SupplierPrice = product.SupplierProductNavigation != null
                     ? product.SupplierProductNavigation.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.Price)
                         .FirstOrDefault()
                     : null,
                 SupplierEffectiveDate = product.SupplierProductNavigation != null
                     ? product.SupplierProductNavigation.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.EffectiveDate)
                         .FirstOrDefault()
                     : null,
@@ -209,6 +378,13 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(BuyerSupplierFormViewModel model)
     {
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
+        await ValidateSelectionsAsync(model);
         if (!ModelState.IsValid)
         {
             await PopulateOptionsAsync(model);
@@ -265,6 +441,13 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             return NotFound();
         }
 
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
+        await ValidateSelectionsAsync(model);
         if (!ModelState.IsValid)
         {
             await PopulateOptionsAsync(model);
@@ -419,6 +602,7 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
     {
         if (!ModelState.IsValid)
         {
+            TempData["Error"] = "Choose a supplier product and enter a valid buyer price before saving.";
             return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
         }
 
@@ -469,6 +653,7 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
     {
         if (!ModelState.IsValid)
         {
+            TempData["Error"] = "Enter a valid buyer rate before saving.";
             return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
         }
 
@@ -495,15 +680,17 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
         }
 
+        var userId = User.GetLegacyUserId();
         Context.BuyerProductRates.Add(new BuyerProductRate
         {
             BuyerSupplierProductId = model.BuyerSupplierProductId,
             Price = model.Price,
             EffectiveDate = model.EffectiveDate,
             CreatedDate = DateTime.UtcNow,
-            UserId = User.GetLegacyUserId(),
+            UserId = userId,
             IsActive = true,
         });
+        AddBuyerProductHistory(model.BuyerSupplierProductId, oldPrice: null, model.Price, oldEffectiveDate: null, model.EffectiveDate, userId, "Add");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(Details), new { id = model.BuyerSupplierId });
@@ -534,15 +721,17 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
                     : null,
                 SupplierPrice = product.SupplierProductNavigation != null
                     ? product.SupplierProductNavigation.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.Price)
                         .FirstOrDefault()
                     : null,
                 SupplierEffectiveDate = product.SupplierProductNavigation != null
                     ? product.SupplierProductNavigation.SupplierProductRates
-                        .Where(rate => rate.IsActive)
+                        .Where(rate => rate.IsActive && (rate.EffectiveDate == null || rate.EffectiveDate <= DateTime.Today))
                         .OrderByDescending(rate => rate.EffectiveDate)
+                        .ThenByDescending(rate => rate.Id)
                         .Select(rate => rate.EffectiveDate)
                         .FirstOrDefault()
                     : null,
@@ -572,6 +761,23 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
                 CreatedDate = rate.CreatedDate,
                 UserName = rate.User != null ? rate.User.FirstName + " " + rate.User.LastName : null,
                 IsActive = rate.IsActive,
+            })
+            .ToListAsync();
+
+        model.RateHistory = await Context.BuyerProductHistories
+            .AsNoTracking()
+            .Where(history => history.BuyerSupplierProductId == id)
+            .OrderByDescending(history => history.CreatedDate)
+            .ThenByDescending(history => history.Id)
+            .Select(history => new RateChangeHistoryItemViewModel
+            {
+                OldPrice = history.OldPrice,
+                NewPrice = history.NewPrice,
+                OldEffectiveDate = history.OldEffectiveDate,
+                NewEffectiveDate = history.NewEffectiveDate,
+                CreatedDate = history.CreatedDate,
+                UserName = history.User != null ? history.User.FirstName + " " + history.User.LastName : null,
+                Action = history.Action,
             })
             .ToListAsync();
 
@@ -634,10 +840,15 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             return View(model);
         }
 
+        var oldPrice = rate.Price;
+        var oldEffectiveDate = rate.EffectiveDate;
+        var userId = User.GetLegacyUserId();
+
         rate.Price = model.Price;
         rate.EffectiveDate = model.EffectiveDate;
         rate.CreatedDate = DateTime.UtcNow;
-        rate.UserId = User.GetLegacyUserId();
+        rate.UserId = userId;
+        AddBuyerProductHistory(model.BuyerSupplierProductId, oldPrice, model.Price, oldEffectiveDate, model.EffectiveDate, userId, "Update");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(ProductDetails), new { id = model.BuyerSupplierProductId });
@@ -654,6 +865,14 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
         }
 
         rate.IsActive = false;
+        AddBuyerProductHistory(
+            buyerSupplierProductId,
+            rate.Price,
+            null,
+            rate.EffectiveDate,
+            null,
+            User.GetLegacyUserId(),
+            "Delete");
         await Context.SaveChangesAsync();
 
         return RedirectToAction(nameof(ProductDetails), new { id = buyerSupplierProductId });
@@ -669,6 +888,55 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             .OrderBy(s => s.Status)
             .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Status })
             .ToListAsync();
+    }
+
+    private void AddBuyerProductHistory(
+        int buyerSupplierProductId,
+        decimal? oldPrice,
+        decimal? newPrice,
+        DateTime? oldEffectiveDate,
+        DateTime? newEffectiveDate,
+        int? userId,
+        string action)
+    {
+        Context.BuyerProductHistories.Add(new BuyerProductHistory
+        {
+            BuyerSupplierProductId = buyerSupplierProductId,
+            OldPrice = oldPrice,
+            NewPrice = newPrice,
+            OldEffectiveDate = oldEffectiveDate,
+            NewEffectiveDate = newEffectiveDate,
+            CreatedDate = DateTime.UtcNow,
+            UserId = userId,
+            Action = action,
+        });
+    }
+
+    private async Task ValidateSelectionsAsync(BuyerSupplierFormViewModel model)
+    {
+        if (model.Buyer is not null && model.BuyerLocation is not null)
+        {
+            var validBuyerLocation = await Context.Locations.AnyAsync(location =>
+                location.Id == model.BuyerLocation &&
+                location.ClientId == model.Buyer &&
+                (location.IsBuyer == true || location.IsBuyer == null));
+            if (!validBuyerLocation)
+            {
+                ModelState.AddModelError(nameof(model.BuyerLocation), "Choose a location for the selected buyer.");
+            }
+        }
+
+        if (model.Supplier is not null && model.SupplierLocation is not null)
+        {
+            var validSupplierLocation = await Context.Locations.AnyAsync(location =>
+                location.Id == model.SupplierLocation &&
+                location.ClientId == model.Supplier &&
+                (location.IsBuyer == false || location.IsBuyer == null));
+            if (!validSupplierLocation)
+            {
+                ModelState.AddModelError(nameof(model.SupplierLocation), "Choose a location for the selected supplier.");
+            }
+        }
     }
 
     private async Task<List<SelectListItem>> GetSelectedBuyerOptionsAsync(int? selectedId)

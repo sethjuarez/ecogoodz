@@ -44,6 +44,7 @@
       from `dotnet publish` output specifically (still copied for local dev/build).
     -->
     <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Include="deployment\**\*.ps1" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!--

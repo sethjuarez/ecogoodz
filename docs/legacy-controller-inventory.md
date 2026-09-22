@@ -37,9 +37,6 @@ Used daily by account managers, but doesn't block Tier 1 loads from being record
 | `CommunicationController` | 191 lines | Logs calls/emails/notes against a buyer or supplier - referenced heavily by the Report module (`CommunicationReport`). |
 | `NotesController` | 159 lines | Free-form notes, probably attached to Buyer/Supplier/Load. |
 | `TaskController` / `TaskHeadlineController` | 467 + 146 lines | Staff task/reminder tracking. |
-| `GoalController` | 394 lines | Account-manager sales goals/targets. |
-| `ThresholdController` | 104 lines | Small config table (likely alert thresholds referenced by reports). |
-| `CustomFieldController` | 155 lines | Legacy's answer to "extra fields per entity" - worth checking whether the normalized schema still needs this or if it was cruft from schema drift. |
 | `UserController` | 495 lines | Staff user management (distinct from ASP.NET Identity - see below). |
 
 ## Tier 3 - reporting (large effort, defer)
@@ -63,12 +60,26 @@ first.
 the user about which 2-3 reports are actually used regularly - the legacy app likely
 accumulated many that were built once and never opened again.
 
-## Tier 4 - likely dead weight / needs a decision
+## Tier 4 - low-value legacy modules: decisions
 
-| Controller | Legacy size | Note |
-|---|---|---|
-| `CompnyNewsController` (sic) | 295 lines | Internal company news/announcements feed - ask whether this was ever really used. |
-| `MessagesController` | 11 lines | Nearly empty - probably a stub or redirect, minimal risk either way. |
+Decision pass completed after the core trading/CRM workflows were restored. None
+of these modules blocks buyer/supplier/product/load operations. Data counts below
+come from the restored local Docker SQL Server database used for the rebuild pass:
+`SELECT COUNT(*)` over `CompanyNews`, `RemovedCompanyNews`, `CustomField`,
+`UserCustomField`, `Threshold`, `AccountManagerGoal`, `CompanyGoals`, and
+`GoalParameters`.
+
+| Controller | Legacy size | Decision | Rationale / follow-up |
+|---|---:|---|---|
+| `CompnyNewsController` (sic) | 295 lines | **Defer** | Internal company-news feed has legacy data (`CompanyNews`/`RemovedCompanyNews`) but no dependency from the trading workflow. Do not rebuild until staff explicitly asks for an in-app announcements feed; if needed, create a small scoped issue for read/list/create announcements only. |
+| `MessagesController` | 11 lines | **Retire** | Legacy controller exposes only a tiny JSON endpoint and no meaningful workflow. Do not rebuild unless a concrete staff messaging requirement appears. |
+| `CustomFieldController` | 155 lines | **Retire** | Legacy schema has 2 field definitions but 0 `UserCustomField` values in the restored data, and the current app uses explicit typed forms instead of dynamic user fields. Do not rebuild unless staff identifies an active custom-field process. |
+| `GoalController` | 394 lines | **Defer to reports** | Goal tables contain real data (`AccountManagerGoal`, `CompanyGoals`, `GoalParameters`) and legacy report views reference them, but the value is tied to the still-open report-prioritization work. Revisit under #19; rebuild only if one of the selected high-value reports needs goal editing or goal display. |
+| `ThresholdController` | 104 lines | **Defer to reports** | Single-row threshold config appears report/alert-related, not operational CRUD. Revisit under #19 only if a prioritized report or dashboard needs threshold configuration. |
+
+No rebuild issue was created from this pass because no item is approved for
+implementation now. Company news is deferred until a staff request appears; goals
+and thresholds are deferred behind report prioritization.
 
 ## Already covered outside the controller layer
 
@@ -83,8 +94,9 @@ accumulated many that were built once and never opened again.
 1. **Location + PackageType CRUD** (small, unblocks the rest of Tier 1's forms).
 2. **BuyerSupplier matching** (the biggest single win - the actual trading workflow).
 3. Decide whether the legacy supplier-product-to-buyer wizard is still needed.
-4. Revisit Tier 2 based on what the user says staff actually use day-to-day.
+4. Revisit any remaining Tier 2 gaps based on what staff actually use day-to-day.
 5. Tier 3 reports - only after confirming with the user which ones matter; do not
    port all of them by default.
-6. Tier 4 - confirm with the user whether either is still wanted before spending any
-   time on them.
+6. Tier 4 - follow the decisions above: messages/custom fields retired;
+   company news deferred; goals/thresholds deferred behind report
+   prioritization.

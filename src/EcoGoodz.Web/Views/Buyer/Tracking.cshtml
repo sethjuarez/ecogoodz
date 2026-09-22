@@ -1,0 +1,97 @@
+@model EcoGoodz.Web.Models.Buyer.BuyerTrackingViewModel
+@{
+    ViewData["Title"] = "Buyer tracking";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Buyers</div>
+            <h2 class="page-title">Buyer tracking</h2>
+            <div class="text-secondary">@Model.UserName</div>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <form asp-action="Tracking" method="get" class="d-flex gap-2 align-items-center">
+                <select name="userId" asp-items="Model.UserOptions" class="form-select"></select>
+                <button type="submit" class="btn">Load user</button>
+            </form>
+            <a asp-action="AddTrackingBuyer" asp-route-userId="@Model.UserId" class="btn btn-primary">Add tracked buyer</a>
+            <a asp-action="Index" class="btn">Back to buyers</a>
+        </div>
+    </div>
+</div>
+
+@if (Model.Buyers.Count == 0)
+{
+    <div class="empty">
+        <p class="empty-title">No tracked buyers</p>
+        <p class="empty-subtitle text-secondary">Add a buyer location to start tracking products and suppliers for this user.</p>
+        <div class="empty-action">
+            <a asp-action="AddTrackingBuyer" asp-route-userId="@Model.UserId" class="btn btn-primary">Add tracked buyer</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row row-cards">
+        @foreach (var buyer in Model.Buyers)
+        {
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">@buyer.BuyerName</h3>
+                            <div class="text-secondary">@buyer.LocationName</div>
+                        </div>
+                        <div class="card-actions">
+                            <a asp-action="AddTrackingProduct" asp-route-userBuyerId="@buyer.UserBuyerId" class="btn btn-sm">Add product</a>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table card-table table-vcenter">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Tracked suppliers</th>
+                                    <th class="w-1"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (buyer.Products.Count == 0)
+                                {
+                                    <tr>
+                                        <td colspan="3" class="text-center text-secondary py-4">No products tracked for this buyer location.</td>
+                                    </tr>
+                                }
+                                @foreach (var product in buyer.Products)
+                                {
+                                    <tr>
+                                        <td>@product.ProductName</td>
+                                        <td>
+                                            @if (product.Suppliers.Count == 0)
+                                            {
+                                                <span class="text-secondary">No suppliers tracked.</span>
+                                            }
+                                            else
+                                            {
+                                                <ul class="list-unstyled mb-0">
+                                                    @foreach (var supplier in product.Suppliers)
+                                                    {
+                                                        <li>@supplier.SupplierName - @supplier.LocationName</li>
+                                                    }
+                                                </ul>
+                                            }
+                                        </td>
+                                        <td class="text-end">
+                                            <a asp-action="AddTrackingSupplier" asp-route-buyerTrackingProductId="@product.BuyerTrackingProductId" class="btn btn-sm">Add supplier</a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
