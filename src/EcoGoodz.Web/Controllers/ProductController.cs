@@ -32,7 +32,7 @@ public class ProductController : PagedListController<ProductController.ProductRo
     protected override IReadOnlyDictionary<string, Expression<Func<ProductRow, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<ProductRow, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["name"] = r => r.Product.Name,
+            ["name"] = r => EF.Property<string>(r.Product, "NameSort"),
             ["parent"] = r => r.ParentName,
             ["active"] = r => r.Product.IsActive,
         };

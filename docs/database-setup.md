@@ -96,6 +96,15 @@ re-import would destroy it - at that point, schema changes need to be applied
 as targeted `ALTER` scripts against production instead (via a one-off page in
 the app, or by getting direct SQL access resolved with GoDaddy support).
 
+## Required legacy list sort maintenance
+
+The MVC app intentionally does not create legacy performance objects at
+startup. Before deploying this build to a restored/hosted database, run
+`scripts/Apply-LegacyListSortIndexes.sql` manually against that database. It is
+idempotent and creates the computed text sort columns mapped by the EF model
+plus supporting indexes used by the Buyer, Supplier, Product, Package Type, and
+Location explicit sort paths.
+
 ## If direct SQL connectivity ever gets resolved
 
 If GoDaddy/Plesk support opens external access to the hosted SQL Server

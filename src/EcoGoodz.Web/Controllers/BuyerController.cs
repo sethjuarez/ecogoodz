@@ -29,7 +29,7 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
     protected override IReadOnlyDictionary<string, Expression<Func<Data.Models.Buyer, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<Data.Models.Buyer, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["name"] = b => b.Name,
+            ["name"] = b => EF.Property<string>(b, "NameSort"),
             ["accountManager"] = b => b.AccountManagerNavigation != null ? b.AccountManagerNavigation.FirstName : null,
             ["active"] = b => b.IsActive,
         };
