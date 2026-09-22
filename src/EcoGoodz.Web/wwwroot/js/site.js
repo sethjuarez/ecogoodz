@@ -9,11 +9,13 @@
         }
 
         const searchUrl = select.dataset.searchUrl;
+        const placeholderOption = select.querySelector("option[value='']");
+        const placeholder = placeholderOption?.textContent?.trim() ?? "";
 
         new TomSelect(select, {
-            allowEmptyOption: true,
             create: false,
             maxOptions: 100,
+            placeholder,
             plugins: ["dropdown_input"],
             valueField: "value",
             labelField: "text",
