@@ -11,8 +11,9 @@ plus the one-time server-side setup it depends on.
    `dotnet publish` in Release mode, then force-pushes **only the publish
    output** (no source, no dev tooling) to a `deploy` branch - one squashed
    commit per deploy, no history.
-3. Plesk's Git integration pulls the `deploy` branch into `\httpdocs`
-   whenever it changes, then runs a small recycle script.
+3. Plesk's Git integration pulls the `deploy` branch. The safest setup pulls
+   into a staging folder, then runs the included staged deploy script to take
+   the app offline, copy files into `\httpdocs`, and start the app pool again.
 
 The VPS never needs the .NET SDK, Node, or npm installed - it only needs the
 **ASP.NET Core Hosting Bundle** (runtime + IIS module) to run the published
@@ -28,8 +29,14 @@ app. Confirm that's installed on the server before the first deploy (Plesk's
 | Repository name | `app.git` (default is fine) |
 | Branch | `deploy` |
 | Deployment mode | **Automatic** |
-| Server path | `\httpdocs` |
+| Server path | `\deploy-staging` (recommended) |
 | Enable additional deployment actions | **Yes** |
+
+> **Important:** Do **not** point Plesk Git directly at `\httpdocs` for this
+> ASP.NET Core app. IIS keeps loaded `.dll` files locked, so direct Git deploys
+> eventually fail with `unable to unlink old 'EcoGoodz.Web.dll'` or
+> `EcoGoodz.Data.dll`. Pull to `\deploy-staging` instead, then copy into
+> `\httpdocs` while the app is offline.
 
 ### Additional deployment actions script
 
@@ -38,13 +45,29 @@ whatever Plesk named it for `app.ecogoodz.com` - check IIS Manager or Plesk's
 "IIS Application Pool" section under the domain's hosting settings):
 
 ```powershell
-Import-Module WebAdministration
-Restart-WebAppPool -Name "<app-pool-name-for-app.ecogoodz.com>"
+powershell.exe -ExecutionPolicy Bypass -File ".\deployment\Plesk-StagedDeploy.ps1" -AppPoolName "<app-pool-name-for-app.ecogoodz.com>"
 ```
 
-This forces the ASP.NET Core Module to pick up the newly deployed
-`EcoGoodz.Web.dll` and reload configuration. Without it, IIS may keep serving
-the previous build until the app pool recycles on its own schedule.
+This script runs from the staged checkout. It writes `app_offline.htm`, stops
+the app pool, mirrors the staged publish output into sibling `\httpdocs` with
+`robocopy`, removes `app_offline.htm`, then starts the app pool. Because Git
+pulls into staging first, it never has to overwrite DLLs currently loaded by
+IIS.
+
+### If Plesk cannot replace locked DLLs
+
+Immediate recovery:
+
+1. In Plesk or IIS Manager, stop the app pool for `app.ecogoodz.com`.
+2. In Plesk's Git page, run **Pull Updates / Deploy** again.
+3. Start the app pool again.
+
+Durable setup options:
+
+- Switch Plesk's Git **Server path** from `\httpdocs` to `\deploy-staging`.
+- Set the additional deployment action to run
+  `.\deployment\Plesk-StagedDeploy.ps1` as shown above.
+- After that, future Plesk pulls should not require RDP stop/deploy/start.
 
 ## Production latency / cold starts
 
@@ -76,6 +99,14 @@ If pages are still slow when refreshed immediately, check the ASP.NET Core logs
 for `Slow request ...` warnings. The app logs any request slower than
 `Diagnostics:SlowRequestThresholdMs` (default `2000`) so production can tell
 whether the delay is a specific route/query or an app-pool wakeup.
+
+The Buyer and Supplier index pages are especially sensitive to the legacy
+database shape because legacy `Name` columns are unbounded strings. The app
+creates guarded computed `NameSort` columns and supporting indexes at startup
+for those two tables, then sorts those pages by the indexed computed columns.
+If production stays slow after a deploy, verify the app pool identity can alter
+the legacy schema and that `IX_Buyer_NameSort_Id` /
+`IX_Supplier_NameSort_Id` exist in SQL Server.
 
 ## Secrets and environment-specific settings
 

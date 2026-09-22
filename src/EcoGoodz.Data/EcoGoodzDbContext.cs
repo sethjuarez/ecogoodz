@@ -223,6 +223,8 @@ public partial class EcoGoodzDbContext : DbContext
 
             entity.ToTable("Buyer");
 
+            entity.Property<string>("NameSort")
+                .HasComputedColumnSql("CONVERT(nvarchar(450), [Name])", stored: true);
             entity.Property(e => e.CreateOn).HasColumnType("datetime");
             entity.Property(e => e.UpdatedOn).HasColumnType("datetime");
 
@@ -943,6 +945,8 @@ public partial class EcoGoodzDbContext : DbContext
 
             entity.ToTable("Supplier");
 
+            entity.Property<string>("NameSort")
+                .HasComputedColumnSql("CONVERT(nvarchar(450), [Name])", stored: true);
             entity.Property(e => e.CreateOn).HasColumnType("datetime");
             entity.Property(e => e.UpdatedOn).HasColumnType("datetime");
 
