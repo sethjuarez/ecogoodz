@@ -802,6 +802,93 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task LocationToggleFavorite_AddsAndRemovesBuyerFavoriteForCurrentUser()
+    {
+        await using var context = CreateContext();
+        context.Locations.Add(new Location { Id = 1, IsBuyer = true, IsActive = true, Location1 = "Buyer Dock" });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LocationController(context));
+
+        Assert.IsType<RedirectToActionResult>(await controller.ToggleFavorite(1));
+
+        var favorite = await context.Favorites.SingleAsync();
+        Assert.Equal(99, favorite.UserId);
+        Assert.Equal(1, favorite.Location);
+        Assert.True(favorite.IsBuyer);
+
+        var details = Assert.IsType<ViewResult>(await controller.Details(1));
+        Assert.True(Assert.IsType<LocationDetailsViewModel>(details.Model).IsFavorite);
+
+        Assert.IsType<RedirectToActionResult>(await controller.ToggleFavorite(1));
+        Assert.Empty(context.Favorites);
+    }
+
+    [Fact]
+    public async Task LocationToggleFavorite_UsesSupplierFavoriteSide()
+    {
+        await using var context = CreateContext();
+        context.Locations.Add(new Location { Id = 1, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LocationController(context));
+
+        Assert.IsType<RedirectToActionResult>(await controller.ToggleFavorite(1));
+
+        var favorite = await context.Favorites.SingleAsync();
+        Assert.Equal(99, favorite.UserId);
+        Assert.Equal(1, favorite.Location);
+        Assert.False(favorite.IsBuyer);
+    }
+
+    [Fact]
+    public async Task LocationDetails_FavoriteStateIsScopedToCurrentUserAndSide()
+    {
+        await using var context = CreateContext();
+        context.Locations.Add(new Location { Id = 1, IsBuyer = true, IsActive = true, Location1 = "Buyer Dock" });
+        context.Favorites.AddRange(
+            new Favorite { Id = 1, UserId = 100, Location = 1, IsBuyer = true },
+            new Favorite { Id = 2, UserId = 99, Location = 1, IsBuyer = false });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LocationController(context));
+
+        var details = Assert.IsType<ViewResult>(await controller.Details(1));
+
+        Assert.False(Assert.IsType<LocationDetailsViewModel>(details.Model).IsFavorite);
+    }
+
+    [Fact]
+    public async Task LocationToggleFavorite_RemovesDuplicateFavoritesTogether()
+    {
+        await using var context = CreateContext();
+        context.Locations.Add(new Location { Id = 1, IsBuyer = true, IsActive = true, Location1 = "Buyer Dock" });
+        context.Favorites.AddRange(
+            new Favorite { Id = 1, UserId = 99, Location = 1, IsBuyer = true },
+            new Favorite { Id = 2, UserId = 99, Location = 1, IsBuyer = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LocationController(context));
+
+        Assert.IsType<RedirectToActionResult>(await controller.ToggleFavorite(1));
+
+        Assert.Empty(context.Favorites);
+    }
+
+    [Fact]
+    public async Task LocationToggleFavorite_RejectsLocationWithoutBuyerSupplierSide()
+    {
+        await using var context = CreateContext();
+        context.Locations.Add(new Location { Id = 1, IsBuyer = null, IsActive = true, Location1 = "Unassigned Dock" });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LocationController(context));
+
+        Assert.IsType<BadRequestResult>(await controller.ToggleFavorite(1));
+        Assert.Empty(context.Favorites);
+    }
+
+    [Fact]
     public async Task StaffUserCreate_AddsLegacyUserAndDefaultTaskHeadlines()
     {
         await using var context = CreateContext();

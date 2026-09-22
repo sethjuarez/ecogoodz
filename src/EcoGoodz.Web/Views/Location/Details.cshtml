@@ -10,6 +10,12 @@
             <h2 class="page-title">@Model.Name</h2>
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
+            @if (Model.ClientType is not null)
+            {
+                <form asp-action="ToggleFavorite" asp-route-id="@Model.Id" method="post">
+                    <button type="submit" class="btn">@(Model.IsFavorite ? "Remove favorite" : "Add favorite")</button>
+                </form>
+            }
             <a asp-controller="Contact" asp-action="Index" asp-route-locationId="@Model.Id" class="btn">Contacts</a>
             <a asp-controller="Note" asp-action="Index" asp-route-scope="@(Model.ClientType == "Supplier" ? "SupplierLocation" : "BuyerLocation")" asp-route-id="@Model.Id" class="btn">Notes</a>
             <a asp-action="Create" asp-route-copyFromId="@Model.Id" class="btn">Copy location</a>

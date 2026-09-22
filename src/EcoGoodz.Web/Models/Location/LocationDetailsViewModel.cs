@@ -22,4 +22,5 @@ public class LocationDetailsViewModel
     public int SupplierProductCount { get; set; }
     public int LoadCount { get; set; }
     public int MatchCount { get; set; }
+    public bool IsFavorite { get; set; }
 }

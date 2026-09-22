@@ -131,6 +131,7 @@ public class LocationController : PagedListController<LocationController.Locatio
 
     public async Task<IActionResult> Details(int id)
     {
+        var userId = User.GetLegacyUserId();
         var location = await GetBaseQuery()
             .Where(r => r.Location.Id == id)
             .Select(r => new LocationDetailsViewModel
@@ -155,6 +156,10 @@ public class LocationController : PagedListController<LocationController.Locatio
                 SupplierProductCount = r.Location.SupplierProducts.Count,
                 LoadCount = r.Location.LoadBuyerLocationNavigations.Count + r.Location.LoadSupplierLocationNavigations.Count,
                 MatchCount = r.Location.BuyerSupplierBuyerLocationNavigations.Count + r.Location.BuyerSupplierSupplierLocationNavigations.Count,
+                IsFavorite = userId.HasValue
+                    && r.Location.Favorites.Any(favorite =>
+                        favorite.UserId == userId.Value
+                        && favorite.IsBuyer == (r.Location.IsBuyer == true)),
             })
             .FirstOrDefaultAsync();
 
@@ -164,6 +169,57 @@ public class LocationController : PagedListController<LocationController.Locatio
         }
 
         return View(location);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleFavorite(int id)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        var location = await Context.Locations
+            .AsNoTracking()
+            .Where(location => location.Id == id)
+            .Select(location => new { location.Id, location.IsBuyer })
+            .FirstOrDefaultAsync();
+        if (location is null)
+        {
+            return NotFound();
+        }
+
+        if (location.IsBuyer is null)
+        {
+            return BadRequest();
+        }
+
+        var isBuyer = location.IsBuyer.Value;
+        var favorites = await Context.Favorites
+            .Where(favorite =>
+            favorite.UserId == userId.Value
+            && favorite.Location == location.Id
+            && favorite.IsBuyer == isBuyer)
+            .ToListAsync();
+        if (favorites.Count == 0)
+        {
+            Context.Favorites.Add(new Data.Models.Favorite
+            {
+                UserId = userId.Value,
+                Location = location.Id,
+                IsBuyer = isBuyer,
+            });
+        }
+        else
+        {
+            Context.Favorites.RemoveRange(favorites);
+        }
+
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Details), new { id });
     }
 
     public async Task<IActionResult> Create(int? copyFromId)
