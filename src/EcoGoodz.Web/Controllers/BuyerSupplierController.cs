@@ -35,10 +35,10 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
     protected override IReadOnlyDictionary<string, Expression<Func<Data.Models.BuyerSupplier, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<Data.Models.BuyerSupplier, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["buyer"] = m => m.BuyerNavigation != null ? m.BuyerNavigation.Name : null,
-            ["supplier"] = m => m.SupplierNavigation != null ? m.SupplierNavigation.Name : null,
-            ["buyerLocation"] = m => m.BuyerLocationNavigation != null ? m.BuyerLocationNavigation.Location1 : null,
-            ["supplierLocation"] = m => m.SupplierLocationNavigation != null ? m.SupplierLocationNavigation.Location1 : null,
+            ["buyer"] = m => m.BuyerNavigation != null ? EF.Property<string>(m.BuyerNavigation, "NameSort") : null,
+            ["supplier"] = m => m.SupplierNavigation != null ? EF.Property<string>(m.SupplierNavigation, "NameSort") : null,
+            ["buyerLocation"] = m => m.BuyerLocationNavigation != null ? EF.Property<string>(m.BuyerLocationNavigation, "LocationSort") : null,
+            ["supplierLocation"] = m => m.SupplierLocationNavigation != null ? EF.Property<string>(m.SupplierLocationNavigation, "LocationSort") : null,
             ["status"] = m => m.StatusNavigation != null ? m.StatusNavigation.Status : null,
             ["active"] = m => m.IsActive,
         };

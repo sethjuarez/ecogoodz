@@ -100,13 +100,15 @@ for `Slow request ...` warnings. The app logs any request slower than
 `Diagnostics:SlowRequestThresholdMs` (default `2000`) so production can tell
 whether the delay is a specific route/query or an app-pool wakeup.
 
-The Buyer and Supplier index pages are especially sensitive to the legacy
-database shape because legacy `Name` columns are unbounded strings. The app
-creates guarded computed `NameSort` columns and supporting indexes at startup
-for those two tables, then sorts those pages by the indexed computed columns.
-If production stays slow after a deploy, verify the app pool identity can alter
-the legacy schema and that `IX_Buyer_NameSort_Id` /
-`IX_Supplier_NameSort_Id` exist in SQL Server.
+The legacy list pages are especially sensitive to the legacy database shape
+because several display/sort columns are wide text fields. The app creates
+guarded computed sort columns and supporting indexes at startup for Buyer,
+Supplier, Product, Location, PackageType, BuyerProduct, SupplierProduct, and
+BuyerSupplier list queries, then sorts by the indexed computed columns where
+needed. If production stays slow after a deploy, verify the app pool identity
+can alter the legacy schema and that the `IX_*_NameSort_Id`,
+`IX_Location_LocationSort_Id`, and `IX_PackageType_TypeSort_Id` indexes exist
+in SQL Server.
 
 ## Secrets and environment-specific settings
 
