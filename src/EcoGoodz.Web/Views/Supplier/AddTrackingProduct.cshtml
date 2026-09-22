@@ -1,0 +1,40 @@
+@model EcoGoodz.Web.Models.Supplier.SupplierTrackingProductFormViewModel
+@{
+    ViewData["Title"] = "Add tracked product";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Supplier tracking</div>
+            <h2 class="page-title">Add tracked product</h2>
+        </div>
+        <div class="col-auto ms-auto">
+            <a asp-action="Tracking" asp-route-userId="@Model.CurrentUserId" class="btn">Back to tracking</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form asp-action="AddTrackingProduct" method="post">
+            <input asp-for="CurrentUserId" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="mb-3">
+                <label asp-for="ProductId" class="form-label"></label>
+                <select asp-for="ProductId" asp-items="Model.ProductOptions" class="form-select" data-searchable-select="true">
+                    <option value="">Choose a product</option>
+                </select>
+                <span asp-validation-for="ProductId" class="text-danger"></span>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Save product</button>
+                <a asp-action="Tracking" asp-route-userId="@Model.CurrentUserId" class="btn">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

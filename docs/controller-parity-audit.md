@@ -23,7 +23,7 @@ modules that were already deferred or retired.
 | `AccountController` | `AccountController` | **Complete, modernized** | Login, logout, forgot/reset password are rebuilt on ASP.NET Core Identity. Legacy plaintext-password behavior is intentionally not preserved. Current app adds forced password change and access denied handling. |
 | `HomeController` | `HomeController`, `ReportController` | **Partial** | Current dashboard has live counts/recent loads. Legacy `GetReport` monthly invoice-lbs/goal dashboard charts are not rebuilt; they depend on goal/report data and should stay deferred with reporting unless staff confirms dashboard chart usage. |
 | `BuyerController` | `BuyerController`, related child controllers | **Core complete; auxiliaries partial** | Buyer CRUD, detail page, locations/products/contacts/communications/notes links, recent-load widget, location favorite toggle, current-user favorite-filtered list view, and status/substatus AJAX helpers are rebuilt. Legacy list/detail AJAX wrappers are replaced by MVC pages. Not rebuilt: buyer tracking wizard, note quick-update endpoint, and legacy report fragments. |
-| `SupplierController` | `SupplierController`, `SupplierProductController`, related child controllers | **Core complete; auxiliaries partial** | Supplier CRUD, detail page, products/locations/contacts/communications/notes links, recent-load widget, supplier-product-to-buyer helper, location favorite toggle, current-user favorite-filtered list view, and status/substatus AJAX helpers are rebuilt. Not rebuilt: supplier tracking wizard, packaging/product lookup helpers, and report fragments. |
+| `SupplierController` | `SupplierController`, `SupplierProductController`, related child controllers | **Core complete; auxiliaries partial** | Supplier CRUD, detail page, products/locations/contacts/communications/notes links, recent-load widget, supplier-product-to-buyer helper, supplier tracking product/supplier-location helpers, location favorite toggle, current-user favorite-filtered list view, and status/substatus AJAX helpers are rebuilt. Not rebuilt: packaging/product lookup helpers and report fragments. |
 | `ProductController` | `ProductController` | **Partial** | Product CRUD and parent category selection are rebuilt. Legacy separate parent-product create/edit endpoints are represented by one product form. Not rebuilt: markup color / margin-parameter matrix (`ProductMarkUpColor`) and its overlap validation. |
 | `PackageTypeController` | `PackageTypeController` | **Complete** | CRUD/list behavior is rebuilt; legacy DataTables JSON endpoint is replaced by paged server-rendered list. |
 | `LocationController` | `LocationController` | **Core complete; extended fields partial** | Location CRUD, copy-from-existing-location, and current-user favorite toggle are rebuilt. Copy preserves hidden legacy logistics fields and clones non-dock contacts plus buyer products/packages. Some extended logistics fields are still not directly editable on the current form. |
@@ -63,9 +63,9 @@ core app" to "full 1:1 legacy parity":
    conflict validation.
 3. **Task board parity**: multi-assignee edit expansion,
    per-user headline/task board AJAX views, and read/unread behavior.
-4. **Supplier/buyer tracking wizards**: legacy buyer/supplier tracking flows.
-5. **Remaining buyer/supplier helper workflows**: buyer/supplier tracking
-   wizards and related page fragments.
+4. **Buyer tracking wizard**: legacy buyer tracking buyer/product/supplier flows.
+5. **Remaining buyer/supplier helper workflows**: buyer tracking related page
+   fragments and other confirmed helper needs.
 6. **Specialized lookup endpoints**: account manager-specific load lookup helpers.
 
 ## Recommendation
