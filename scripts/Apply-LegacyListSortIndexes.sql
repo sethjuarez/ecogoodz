@@ -60,8 +60,52 @@ BEGIN
     CREATE INDEX IX_PackageType_TypeSort_Id ON dbo.PackageType (TypeSort, Id) INCLUDE (IsActive);
 END;
 
+IF EXISTS (
+    SELECT 1
+    FROM sys.indexes AS i
+    JOIN sys.index_columns AS ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+    JOIN sys.columns AS c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+    WHERE i.object_id = OBJECT_ID('dbo.Location')
+      AND i.name = 'IX_Location_LocationSort_Id'
+      AND c.name = 'CitySort'
+      AND ic.key_ordinal > 0
+)
+BEGIN
+    DROP INDEX IX_Location_LocationSort_Id ON dbo.Location;
+END;
+
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Location') AND name = 'IX_Location_LocationSort_Id')
 BEGIN
-    CREATE INDEX IX_Location_LocationSort_Id ON dbo.Location (LocationSort, CitySort, Id)
-        INCLUDE (ClientId, IsBuyer, State, Country, IsActive);
+    CREATE INDEX IX_Location_LocationSort_Id ON dbo.Location (LocationSort, Id)
+        INCLUDE (CitySort, ClientId, IsBuyer, State, Country, IsActive);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Location') AND name = 'IX_Location_CitySort_Id')
+BEGIN
+    CREATE INDEX IX_Location_CitySort_Id ON dbo.Location (CitySort, Id)
+        INCLUDE (LocationSort, ClientId, IsBuyer, State, Country, IsActive);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_Supplier_Active_ShipmentDate_Id')
+BEGIN
+    CREATE INDEX IX_Loads_Supplier_Active_ShipmentDate_Id ON dbo.Loads (Supplier, IsActive, ShipmentDate DESC, Id DESC)
+        INCLUDE (Buyer, BuyerLocation, SupplierLocation, LoadStatus);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_Buyer_ShipmentDate_Id')
+BEGIN
+    CREATE INDEX IX_Loads_Buyer_ShipmentDate_Id ON dbo.Loads (Buyer, ShipmentDate DESC, Id DESC)
+        INCLUDE (Supplier, BuyerLocation, SupplierLocation, LoadStatus, IsActive);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_BuyerLocation_ShipmentDate_Id')
+BEGIN
+    CREATE INDEX IX_Loads_BuyerLocation_ShipmentDate_Id ON dbo.Loads (BuyerLocation, ShipmentDate DESC, Id DESC)
+        INCLUDE (Buyer, Supplier, SupplierLocation, LoadStatus, IsActive);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_SupplierLocation_ShipmentDate_Id')
+BEGIN
+    CREATE INDEX IX_Loads_SupplierLocation_ShipmentDate_Id ON dbo.Loads (SupplierLocation, ShipmentDate DESC, Id DESC)
+        INCLUDE (Buyer, Supplier, BuyerLocation, LoadStatus, IsActive);
 END;

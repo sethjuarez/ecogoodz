@@ -280,21 +280,32 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
 
     public async Task<IActionResult> Export(string? search, string? sort, bool desc = false)
     {
+        var buyerId = ReadIntQuery("buyerId");
+        var supplierId = ReadIntQuery("supplierId");
+        var buyerLocationId = ReadIntQuery("buyerLocationId");
+        var supplierLocationId = ReadIntQuery("supplierLocationId");
+        var locationId = ReadIntQuery("locationId");
+        var hasScope = buyerId.HasValue
+            || supplierId.HasValue
+            || buyerLocationId.HasValue
+            || supplierLocationId.HasValue
+            || locationId.HasValue;
+
+        if (!hasScope && string.IsNullOrWhiteSpace(search))
+        {
+            return BadRequest("Export requires a search term or scoped filter.");
+        }
+
         IQueryable<Data.Models.Load> query = GetBaseQuery()
-            .AsNoTracking()
-            .Include(load => load.BuyerLocationNavigation)
-            .Include(load => load.SupplierLocationNavigation)
-            .Include(load => load.LoadProducts)
-                .ThenInclude(loadProduct => loadProduct.ProductNavigation)
-                    .ThenInclude(product => product.ProductNavigation);
+            .AsNoTracking();
 
         query = ApplyScope(
             query,
-            ReadIntQuery("buyerId"),
-            ReadIntQuery("supplierId"),
-            ReadIntQuery("buyerLocationId"),
-            ReadIntQuery("supplierLocationId"),
-            ReadIntQuery("locationId"));
+            buyerId,
+            supplierId,
+            buyerLocationId,
+            supplierLocationId,
+            locationId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -303,7 +314,54 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
 
         var loads = await query
             .ApplySort(sort, desc, SortColumns, DefaultSortColumn, out _)
+            .Select(load => new LoadExportRow
+            {
+                Id = load.Id,
+                StatusName = load.LoadStatusNavigation != null ? load.LoadStatusNavigation.Status : null,
+                BuyerName = load.BuyerNavigation != null ? load.BuyerNavigation.Name : null,
+                BuyerLocationName = load.BuyerLocationNavigation != null ? load.BuyerLocationNavigation.Location1 : null,
+                SupplierName = load.SupplierNavigation != null ? load.SupplierNavigation.Name : null,
+                SupplierLocationName = load.SupplierLocationNavigation != null ? load.SupplierLocationNavigation.Location1 : null,
+                ShipmentDate = load.ShipmentDate,
+                BookingDate = load.BookingDate,
+                BuyerRef = load.BuyerRef,
+                SupplierRef = load.SupplierRef,
+                Container = load.Container,
+                BuyerInvoice = load.BuyerInvoice,
+                BuyerInvoiceAmount = load.BuyerInvoiceAmount,
+                SupplierInvoice = load.SupplierInvoice,
+                SupplierInvoiceAmount = load.SupplierInvoiceAmount,
+                FreightCarrier = load.FreightCarrier,
+                FreightInvoice = load.FreightInvoice,
+                FreightAmountQuoted = load.FreightAmountQuoted,
+                FreightAmountBilled = load.FreightAmountBilled,
+                IsActive = load.IsActive ?? false,
+            })
             .ToListAsync();
+
+        var productsLookup = new Dictionary<int, string>();
+        if (loads.Count > 0)
+        {
+            var productNamesByLoad = await query
+                .SelectMany(load => load.LoadProducts.Select(loadProduct => new
+                {
+                    LoadId = load.Id,
+                    Name = loadProduct.ProductNavigation.ProductNavigation != null
+                        ? loadProduct.ProductNavigation.ProductNavigation.Name
+                        : null,
+                }))
+                .Where(product => !string.IsNullOrWhiteSpace(product.Name))
+                .ToListAsync();
+
+            productsLookup = productNamesByLoad
+                .GroupBy(product => product.LoadId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => string.Join(", ", group
+                        .Select(product => product.Name)
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Distinct()));
+        }
 
         var csv = new StringBuilder();
         AppendCsvRow(csv,
@@ -333,15 +391,12 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         {
             AppendCsvRow(csv,
                 load.Id.ToString(),
-                load.LoadStatusNavigation?.Status,
-                load.BuyerNavigation?.Name,
-                load.BuyerLocationNavigation?.Location1,
-                load.SupplierNavigation?.Name,
-                load.SupplierLocationNavigation?.Location1,
-                string.Join(", ", load.LoadProducts
-                    .Select(loadProduct => loadProduct.ProductNavigation?.ProductNavigation?.Name)
-                    .Where(name => !string.IsNullOrWhiteSpace(name))
-                    .Distinct()),
+                load.StatusName,
+                load.BuyerName,
+                load.BuyerLocationName,
+                load.SupplierName,
+                load.SupplierLocationName,
+                productsLookup.GetValueOrDefault(load.Id, string.Empty),
                 FormatDate(load.ShipmentDate),
                 FormatDate(load.BookingDate),
                 load.BuyerRef,
@@ -355,7 +410,7 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
                 load.FreightInvoice,
                 FormatDecimal(load.FreightAmountQuoted),
                 FormatDecimal(load.FreightAmountBilled),
-                (load.IsActive ?? false) ? "Yes" : "No");
+                load.IsActive ? "Yes" : "No");
         }
 
         var csvContent = csv.ToString();
@@ -366,6 +421,30 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         Buffer.BlockCopy(content, 0, bytes, preamble.Length, content.Length);
 
         return File(bytes, "text/csv", "loads.csv");
+    }
+
+    private sealed class LoadExportRow
+    {
+        public int Id { get; set; }
+        public string? StatusName { get; set; }
+        public string? BuyerName { get; set; }
+        public string? BuyerLocationName { get; set; }
+        public string? SupplierName { get; set; }
+        public string? SupplierLocationName { get; set; }
+        public DateTime? ShipmentDate { get; set; }
+        public DateTime? BookingDate { get; set; }
+        public string? BuyerRef { get; set; }
+        public string? SupplierRef { get; set; }
+        public string? Container { get; set; }
+        public string? BuyerInvoice { get; set; }
+        public decimal? BuyerInvoiceAmount { get; set; }
+        public string? SupplierInvoice { get; set; }
+        public decimal? SupplierInvoiceAmount { get; set; }
+        public string? FreightCarrier { get; set; }
+        public string? FreightInvoice { get; set; }
+        public decimal? FreightAmountQuoted { get; set; }
+        public decimal? FreightAmountBilled { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public async Task<IActionResult> GetLoadBySupplierAcctMgr(int id)

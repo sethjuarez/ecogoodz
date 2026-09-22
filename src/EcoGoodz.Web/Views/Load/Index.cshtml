@@ -4,6 +4,7 @@
     var exportRouteValues = Model.Page.AdditionalQueryParameters
         .Where(parameter => parameter.Value is not null)
         .ToDictionary(parameter => parameter.Key, parameter => parameter.Value!);
+    var canExport = exportRouteValues.Count > 0 || !string.IsNullOrWhiteSpace(Model.Page.SearchTerm);
 }
 
 <div class="page-header d-print-none mb-3">
@@ -14,7 +15,14 @@
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
             @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search loads…" })
-            <a asp-action="Export" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-all-route-data="@exportRouteValues" class="btn text-nowrap">Export CSV</a>
+            @if (canExport)
+            {
+                <a asp-action="Export" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-all-route-data="@exportRouteValues" class="btn text-nowrap">Export CSV</a>
+            }
+            else
+            {
+                <button type="button" class="btn text-nowrap" disabled title="Search or open loads from a buyer, supplier, or location before exporting.">Export CSV</button>
+            }
             <a asp-action="Create" class="btn btn-primary text-nowrap">New load</a>
         </div>
     </div>

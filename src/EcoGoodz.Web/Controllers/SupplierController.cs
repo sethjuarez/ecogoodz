@@ -169,6 +169,7 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
     public async Task<IActionResult> Details(int id)
     {
         var supplier = await Context.Suppliers
+            .AsNoTracking()
             .Include(s => s.AccountManagerNavigation)
             .Where(s => s.Id == id)
             .Select(s => new SupplierDetailsViewModel
@@ -672,38 +673,58 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
         var loads = await Context.Loads
             .AsNoTracking()
             .Where(load => load.Supplier == supplierId && load.IsActive == true)
-            .Include(load => load.LoadStatusNavigation)
-            .Include(load => load.BuyerNavigation)
-            .Include(load => load.SupplierNavigation)
-            .Include(load => load.BuyerLocationNavigation)
-            .Include(load => load.SupplierLocationNavigation)
-            .Include(load => load.LoadProducts)
-                .ThenInclude(loadProduct => loadProduct.ProductNavigation)
-                    .ThenInclude(product => product.ProductNavigation)
             .OrderByDescending(load => load.ShipmentDate)
             .ThenByDescending(load => load.Id)
             .Take(5)
-            .ToListAsync();
-
-        return loads
             .Select(load => new RecentLoadListItemViewModel
             {
                 Id = load.Id,
                 ShipmentDate = load.ShipmentDate,
-                StatusName = load.LoadStatusNavigation?.Status,
+                StatusName = load.LoadStatusNavigation != null ? load.LoadStatusNavigation.Status : null,
                 BuyerId = load.Buyer,
-                BuyerName = load.BuyerNavigation?.Name,
+                BuyerName = load.BuyerNavigation != null ? load.BuyerNavigation.Name : null,
                 SupplierId = load.Supplier,
-                SupplierName = load.SupplierNavigation?.Name,
+                SupplierName = load.SupplierNavigation != null ? load.SupplierNavigation.Name : null,
                 BuyerLocationId = load.BuyerLocation,
-                BuyerLocationName = load.BuyerLocationNavigation?.Location1,
+                BuyerLocationName = load.BuyerLocationNavigation != null ? load.BuyerLocationNavigation.Location1 : null,
                 SupplierLocationId = load.SupplierLocation,
-                SupplierLocationName = load.SupplierLocationNavigation?.Location1,
-                Products = string.Join(", ", load.LoadProducts
-                    .Select(loadProduct => loadProduct.ProductNavigation?.ProductNavigation?.Name)
-                    .Where(name => !string.IsNullOrWhiteSpace(name))
-                    .Distinct()),
+                SupplierLocationName = load.SupplierLocationNavigation != null ? load.SupplierLocationNavigation.Location1 : null,
             })
-            .ToList();
+            .ToListAsync();
+
+        if (loads.Count == 0)
+        {
+            return loads;
+        }
+
+        var loadIds = loads.Select(load => load.Id).ToList();
+        var productNamesByLoad = await Context.LoadProducts
+            .AsNoTracking()
+            .Where(loadProduct => loadIds.Contains(loadProduct.Load))
+            .Select(loadProduct => new
+            {
+                loadProduct.Load,
+                Name = loadProduct.ProductNavigation.ProductNavigation != null
+                    ? loadProduct.ProductNavigation.ProductNavigation.Name
+                    : null,
+            })
+            .Where(product => !string.IsNullOrWhiteSpace(product.Name))
+            .ToListAsync();
+
+        var productsLookup = productNamesByLoad
+            .GroupBy(product => product.Load)
+            .ToDictionary(
+                group => group.Key,
+                group => string.Join(", ", group
+                    .Select(product => product.Name)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct()));
+
+        foreach (var load in loads)
+        {
+            load.Products = productsLookup.GetValueOrDefault(load.Id, string.Empty);
+        }
+
+        return loads;
     }
 }
