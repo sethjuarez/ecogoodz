@@ -22,8 +22,8 @@ modules that were already deferred or retired.
 |---|---|---|---|
 | `AccountController` | `AccountController` | **Complete, modernized** | Login, logout, forgot/reset password are rebuilt on ASP.NET Core Identity. Legacy plaintext-password behavior is intentionally not preserved. Current app adds forced password change and access denied handling. |
 | `HomeController` | `HomeController`, `ReportController` | **Partial** | Current dashboard has live counts/recent loads. Legacy `GetReport` monthly invoice-lbs/goal dashboard charts are not rebuilt; they depend on goal/report data and should stay deferred with reporting unless staff confirms dashboard chart usage. |
-| `BuyerController` | `BuyerController`, related child controllers | **Core complete; auxiliaries partial** | Buyer CRUD, detail page, locations/products/contacts/communications/notes links, and recent-load widget are rebuilt. Legacy list/detail AJAX wrappers are replaced by MVC pages. Location favorite toggling is rebuilt from location details. Not rebuilt: favorite-filtered list views, status/substatus AJAX, buyer tracking wizard, note quick-update endpoint, and legacy report fragments. |
-| `SupplierController` | `SupplierController`, `SupplierProductController`, related child controllers | **Core complete; auxiliaries partial** | Supplier CRUD, detail page, products/locations/contacts/communications/notes links, recent-load widget, and supplier-product-to-buyer helper are rebuilt. Location favorite toggling is rebuilt from location details. Not rebuilt: favorite-filtered list views, status/substatus AJAX, supplier tracking wizard, packaging/product lookup helpers, and report fragments. |
+| `BuyerController` | `BuyerController`, related child controllers | **Core complete; auxiliaries partial** | Buyer CRUD, detail page, locations/products/contacts/communications/notes links, recent-load widget, location favorite toggle, and current-user favorite-filtered list view are rebuilt. Legacy list/detail AJAX wrappers are replaced by MVC pages. Not rebuilt: status/substatus AJAX, buyer tracking wizard, note quick-update endpoint, and legacy report fragments. |
+| `SupplierController` | `SupplierController`, `SupplierProductController`, related child controllers | **Core complete; auxiliaries partial** | Supplier CRUD, detail page, products/locations/contacts/communications/notes links, recent-load widget, supplier-product-to-buyer helper, location favorite toggle, and current-user favorite-filtered list view are rebuilt. Not rebuilt: status/substatus AJAX, supplier tracking wizard, packaging/product lookup helpers, and report fragments. |
 | `ProductController` | `ProductController` | **Partial** | Product CRUD and parent category selection are rebuilt. Legacy separate parent-product create/edit endpoints are represented by one product form. Not rebuilt: markup color / margin-parameter matrix (`ProductMarkUpColor`) and its overlap validation. |
 | `PackageTypeController` | `PackageTypeController` | **Complete** | CRUD/list behavior is rebuilt; legacy DataTables JSON endpoint is replaced by paged server-rendered list. |
 | `LocationController` | `LocationController` | **Core complete; extended fields partial** | Location CRUD, copy-from-existing-location, and current-user favorite toggle are rebuilt. Copy preserves hidden legacy logistics fields and clones non-dock contacts plus buyer products/packages. Some extended logistics fields are still not directly editable on the current form. |
@@ -66,8 +66,8 @@ core app" to "full 1:1 legacy parity":
 4. **Supplier/buyer tracking wizards**: legacy buyer/supplier tracking flows.
 5. **Bulk rate propagation/history surfaces**: supplier-rate propagation to tied
    buyer/supplier product rates, and explicit rate history tables.
-6. **Favorite filters/status helper workflows**: favorite-filtered list views and
-   quick status/substatus endpoints on buyer/supplier pages.
+6. **Status helper workflows**: quick status/substatus endpoints on
+   buyer/supplier pages.
 7. **Specialized lookup endpoints**: account manager-specific load lookup helpers.
 
 ## Recommendation

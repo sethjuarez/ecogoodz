@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using EcoGoodz.Data;
 using EcoGoodz.Web.Controllers.Shared;
+using EcoGoodz.Web.Extensions;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Buyer;
 using EcoGoodz.Web.Models.Shared;
@@ -49,6 +50,12 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
 
     public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
+        var favoritesOnly = IsFavoritesOnlyRequest();
+        if (favoritesOnly)
+        {
+            return await FavoriteIndex(search, sort, desc, page, pageSize);
+        }
+
         if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
         {
             return await base.Index(search, sort, desc, page, pageSize);
@@ -92,6 +99,70 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
             },
         });
     }
+
+    private async Task<IActionResult> FavoriteIndex(string? search, string? sort, bool desc, int page, int pageSize)
+    {
+        var legacyUserId = User.GetLegacyUserId();
+        if (legacyUserId is null)
+        {
+            return Forbid();
+        }
+
+        var query = GetBaseQuery().AsNoTracking()
+            .Where(buyer => Context.Locations.Any(location =>
+                location.ClientId == buyer.Id
+                && location.IsActive
+                && location.IsBuyer == true
+                && location.Favorites.Any(favorite =>
+                    favorite.UserId == legacyUserId
+                    && favorite.IsBuyer)));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = ApplySearch(query, search);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await query.CountAsync();
+        var sorted = query.ApplySort(sort, desc, SortColumns, DefaultSortColumn, out var resolvedSort);
+        var items = await sorted
+            .Select(ProjectionExpression)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return View("Index", new PagedResult<BuyerListItemViewModel>
+        {
+            Items = items,
+            Page = BuildPageInfo(page, pageSize, totalCount, search, resolvedSort, desc, favoritesOnly: true),
+        });
+    }
+
+    private bool IsFavoritesOnlyRequest() =>
+        string.Equals(Request.Query["favoritesOnly"].FirstOrDefault(), "true", StringComparison.OrdinalIgnoreCase);
+
+    private static PageInfo BuildPageInfo(
+        int page,
+        int pageSize,
+        int totalCount,
+        string? search,
+        string? sort,
+        bool desc,
+        bool favoritesOnly) =>
+        new()
+        {
+            PageNumber = page,
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            SearchTerm = search,
+            SortColumn = sort,
+            SortDescending = desc,
+            AdditionalQueryParameters = favoritesOnly
+                ? new Dictionary<string, string?> { ["favoritesOnly"] = "true" }
+                : new Dictionary<string, string?>(),
+        };
 
     public async Task<IActionResult> Details(int id)
     {

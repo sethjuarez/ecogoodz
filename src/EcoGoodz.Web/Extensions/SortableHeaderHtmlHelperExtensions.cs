@@ -44,6 +44,10 @@ public static class SortableHeaderHtmlHelperExtensions
         {
             query.Add($"pageSize={page.PageSize}");
         }
+        query.AddRange(page.AdditionalQueryParameters.Select(parameter =>
+            string.IsNullOrEmpty(parameter.Value)
+                ? Uri.EscapeDataString(parameter.Key)
+                : $"{Uri.EscapeDataString(parameter.Key)}={Uri.EscapeDataString(parameter.Value)}"));
 
         var href = html.ViewContext.HttpContext.Request.Path + "?" + string.Join("&", query);
         var icon = isActive ? (page.SortDescending ? ChevronDown : ChevronUp) : Selector;

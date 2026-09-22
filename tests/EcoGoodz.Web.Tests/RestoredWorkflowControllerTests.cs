@@ -15,6 +15,7 @@ using EcoGoodz.Web.Models.Load;
 using EcoGoodz.Web.Models.Location;
 using EcoGoodz.Web.Models.Note;
 using EcoGoodz.Web.Models.Report;
+using EcoGoodz.Web.Models.Shared;
 using EcoGoodz.Web.Models.StaffTask;
 using EcoGoodz.Web.Models.StaffUser;
 using EcoGoodz.Web.Models.Supplier;
@@ -887,6 +888,74 @@ public class RestoredWorkflowControllerTests
 
         Assert.IsType<BadRequestResult>(await controller.ToggleFavorite(1));
         Assert.Empty(context.Favorites);
+    }
+
+    [Fact]
+    public async Task BuyerIndex_FavoritesOnlyFiltersCurrentUserBuyerLocations()
+    {
+        await using var context = CreateContext();
+        context.Buyers.AddRange(
+            new Buyer { Id = 1, Name = "Favorite Buyer", IsActive = true },
+            new Buyer { Id = 2, Name = "Other Buyer", IsActive = true },
+            new Buyer { Id = 3, Name = "Wrong Side Buyer", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 10, ClientId = 1, IsBuyer = true, Location1 = "Favorite Buyer Dock", IsActive = true },
+            new Location { Id = 11, ClientId = 2, IsBuyer = true, Location1 = "Other Buyer Dock", IsActive = true },
+            new Location { Id = 12, ClientId = 3, IsBuyer = false, Location1 = "Wrong Side Dock", IsActive = true });
+        context.Favorites.AddRange(
+            new Favorite { Id = 20, UserId = 99, Location = 10, IsBuyer = true },
+            new Favorite { Id = 21, UserId = 100, Location = 11, IsBuyer = true },
+            new Favorite { Id = 22, UserId = 99, Location = 12, IsBuyer = false });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerController(context));
+        controller.ControllerContext.HttpContext.Request.Query = new QueryCollection(
+            new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                ["favoritesOnly"] = "true",
+            });
+
+        var result = await controller.Index(search: null, sort: "name", desc: false);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<PagedResult<BuyerListItemViewModel>>(view.Model);
+        var item = Assert.Single(model.Items);
+        Assert.Equal("Favorite Buyer", item.Name);
+        Assert.Equal("true", model.Page.AdditionalQueryParameters["favoritesOnly"]);
+    }
+
+    [Fact]
+    public async Task SupplierIndex_FavoritesOnlyFiltersCurrentUserSupplierLocations()
+    {
+        await using var context = CreateContext();
+        context.Suppliers.AddRange(
+            new Supplier { Id = 1, Name = "Favorite Supplier", IsActive = true },
+            new Supplier { Id = 2, Name = "Other Supplier", IsActive = true },
+            new Supplier { Id = 3, Name = "Wrong Side Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 10, ClientId = 1, IsBuyer = false, Location1 = "Favorite Supplier Dock", IsActive = true },
+            new Location { Id = 11, ClientId = 2, IsBuyer = false, Location1 = "Other Supplier Dock", IsActive = true },
+            new Location { Id = 12, ClientId = 3, IsBuyer = true, Location1 = "Wrong Side Dock", IsActive = true });
+        context.Favorites.AddRange(
+            new Favorite { Id = 20, UserId = 99, Location = 10, IsBuyer = false },
+            new Favorite { Id = 21, UserId = 100, Location = 11, IsBuyer = false },
+            new Favorite { Id = 22, UserId = 99, Location = 12, IsBuyer = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierController(context));
+        controller.ControllerContext.HttpContext.Request.Query = new QueryCollection(
+            new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                ["favoritesOnly"] = "true",
+            });
+
+        var result = await controller.Index(search: null, sort: "name", desc: false);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<PagedResult<SupplierListItemViewModel>>(view.Model);
+        var item = Assert.Single(model.Items);
+        Assert.Equal("Favorite Supplier", item.Name);
+        Assert.Equal("true", model.Page.AdditionalQueryParameters["favoritesOnly"]);
     }
 
     [Fact]

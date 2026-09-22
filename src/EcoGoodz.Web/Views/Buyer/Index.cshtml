@@ -1,6 +1,7 @@
 @model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.Buyer.BuyerListItemViewModel>
 @{
     ViewData["Title"] = "Buyers";
+    var favoritesOnly = Model.Page.AdditionalQueryParameters.ContainsKey("favoritesOnly");
 }
 
 <div class="page-header d-print-none mb-3">
@@ -11,6 +12,14 @@
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
             @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search buyers…" })
+            @if (favoritesOnly)
+            {
+                <a asp-action="Index" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-route-pageSize="@Model.Page.PageSize" class="btn text-nowrap">Show all</a>
+            }
+            else
+            {
+                <a asp-action="Index" asp-route-favoritesOnly="true" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-route-pageSize="@Model.Page.PageSize" class="btn text-nowrap">Favorites only</a>
+            }
             <a asp-action="Create" class="btn btn-primary text-nowrap">New buyer</a>
         </div>
     </div>
@@ -59,4 +68,3 @@
     </div>
     @await Html.PartialAsync("_ListPagination", Model.Page)
 </div>
-
