@@ -168,10 +168,46 @@ a {
   backdrop-filter: blur(10px);
 }
 
+.eg-profile-card {
+  background: rgba(255, 253, 250, .95);
+  border: 1px solid rgba(63, 92, 59, .1);
+}
+
+.eg-stat-stack {
+  display: grid;
+  gap: .75rem;
+}
+
+.eg-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .85rem 1rem;
+  border: 1px solid rgba(63, 92, 59, .12);
+  border-radius: 1rem;
+  background: rgba(var(--primary-rgb), .035);
+
+  span {
+    color: var(--eg-ink-muted);
+    font-weight: 600;
+  }
+
+  strong {
+    color: var(--eg-ink-strong);
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+}
+
 .eg-empty-state {
   padding: 2.75rem 1rem;
   text-align: center;
   color: var(--eg-ink-muted);
+}
+
+.eg-detail-page .eg-empty-state {
+  padding: 1.75rem 1rem;
 }
 
 .eg-empty-state .eg-icon-bubble {

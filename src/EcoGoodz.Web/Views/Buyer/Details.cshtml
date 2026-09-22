@@ -17,11 +17,16 @@
     </div>
 </div>
 
-@await Html.PartialAsync("_RecentLoads", Model.RecentLoads)
-
-<div class="row row-cards">
+<div class="eg-detail-page">
+<div class="row row-cards mb-3">
     <div class="col-12 col-lg-8">
-        <div class="card">
+        <div class="card eg-profile-card h-100">
+            <div class="card-header">
+                <div>
+                    <div class="eg-card-kicker">Profile</div>
+                    <h3 class="card-title mb-0">Buyer details</h3>
+                </div>
+            </div>
             <div class="card-body">
                 <div class="datagrid">
                     <div class="datagrid-item">
@@ -58,23 +63,32 @@
         </div>
     </div>
     <div class="col-12 col-lg-4">
-        <div class="card">
+        <div class="card eg-profile-card h-100">
+            <div class="card-header">
+                <div>
+                    <div class="eg-card-kicker">Snapshot</div>
+                    <h3 class="card-title mb-0">Relationships</h3>
+                </div>
+            </div>
             <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-4">
-                        <div class="text-secondary">Products</div>
-                        <div class="h1 m-0">@Model.ProductCount</div>
+                <div class="eg-stat-stack">
+                    <div class="eg-stat-row">
+                        <span>Products</span>
+                        <strong>@Model.ProductCount</strong>
                     </div>
-                    <div class="col-4">
-                        <div class="text-secondary">Suppliers</div>
-                        <div class="h1 m-0">@Model.SupplierCount</div>
+                    <div class="eg-stat-row">
+                        <span>Suppliers</span>
+                        <strong>@Model.SupplierCount</strong>
                     </div>
-                    <div class="col-4">
-                        <div class="text-secondary">Loads</div>
-                        <div class="h1 m-0">@Model.LoadCount</div>
+                    <div class="eg-stat-row">
+                        <span>Loads</span>
+                        <strong>@Model.LoadCount</strong>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+@await Html.PartialAsync("_RecentLoads", Model.RecentLoads)
 </div>
