@@ -4,6 +4,7 @@ using EcoGoodz.Web.Extensions;
 using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EcoGoodz.Web.Controllers.Shared;
 
@@ -24,6 +25,7 @@ namespace EcoGoodz.Web.Controllers.Shared;
 /// </summary>
 [Authorize]
 public abstract class PagedListController<TRow, TListItem> : Controller
+    where TRow : class
 {
     protected PagedListController(EcoGoodzDbContext context)
     {
@@ -49,16 +51,37 @@ public abstract class PagedListController<TRow, TListItem> : Controller
 
     public virtual async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
-        var query = GetBaseQuery();
+        var query = GetBaseQuery().AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = ApplySearch(query, search);
         }
 
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await query.CountAsync();
         var sorted = query.ApplySort(sort, desc, SortColumns, DefaultSortColumn, out var resolvedSort);
-        var projected = sorted.Select(ProjectionExpression);
-        var result = await projected.ToPagedResultAsync(page, pageSize, search, resolvedSort, desc);
+        var items = await sorted
+            .Select(ProjectionExpression)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var result = new PagedResult<TListItem>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+                SortColumn = resolvedSort,
+                SortDescending = desc,
+            },
+        };
 
         return View("Index", result);
     }

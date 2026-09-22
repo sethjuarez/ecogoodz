@@ -46,6 +46,37 @@ This forces the ASP.NET Core Module to pick up the newly deployed
 `EcoGoodz.Web.dll` and reload configuration. Without it, IIS may keep serving
 the previous build until the app pool recycles on its own schedule.
 
+## Production latency / cold starts
+
+If authenticated pages take 15-20 seconds after the site has been idle but are
+fast on immediate refresh, the bottleneck is almost certainly IIS/Plesk cold
+start: the app pool has stopped, then the first staff request has to start
+Kestrel, load the app, apply Identity migrations, seed roles, and open the first
+SQL connection before rendering the page.
+
+Recommended IIS settings for the `app.ecogoodz.com` app pool:
+
+| Setting | Value |
+|---|---|
+| Start Mode | `AlwaysRunning` |
+| Idle Time-out (minutes) | `0` |
+| Regular Time Interval (minutes) | `0` or an off-hours recycle schedule |
+
+Also enable preload on the site/application if the Application Initialization
+module is available:
+
+```powershell
+Import-Module WebAdministration
+Set-ItemProperty 'IIS:\AppPools\<app-pool-name-for-app.ecogoodz.com>' -Name startMode -Value AlwaysRunning
+Set-ItemProperty 'IIS:\AppPools\<app-pool-name-for-app.ecogoodz.com>' -Name processModel.idleTimeout -Value ([TimeSpan]::Zero)
+Set-ItemProperty 'IIS:\Sites\app.ecogoodz.com' -Name applicationDefaults.preloadEnabled -Value True
+```
+
+If pages are still slow when refreshed immediately, check the ASP.NET Core logs
+for `Slow request ...` warnings. The app logs any request slower than
+`Diagnostics:SlowRequestThresholdMs` (default `2000`) so production can tell
+whether the delay is a specific route/query or an app-pool wakeup.
+
 ## Secrets and environment-specific settings
 
 **Nothing production-sensitive is ever committed** - not to `main`, not to

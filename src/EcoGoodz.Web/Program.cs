@@ -1,5 +1,6 @@
 using EcoGoodz.Data;
 using EcoGoodz.Data.Identity;
+using EcoGoodz.Web.Diagnostics;
 using EcoGoodz.Web.Email;
 using EcoGoodz.Web.Identity;
 using Microsoft.AspNetCore.DataProtection;
@@ -158,6 +159,8 @@ if (!app.Environment.IsDevelopment())
 // Must run before UseHttpsRedirection/auth so Request.Scheme and the Secure cookie
 // policy see the real (public-facing) scheme rather than the internal proxy hop.
 app.UseForwardedHeaders();
+
+app.UseMiddleware<SlowRequestLoggingMiddleware>();
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
