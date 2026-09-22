@@ -49,6 +49,8 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         l => new LoadListItemViewModel
         {
             Id = l.Id,
+            BuyerId = l.Buyer,
+            SupplierId = l.Supplier,
             BuyerName = l.BuyerNavigation != null ? l.BuyerNavigation.Name : null,
             SupplierName = l.SupplierNavigation != null ? l.SupplierNavigation.Name : null,
             StatusName = l.LoadStatusNavigation != null ? l.LoadStatusNavigation.Status : null,

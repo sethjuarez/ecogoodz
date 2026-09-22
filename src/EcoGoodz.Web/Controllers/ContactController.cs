@@ -35,6 +35,8 @@ public class ContactController : Controller
             .Select(c => new ContactListItemViewModel
             {
                 Id = c.Contact.Id,
+                ClientId = c.Contact.ClientId,
+                IsBuyer = c.Contact.IsBuyer == true,
                 LocationId = c.Contact.Location,
                 ClientName = c.Contact.IsBuyer == true ? c.BuyerName : c.SupplierName,
                 LocationName = c.Contact.LocationNavigation != null ? c.Contact.LocationNavigation.Location1 : null,
@@ -59,6 +61,8 @@ public class ContactController : Controller
             .Select(c => new ContactListItemViewModel
             {
                 Id = c.Contact.Id,
+                ClientId = c.Contact.ClientId,
+                IsBuyer = c.Contact.IsBuyer == true,
                 LocationId = c.Contact.Location,
                 ClientName = c.Contact.IsBuyer == true ? c.BuyerName : c.SupplierName,
                 LocationName = c.Contact.LocationNavigation != null ? c.Contact.LocationNavigation.Location1 : null,

@@ -3,6 +3,10 @@ namespace EcoGoodz.Web.Models.BuyerSupplier;
 public class BuyerSupplierListItemViewModel
 {
     public int Id { get; set; }
+    public int? BuyerId { get; set; }
+    public int? SupplierId { get; set; }
+    public int? BuyerLocationId { get; set; }
+    public int? SupplierLocationId { get; set; }
     public string? BuyerName { get; set; }
     public string? SupplierName { get; set; }
     public string? BuyerLocationName { get; set; }

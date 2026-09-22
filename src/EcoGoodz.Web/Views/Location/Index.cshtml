@@ -41,7 +41,20 @@
                 {
                     <tr>
                         <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></td>
-                        <td>@item.ClientName</td>
+                        <td>
+                            @if (item.IsBuyer == true)
+                            {
+                                <a asp-controller="Buyer" asp-action="Details" asp-route-id="@item.ClientId" class="text-reset">@item.ClientName</a>
+                            }
+                            else if (item.IsBuyer == false)
+                            {
+                                <a asp-controller="Supplier" asp-action="Details" asp-route-id="@item.ClientId" class="text-reset">@item.ClientName</a>
+                            }
+                            else
+                            {
+                                @item.ClientName
+                            }
+                        </td>
                         <td>@item.City</td>
                         <td>@item.StateName</td>
                         <td>@item.CountryName</td>

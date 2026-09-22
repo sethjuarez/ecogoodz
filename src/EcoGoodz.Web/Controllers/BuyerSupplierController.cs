@@ -50,6 +50,10 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
         m => new BuyerSupplierListItemViewModel
         {
             Id = m.Id,
+            BuyerId = m.Buyer,
+            SupplierId = m.Supplier,
+            BuyerLocationId = m.BuyerLocation,
+            SupplierLocationId = m.SupplierLocation,
             BuyerName = m.BuyerNavigation != null ? m.BuyerNavigation.Name : null,
             SupplierName = m.SupplierNavigation != null ? m.SupplierNavigation.Name : null,
             BuyerLocationName = m.BuyerLocationNavigation != null ? m.BuyerLocationNavigation.Location1 : null,
@@ -91,6 +95,10 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
                 select new BuyerSupplierListItemViewModel
                 {
                     Id = match.Id,
+                    BuyerId = match.Buyer,
+                    SupplierId = match.Supplier,
+                    BuyerLocationId = match.BuyerLocation,
+                    SupplierLocationId = match.SupplierLocation,
                     BuyerName = buyer.Name,
                     SupplierName = supplier.Name,
                     BuyerLocationName = buyerLocation.Location1,
@@ -120,6 +128,10 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             .Select(m => new BuyerSupplierDetailsViewModel
             {
                 Id = m.Id,
+                BuyerId = m.Buyer,
+                SupplierId = m.Supplier,
+                BuyerLocationId = m.BuyerLocation,
+                SupplierLocationId = m.SupplierLocation,
                 BuyerName = m.BuyerNavigation != null ? m.BuyerNavigation.Name : null,
                 SupplierName = m.SupplierNavigation != null ? m.SupplierNavigation.Name : null,
                 BuyerLocationName = m.BuyerLocationNavigation != null ? m.BuyerLocationNavigation.Location1 : null,

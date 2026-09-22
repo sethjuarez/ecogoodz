@@ -144,7 +144,7 @@
                 {
                     <tr>
                         <td><a asp-controller="Load" asp-action="Details" asp-route-id="@load.Id" class="text-reset">@load.BuyerName</a></td>
-                        <td>@load.SupplierName</td>
+                        <td><a asp-controller="Supplier" asp-action="Details" asp-route-id="@load.SupplierId" class="text-reset">@load.SupplierName</a></td>
                         <td>@load.StatusName</td>
                         <td>@load.ShipmentDate?.ToString("yyyy-MM-dd")</td>
                     </tr>

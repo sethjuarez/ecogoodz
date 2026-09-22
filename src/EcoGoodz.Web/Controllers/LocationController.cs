@@ -59,6 +59,8 @@ public class LocationController : PagedListController<LocationController.Locatio
         r => new LocationListItemViewModel
         {
             Id = r.Location.Id,
+            ClientId = r.Location.ClientId,
+            IsBuyer = r.Location.IsBuyer,
             Name = r.Location.Location1 ?? string.Empty,
             ClientName = r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
             City = r.Location.City,
@@ -105,6 +107,8 @@ public class LocationController : PagedListController<LocationController.Locatio
                 select new LocationListItemViewModel
                 {
                     Id = location.Id,
+                    ClientId = location.ClientId,
+                    IsBuyer = location.IsBuyer,
                     Name = location.Location1 ?? string.Empty,
                     ClientName = location.IsBuyer == true
                         ? buyer.Name

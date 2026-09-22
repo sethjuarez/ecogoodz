@@ -60,6 +60,9 @@ public class SupplierProductController : PagedListController<SupplierProductCont
         r => new SupplierProductListItemViewModel
         {
             Id = r.SupplierProduct.Id,
+            SupplierId = r.SupplierProduct.Supplier,
+            LocationId = r.SupplierProduct.Location,
+            ProductId = r.SupplierProduct.Product,
             SupplierName = r.SupplierName ?? string.Empty,
             LocationName = r.LocationName ?? string.Empty,
             ProductName = r.ProductName ?? string.Empty,
@@ -110,6 +113,9 @@ public class SupplierProductController : PagedListController<SupplierProductCont
                 select new SupplierProductListItemViewModel
                 {
                     Id = supplierProduct.Id,
+                    SupplierId = supplierProduct.Supplier,
+                    LocationId = supplierProduct.Location,
+                    ProductId = supplierProduct.Product,
                     SupplierName = supplier.Name ?? string.Empty,
                     LocationName = location.Location1 ?? string.Empty,
                     ProductName = product.Name ?? string.Empty,

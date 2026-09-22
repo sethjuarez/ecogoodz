@@ -13,7 +13,9 @@ public class DashboardViewModel
 public class RecentLoadItem
 {
     public int Id { get; set; }
+    public int? BuyerId { get; set; }
     public string? BuyerName { get; set; }
+    public int? SupplierId { get; set; }
     public string? SupplierName { get; set; }
     public string? StatusName { get; set; }
     public DateTime? ShipmentDate { get; set; }

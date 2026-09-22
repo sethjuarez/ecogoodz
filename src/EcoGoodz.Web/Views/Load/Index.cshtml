@@ -41,7 +41,7 @@
                 {
                     <tr>
                         <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.BuyerName</a></td>
-                        <td>@item.SupplierName</td>
+                        <td><a asp-controller="Supplier" asp-action="Details" asp-route-id="@item.SupplierId" class="text-reset">@item.SupplierName</a></td>
                         <td>@item.StatusName</td>
                         <td>@item.ShipmentDate?.ToString("yyyy-MM-dd")</td>
                         <td>

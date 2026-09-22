@@ -1,5 +1,5 @@
 ﻿(() => {
-    const historyBack = document.querySelector("[data-history-back]");
+    const breadcrumbs = document.querySelector("[data-history-breadcrumbs]");
     const current = {
         path: `${window.location.pathname}${window.location.search}${window.location.hash}`,
         title: document.title.replace(/\s+-\s+EcoGoodz$/, "").trim() || "Previous page",
@@ -9,24 +9,42 @@
         const key = "ecogoodz.navigationHistory";
         const stored = JSON.parse(window.sessionStorage.getItem(key) || "[]");
         const history = Array.isArray(stored) ? stored : [];
-        const previous = [...history].reverse().find((entry) => entry?.path && entry.path !== current.path);
+        const nextHistory = [...history.filter((entry) => entry?.path !== current.path), current].slice(-16);
 
-        if (historyBack && previous) {
-            historyBack.textContent = `Back to ${previous.title || "previous page"}`;
-            historyBack.setAttribute("href", previous.path);
-            historyBack.hidden = false;
-            historyBack.addEventListener("click", (event) => {
-                event.preventDefault();
-                window.location.assign(previous.path);
+        if (breadcrumbs && nextHistory.length > 1) {
+            const visibleTrail = nextHistory.slice(-5);
+            breadcrumbs.replaceChildren();
+
+            if (nextHistory.length > visibleTrail.length) {
+                const ellipsis = document.createElement("li");
+                ellipsis.className = "breadcrumb-item text-secondary";
+                ellipsis.textContent = "...";
+                breadcrumbs.append(ellipsis);
+            }
+
+            visibleTrail.forEach((entry, index) => {
+                const item = document.createElement("li");
+                item.className = "breadcrumb-item";
+                const isCurrent = index === visibleTrail.length - 1;
+
+                if (isCurrent) {
+                    item.classList.add("active");
+                    item.setAttribute("aria-current", "page");
+                    item.textContent = entry.title || "Current page";
+                } else {
+                    const link = document.createElement("a");
+                    link.href = entry.path;
+                    link.textContent = entry.title || "Previous page";
+                    item.append(link);
+                }
+
+                breadcrumbs.append(item);
             });
         }
 
-        const nextHistory = [...history.filter((entry) => entry?.path !== current.path), current].slice(-12);
         window.sessionStorage.setItem(key, JSON.stringify(nextHistory));
     } catch {
-        if (historyBack) {
-            historyBack.hidden = true;
-        }
+        // Keep the server-rendered hierarchy breadcrumbs if session history is unavailable.
     }
 })();
 

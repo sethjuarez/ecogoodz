@@ -3,6 +3,8 @@ namespace EcoGoodz.Web.Models.Contact;
 public class ContactListItemViewModel
 {
     public int Id { get; set; }
+    public int? ClientId { get; set; }
+    public bool IsBuyer { get; set; }
     public int? LocationId { get; set; }
     public string? ClientName { get; set; }
     public string? LocationName { get; set; }

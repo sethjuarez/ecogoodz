@@ -40,7 +40,9 @@ public class HomeController : Controller
                 .Select(l => new RecentLoadItem
                 {
                     Id = l.Id,
+                    BuyerId = l.Buyer,
                     BuyerName = l.BuyerNavigation != null ? l.BuyerNavigation.Name : null,
+                    SupplierId = l.Supplier,
                     SupplierName = l.SupplierNavigation != null ? l.SupplierNavigation.Name : null,
                     StatusName = l.LoadStatusNavigation != null ? l.LoadStatusNavigation.Status : null,
                     ShipmentDate = l.ShipmentDate,
@@ -62,4 +64,3 @@ public class HomeController : Controller
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
 }
-

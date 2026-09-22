@@ -688,9 +688,13 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
                 Id = load.Id,
                 ShipmentDate = load.ShipmentDate,
                 StatusName = load.LoadStatusNavigation?.Status,
+                BuyerId = load.Buyer,
                 BuyerName = load.BuyerNavigation?.Name,
+                SupplierId = load.Supplier,
                 SupplierName = load.SupplierNavigation?.Name,
+                BuyerLocationId = load.BuyerLocation,
                 BuyerLocationName = load.BuyerLocationNavigation?.Location1,
+                SupplierLocationId = load.SupplierLocation,
                 SupplierLocationName = load.SupplierLocationNavigation?.Location1,
                 Products = string.Join(", ", load.LoadProducts
                     .Select(loadProduct => loadProduct.ProductNavigation?.ProductNavigation?.Name)

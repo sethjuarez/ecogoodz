@@ -55,6 +55,9 @@ public class BuyerProductController : PagedListController<BuyerProductController
         r => new BuyerProductListItemViewModel
         {
             Id = r.BuyerProduct.Id,
+            BuyerId = r.BuyerProduct.Buyer,
+            LocationId = r.BuyerProduct.Location,
+            ProductId = r.BuyerProduct.Product,
             BuyerName = r.BuyerName ?? string.Empty,
             LocationName = r.LocationName ?? string.Empty,
             ProductName = r.ProductName ?? r.BuyerProduct.OtherProduct ?? "(other product)",
@@ -93,6 +96,9 @@ public class BuyerProductController : PagedListController<BuyerProductController
                 select new BuyerProductListItemViewModel
                 {
                     Id = buyerProduct.Id,
+                    BuyerId = buyerProduct.Buyer,
+                    LocationId = buyerProduct.Location,
+                    ProductId = buyerProduct.Product,
                     BuyerName = buyer.Name ?? string.Empty,
                     LocationName = location.Location1 ?? string.Empty,
                     ProductName = product.Name ?? buyerProduct.OtherProduct ?? "(other product)",

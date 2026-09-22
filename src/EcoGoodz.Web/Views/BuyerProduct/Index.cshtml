@@ -37,8 +37,8 @@
                 @foreach (var item in Model.Items)
                 {
                     <tr>
-                        <td>@item.BuyerName</td>
-                        <td>@item.LocationName</td>
+                        <td><a asp-controller="Buyer" asp-action="Details" asp-route-id="@item.BuyerId" class="text-reset">@item.BuyerName</a></td>
+                        <td><a asp-controller="Location" asp-action="Details" asp-route-id="@item.LocationId" class="text-reset">@item.LocationName</a></td>
                         <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.ProductName</a></td>
                         <td>@item.PackagingName</td>
                         <td>

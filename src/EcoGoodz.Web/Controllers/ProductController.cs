@@ -22,7 +22,7 @@ public class ProductController : PagedListController<ProductController.ProductRo
         from p in Context.Products
         join parent in Context.Products on p.IdParent equals parent.Id into parentJoin
         from parent in parentJoin.DefaultIfEmpty()
-        select new ProductRow { Product = p, ParentName = parent.Name };
+        select new ProductRow { Product = p, ParentId = parent != null ? parent.Id : null, ParentName = parent != null ? parent.Name : null };
 
     protected override IQueryable<ProductRow> ApplySearch(IQueryable<ProductRow> query, string searchTerm) =>
         query.Where(r =>
@@ -44,6 +44,7 @@ public class ProductController : PagedListController<ProductController.ProductRo
         {
             Id = r.Product.Id,
             Name = r.Product.Name ?? string.Empty,
+            ParentId = r.ParentId,
             ParentName = r.ParentName,
             IsActive = r.Product.IsActive ?? false,
         };
@@ -51,6 +52,7 @@ public class ProductController : PagedListController<ProductController.ProductRo
     public sealed class ProductRow
     {
         public required Data.Models.Product Product { get; init; }
+        public int? ParentId { get; init; }
         public string? ParentName { get; init; }
     }
 

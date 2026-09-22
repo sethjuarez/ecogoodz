@@ -41,7 +41,9 @@
                             <div><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></div>
                             <div class="text-secondary">@item.Title</div>
                         </td>
-                        <td>@item.ClientName</td>
+                        <td>
+                            <a asp-controller="@(item.IsBuyer ? "Buyer" : "Supplier")" asp-action="Details" asp-route-id="@item.ClientId" class="text-reset">@item.ClientName</a>
+                        </td>
                         <td><a asp-controller="Location" asp-action="Details" asp-route-id="@item.LocationId">@item.LocationName</a></td>
                         <td><a href="mailto:@item.Email">@item.Email</a></td>
                         <td>

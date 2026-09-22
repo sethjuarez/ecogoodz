@@ -1,6 +1,6 @@
 @model EcoGoodz.Web.Models.BuyerSupplier.BuyerSupplierDetailsViewModel
 @{
-    ViewData["Title"] = "Buyer/Supplier match";
+    ViewData["Title"] = $"{Model.BuyerName} → {Model.SupplierName}";
 }
 
 <div class="page-header d-print-none mb-3">
@@ -28,19 +28,19 @@
                 <div class="datagrid">
                     <div class="datagrid-item">
                         <div class="datagrid-title">Buyer</div>
-                        <div class="datagrid-content">@Model.BuyerName</div>
+                        <div class="datagrid-content"><a asp-controller="Buyer" asp-action="Details" asp-route-id="@Model.BuyerId">@Model.BuyerName</a></div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Buyer location</div>
-                        <div class="datagrid-content">@Model.BuyerLocationName</div>
+                        <div class="datagrid-content"><a asp-controller="Location" asp-action="Details" asp-route-id="@Model.BuyerLocationId">@Model.BuyerLocationName</a></div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Supplier</div>
-                        <div class="datagrid-content">@Model.SupplierName</div>
+                        <div class="datagrid-content"><a asp-controller="Supplier" asp-action="Details" asp-route-id="@Model.SupplierId">@Model.SupplierName</a></div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Supplier location</div>
-                        <div class="datagrid-content">@Model.SupplierLocationName</div>
+                        <div class="datagrid-content"><a asp-controller="Location" asp-action="Details" asp-route-id="@Model.SupplierLocationId">@Model.SupplierLocationName</a></div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Status</div>
