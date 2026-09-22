@@ -2,6 +2,7 @@ using EcoGoodz.Data;
 using EcoGoodz.Data.Identity;
 using EcoGoodz.Web.Email;
 using EcoGoodz.Web.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -40,6 +41,20 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
     .AddEntityFrameworkStores<EcoGoodzIdentityDbContext>()
     .AddClaimsPrincipalFactory<ApplicationClaimsPrincipalFactory>()
     .AddDefaultTokenProviders();
+
+// IIS app pools often don't have a loaded user profile / accessible registry hive,
+// which forces DataProtection to fall back to an ephemeral (in-memory) key ring -
+// every app pool recycle then invalidates all outstanding antiforgery tokens,
+// auth cookies, and password-reset tokens. Persist keys to a fixed folder outside
+// wwwroot/httpdocs instead, so they survive recycles/deploys regardless of the
+// app pool's user-profile-loading setting.
+var keysDirectory = builder.Configuration["DataProtection:KeysDirectory"];
+if (!string.IsNullOrWhiteSpace(keysDirectory))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keysDirectory))
+        .SetApplicationName("EcoGoodz");
+}
 
 builder.Services.ConfigureApplicationCookie(options =>
 {

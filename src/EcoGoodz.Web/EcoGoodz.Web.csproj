@@ -23,6 +23,18 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
+  <!--
+    Bakes ASPNETCORE_ENVIRONMENT into the generated web.config's <aspNetCore>
+    <environmentVariables> element on publish. Not a secret - safe to commit.
+    Plesk's hosting plan for this site doesn't expose an environment-variable
+    UI, so this is how the app learns it's running in Production (see
+    docs/deployment.md for how the actual secrets - connection string, SMTP
+    creds - get onto the server instead).
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <EnvironmentName>Production</EnvironmentName>
+  </PropertyGroup>
+
   <ItemGroup>
     <!--
       Dev-only config (DevTools:ShowResetLinkInResponse/AutoLoginEmail, local Docker

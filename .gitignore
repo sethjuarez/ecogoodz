@@ -16,3 +16,8 @@ node_modules/
 # production DB import - contains real legacy business data, so it's never
 # committed. Regenerate on demand with `sqlpackage /Action:Export`.
 db/*.bacpac
+
+# Never committed - a one-off, pre-filled copy of Set-ProdEnvVars.ps1 with
+# actual production secrets baked in, generated locally so it can just be
+# uploaded and run without re-typing values. Regenerate on demand.
+scripts/*.local.ps1
