@@ -101,14 +101,11 @@ for `Slow request ...` warnings. The app logs any request slower than
 whether the delay is a specific route/query or an app-pool wakeup.
 
 The legacy list pages are especially sensitive to the legacy database shape
-because several display/sort columns are wide text fields. The app creates the
-guarded computed sort columns during startup, then starts the heavier supporting
-index creation in the background so IIS startup is not blocked by a slow
-database. This covers Buyer, Supplier, Product, Location, PackageType,
-BuyerProduct, SupplierProduct, and BuyerSupplier list queries. If production
-stays slow after a deploy, verify the app pool identity can alter the legacy
-schema and that the `IX_*_NameSort_Id`, `IX_Location_LocationSort_Id`, and
-`IX_PackageType_TypeSort_Id` indexes exist in SQL Server.
+because several display/sort columns are wide text fields. Do not run schema or
+index creation from app startup on the Plesk host: a slow production database
+can make IIS report `HTTP Error 500.30 - ASP.NET Core app failed to start`.
+Apply any future list-page indexes manually during a maintenance window, then
+verify page latency with the slow-request logs.
 
 ## Secrets and environment-specific settings
 

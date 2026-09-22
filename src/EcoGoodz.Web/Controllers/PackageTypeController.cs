@@ -22,7 +22,7 @@ public class PackageTypeController : PagedListController<Data.Models.PackageType
     protected override IReadOnlyDictionary<string, Expression<Func<Data.Models.PackageType, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<Data.Models.PackageType, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["type"] = p => EF.Property<string>(p, "TypeSort"),
+            ["type"] = p => p.Type,
             ["active"] = p => p.IsActive,
         };
 
