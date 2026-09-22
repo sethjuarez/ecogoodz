@@ -20,7 +20,7 @@ JOIN sys.partitions AS p ON p.object_id = t.object_id AND p.index_id IN (0, 1)
 WHERE t.name IN (
     'Buyer',
     'Supplier',
-    'BuyerSupplier',
+    'BuyerSuppliers',
     'BuyerProduct',
     'SupplierProduct',
     'Location',
@@ -54,7 +54,7 @@ FROM sys.indexes AS i
 WHERE OBJECT_NAME(i.object_id) IN (
     'Buyer',
     'Supplier',
-    'BuyerSupplier',
+    'BuyerSuppliers',
     'BuyerProduct',
     'SupplierProduct',
     'Location'
@@ -80,7 +80,7 @@ WHERE mid.database_id = DB_ID()
   AND OBJECT_NAME(mid.object_id, mid.database_id) IN (
       'Buyer',
       'Supplier',
-      'BuyerSupplier',
+      'BuyerSuppliers',
       'BuyerProduct',
       'SupplierProduct',
       'Location'
@@ -103,7 +103,7 @@ FROM sys.dm_exec_query_stats AS qs
 CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS st
 WHERE st.text LIKE '%[[]Buyer]%'
    OR st.text LIKE '%[[]Supplier]%'
-   OR st.text LIKE '%[[]BuyerSupplier]%'
+   OR st.text LIKE '%[[]BuyerSuppliers]%'
    OR st.text LIKE '%[[]BuyerProduct]%'
    OR st.text LIKE '%[[]SupplierProduct]%'
    OR st.text LIKE '%[[]Location]%'
@@ -144,7 +144,7 @@ LEFT JOIN dbo.[User] AS u ON s.AccountManager = u.Id
 ORDER BY s.Name;
 
 PRINT '5c) Buyer/Supplier matches default list';
-SELECT COUNT(*) FROM dbo.BuyerSupplier;
+SELECT COUNT(*) FROM dbo.BuyerSuppliers;
 SELECT TOP (20)
     bs.Id,
     b.Name AS BuyerName,
@@ -152,7 +152,7 @@ SELECT TOP (20)
     bl.Location AS BuyerLocation,
     sl.Location AS SupplierLocation,
     bs.IsActive
-FROM dbo.BuyerSupplier AS bs
+FROM dbo.BuyerSuppliers AS bs
 LEFT JOIN dbo.Buyer AS b ON bs.Buyer = b.Id
 LEFT JOIN dbo.Supplier AS s ON bs.Supplier = s.Id
 LEFT JOIN dbo.Location AS bl ON bs.BuyerLocation = bl.Id
