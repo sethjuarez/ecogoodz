@@ -345,6 +345,328 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
         return Json(new { success = true });
     }
 
+    public async Task<IActionResult> Tracking(int? userId)
+    {
+        var resolvedUserId = userId ?? User.GetLegacyUserId();
+        if (resolvedUserId is null)
+        {
+            return Forbid();
+        }
+
+        var user = await Context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == resolvedUserId && user.IsActive == true)
+            .Select(user => new
+            {
+                user.Id,
+                Name = user.FirstName == user.LastName ? user.FirstName : user.FirstName + " " + user.LastName,
+            })
+            .FirstOrDefaultAsync();
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        var buyers = await Context.UserBuyers
+            .AsNoTracking()
+            .Where(userBuyer => userBuyer.UserId == resolvedUserId)
+            .OrderBy(userBuyer => userBuyer.OrderCount)
+            .ThenBy(userBuyer => userBuyer.Buyer.Name)
+            .Select(userBuyer => new BuyerTrackingBuyerViewModel
+            {
+                UserBuyerId = userBuyer.Id,
+                BuyerId = userBuyer.BuyerId,
+                BuyerName = userBuyer.Buyer.Name ?? string.Empty,
+                LocationId = userBuyer.LocationId,
+                LocationName = userBuyer.Location.Location1 ?? string.Empty,
+                OrderCount = userBuyer.OrderCount,
+                Products = userBuyer.BuyerTrackingProducts
+                    .OrderBy(product => product.Order)
+                    .ThenBy(product => product.Product.Name)
+                    .Select(product => new BuyerTrackingProductViewModel
+                    {
+                        BuyerTrackingProductId = product.Id,
+                        ProductId = product.ProductId,
+                        ProductName = product.Product.Name ?? string.Empty,
+                        OrderCount = product.Order,
+                        Suppliers = product.BuyerTrackingProductSuppliers
+                            .OrderBy(supplier => supplier.OrderCount)
+                            .ThenBy(supplier => supplier.Supplier.Name)
+                            .Select(supplier => new BuyerTrackingSupplierViewModel
+                            {
+                                BuyerTrackingProductSupplierId = supplier.Id,
+                                SupplierId = supplier.SupplierId,
+                                SupplierName = supplier.Supplier.Name ?? string.Empty,
+                                LocationId = supplier.LocationId,
+                                LocationName = supplier.Location.Location1 ?? string.Empty,
+                                OrderCount = supplier.OrderCount,
+                                SupplierNote = supplier.SupplierNote,
+                            })
+                            .ToList(),
+                    })
+                    .ToList(),
+            })
+            .ToListAsync();
+
+        return View(new BuyerTrackingViewModel
+        {
+            UserId = user.Id,
+            UserName = user.Name ?? string.Empty,
+            UserOptions = await GetTrackingUserOptionsAsync(user.Id),
+            Buyers = buyers,
+        });
+    }
+
+    public async Task<IActionResult> AddTrackingBuyer(int? userId)
+    {
+        var resolvedUserId = userId ?? User.GetLegacyUserId();
+        if (resolvedUserId is null)
+        {
+            return Forbid();
+        }
+
+        return View(new BuyerTrackingBuyerFormViewModel
+        {
+            CurrentUserId = resolvedUserId.Value,
+            BuyerOptions = await GetTrackingBuyerOptionsAsync(),
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddTrackingBuyer(BuyerTrackingBuyerFormViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            model.BuyerOptions = await GetTrackingBuyerOptionsAsync(model.BuyerId);
+            model.LocationOptions = model.BuyerId.HasValue ? await GetTrackingBuyerLocationOptionsAsync(model.BuyerId.Value, model.LocationId) : [];
+            return View(model);
+        }
+
+        var userExists = await Context.Users.AnyAsync(user => user.Id == model.CurrentUserId && user.IsActive == true);
+        if (!userExists)
+        {
+            ModelState.AddModelError(string.Empty, "Choose an active tracking user.");
+        }
+
+        var locationIsValid = await Context.Locations.AnyAsync(location =>
+            location.Id == model.LocationId
+            && location.ClientId == model.BuyerId
+            && location.IsActive
+            && location.IsBuyer == true
+            && Context.Buyers.Any(buyer => buyer.Id == model.BuyerId && buyer.IsActive == true));
+        if (!locationIsValid)
+        {
+            ModelState.AddModelError(nameof(model.LocationId), "Choose an active buyer location.");
+        }
+
+        var duplicate = await Context.UserBuyers.AnyAsync(userBuyer =>
+            userBuyer.UserId == model.CurrentUserId
+            && userBuyer.BuyerId == model.BuyerId
+            && userBuyer.LocationId == model.LocationId);
+        if (duplicate)
+        {
+            ModelState.AddModelError(string.Empty, "Buyer already exists for this tracking user.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            model.BuyerOptions = await GetTrackingBuyerOptionsAsync(model.BuyerId);
+            model.LocationOptions = model.BuyerId.HasValue ? await GetTrackingBuyerLocationOptionsAsync(model.BuyerId.Value, model.LocationId) : [];
+            return View(model);
+        }
+
+        Context.UserBuyers.Add(new Data.Models.UserBuyer
+        {
+            UserId = model.CurrentUserId,
+            BuyerId = model.BuyerId!.Value,
+            LocationId = model.LocationId!.Value,
+            OrderCount = 0,
+            CreateOn = DateTime.UtcNow,
+            CreatedBy = User.GetLegacyUserId(),
+        });
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Tracking), new { userId = model.CurrentUserId });
+    }
+
+    public async Task<IActionResult> AddTrackingProduct(int userBuyerId)
+    {
+        var model = await BuildTrackingProductFormAsync(userBuyerId, null);
+        return model is null ? NotFound() : View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddTrackingProduct(BuyerTrackingProductFormViewModel model)
+    {
+        var userBuyer = await Context.UserBuyers
+            .AsNoTracking()
+            .Where(userBuyer => userBuyer.Id == model.UserBuyerId)
+            .Select(userBuyer => new { userBuyer.Id, userBuyer.UserId, userBuyer.BuyerId, userBuyer.LocationId })
+            .FirstOrDefaultAsync();
+        if (userBuyer is null)
+        {
+            return NotFound();
+        }
+
+        model.CurrentUserId = userBuyer.UserId;
+        model.BuyerId = userBuyer.BuyerId;
+        model.BuyerLocationId = userBuyer.LocationId;
+
+        if (!ModelState.IsValid)
+        {
+            var rebuilt = await BuildTrackingProductFormAsync(model.UserBuyerId, model.ProductId);
+            return rebuilt is null ? NotFound() : View(rebuilt);
+        }
+
+        var productIsValid = await BuyerTrackingProductExistsAsync(userBuyer.BuyerId, userBuyer.LocationId, model.ProductId!.Value);
+        if (!productIsValid)
+        {
+            ModelState.AddModelError(nameof(model.ProductId), "Choose a product tied to this buyer location.");
+        }
+
+        var duplicate = await Context.BuyerTrackingProducts.AnyAsync(product =>
+            product.UserBuyerId == model.UserBuyerId
+            && product.ProductId == model.ProductId);
+        if (duplicate)
+        {
+            ModelState.AddModelError(string.Empty, "Product already exists for this tracking buyer.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            var rebuilt = await BuildTrackingProductFormAsync(model.UserBuyerId, model.ProductId);
+            return rebuilt is null ? NotFound() : View(rebuilt);
+        }
+
+        Context.BuyerTrackingProducts.Add(new Data.Models.BuyerTrackingProduct
+        {
+            UserBuyerId = model.UserBuyerId,
+            ProductId = model.ProductId!.Value,
+            Order = 0,
+            CreateOn = DateTime.UtcNow,
+            CreatedBy = User.GetLegacyUserId(),
+        });
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Tracking), new { userId = userBuyer.UserId });
+    }
+
+    public async Task<IActionResult> AddTrackingSupplier(int buyerTrackingProductId)
+    {
+        var model = await BuildTrackingSupplierFormAsync(buyerTrackingProductId, null, null);
+        return model is null ? NotFound() : View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddTrackingSupplier(BuyerTrackingSupplierFormViewModel model)
+    {
+        var trackingProduct = await Context.BuyerTrackingProducts
+            .AsNoTracking()
+            .Where(product => product.Id == model.BuyerTrackingProductId)
+            .Select(product => new
+            {
+                product.Id,
+                product.ProductId,
+                product.UserBuyerId,
+                product.UserBuyer.UserId,
+                product.UserBuyer.BuyerId,
+                product.UserBuyer.LocationId,
+            })
+            .FirstOrDefaultAsync();
+        if (trackingProduct is null)
+        {
+            return NotFound();
+        }
+
+        model.CurrentUserId = trackingProduct.UserId;
+        model.UserBuyerId = trackingProduct.UserBuyerId;
+        model.BuyerId = trackingProduct.BuyerId;
+        model.BuyerLocationId = trackingProduct.LocationId;
+        model.ProductId = trackingProduct.ProductId;
+
+        if (!ModelState.IsValid)
+        {
+            var rebuilt = await BuildTrackingSupplierFormAsync(model.BuyerTrackingProductId, model.SupplierId, model.SupplierLocationId);
+            return rebuilt is null ? NotFound() : View(rebuilt);
+        }
+
+        var supplierIsValid = await BuyerTrackingSupplierLocationExistsAsync(
+            trackingProduct.ProductId,
+            trackingProduct.BuyerId,
+            trackingProduct.LocationId,
+            model.SupplierId!.Value,
+            model.SupplierLocationId!.Value);
+        if (!supplierIsValid)
+        {
+            ModelState.AddModelError(nameof(model.SupplierLocationId), "Choose an active supplier location tied to this buyer product.");
+        }
+
+        var duplicate = await Context.BuyerTrackingProductSuppliers.AnyAsync(supplier =>
+            supplier.BuyerProductId == model.BuyerTrackingProductId
+            && supplier.SupplierId == model.SupplierId
+            && supplier.LocationId == model.SupplierLocationId);
+        if (duplicate)
+        {
+            ModelState.AddModelError(string.Empty, "Supplier already exists for this tracking product.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            var rebuilt = await BuildTrackingSupplierFormAsync(model.BuyerTrackingProductId, model.SupplierId, model.SupplierLocationId);
+            return rebuilt is null ? NotFound() : View(rebuilt);
+        }
+
+        Context.BuyerTrackingProductSuppliers.Add(new Data.Models.BuyerTrackingProductSupplier
+        {
+            UserBuyerId = trackingProduct.UserBuyerId,
+            BuyerProductId = model.BuyerTrackingProductId,
+            SupplierId = model.SupplierId!.Value,
+            LocationId = model.SupplierLocationId!.Value,
+            OrderCount = 0,
+            CreateOn = DateTime.UtcNow,
+            CreatedBy = User.GetLegacyUserId(),
+        });
+        await Context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Tracking), new { userId = trackingProduct.UserId });
+    }
+
+    public async Task<IActionResult> GetTrackingBuyerLocations(int buyerId)
+    {
+        var locations = await GetTrackingBuyerLocationOptionsAsync(buyerId, null);
+        return Json(locations.Select(location => new { id = location.Value, text = location.Text }));
+    }
+
+    public async Task<IActionResult> GetTrackingSupplierLocations(int buyerTrackingProductId, int supplierId)
+    {
+        var trackingProduct = await Context.BuyerTrackingProducts
+            .AsNoTracking()
+            .Where(product => product.Id == buyerTrackingProductId)
+            .Select(product => new
+            {
+                product.ProductId,
+                product.UserBuyer.BuyerId,
+                product.UserBuyer.LocationId,
+            })
+            .FirstOrDefaultAsync();
+        if (trackingProduct is null)
+        {
+            return NotFound();
+        }
+
+        var locations = await GetTrackingSupplierLocationOptionsAsync(
+            trackingProduct.ProductId,
+            trackingProduct.BuyerId,
+            trackingProduct.LocationId,
+            supplierId,
+            null);
+
+        return Json(locations.Select(location => new { id = location.Value, text = location.Text }));
+    }
+
     private async Task<IEnumerable<SelectListItem>> GetAccountManagerOptionsAsync()
     {
         return await Context.Users
@@ -357,6 +679,245 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
             })
             .ToListAsync();
     }
+
+    private async Task<IEnumerable<SelectListItem>> GetTrackingUserOptionsAsync(int selectedId) =>
+        await Context.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive == true)
+            .OrderBy(user => user.FirstName)
+            .ThenBy(user => user.LastName)
+            .Select(user => new SelectListItem
+            {
+                Value = user.Id.ToString(),
+                Text = user.FirstName == user.LastName ? user.FirstName : user.FirstName + " " + user.LastName,
+                Selected = user.Id == selectedId,
+            })
+            .ToListAsync();
+
+    private async Task<IEnumerable<SelectListItem>> GetTrackingBuyerOptionsAsync(int? selectedId = null) =>
+        await Context.Buyers
+            .AsNoTracking()
+            .Where(buyer => buyer.IsActive == true)
+            .OrderBy(buyer => buyer.Name)
+            .Select(buyer => new SelectListItem
+            {
+                Value = buyer.Id.ToString(),
+                Text = buyer.Name,
+                Selected = selectedId == buyer.Id,
+            })
+            .ToListAsync();
+
+    private async Task<List<SelectListItem>> GetTrackingBuyerLocationOptionsAsync(int buyerId, int? selectedId) =>
+        await Context.Locations
+            .AsNoTracking()
+            .Where(location =>
+                location.ClientId == buyerId
+                && location.IsActive
+                && location.IsBuyer == true)
+            .OrderBy(location => location.Location1)
+            .Select(location => new SelectListItem
+            {
+                Value = location.Id.ToString(),
+                Text = location.Location1,
+                Selected = selectedId == location.Id,
+            })
+            .ToListAsync();
+
+    private async Task<BuyerTrackingProductFormViewModel?> BuildTrackingProductFormAsync(int userBuyerId, int? selectedProductId)
+    {
+        var userBuyer = await Context.UserBuyers
+            .AsNoTracking()
+            .Where(userBuyer => userBuyer.Id == userBuyerId)
+            .Select(userBuyer => new
+            {
+                userBuyer.Id,
+                userBuyer.UserId,
+                userBuyer.BuyerId,
+                userBuyer.LocationId,
+                BuyerName = userBuyer.Buyer.Name,
+                LocationName = userBuyer.Location.Location1,
+            })
+            .FirstOrDefaultAsync();
+        if (userBuyer is null)
+        {
+            return null;
+        }
+
+        return new BuyerTrackingProductFormViewModel
+        {
+            CurrentUserId = userBuyer.UserId,
+            UserBuyerId = userBuyer.Id,
+            BuyerId = userBuyer.BuyerId,
+            BuyerLocationId = userBuyer.LocationId,
+            BuyerName = $"{userBuyer.BuyerName} - {userBuyer.LocationName}",
+            ProductId = selectedProductId,
+            ProductOptions = await GetTrackingProductOptionsAsync(userBuyer.BuyerId, userBuyer.LocationId, selectedProductId),
+        };
+    }
+
+    private async Task<BuyerTrackingSupplierFormViewModel?> BuildTrackingSupplierFormAsync(int buyerTrackingProductId, int? selectedSupplierId, int? selectedLocationId)
+    {
+        var trackingProduct = await Context.BuyerTrackingProducts
+            .AsNoTracking()
+            .Where(product => product.Id == buyerTrackingProductId)
+            .Select(product => new
+            {
+                product.Id,
+                product.ProductId,
+                product.UserBuyerId,
+                product.UserBuyer.UserId,
+                product.UserBuyer.BuyerId,
+                product.UserBuyer.LocationId,
+                ProductName = product.Product.Name,
+            })
+            .FirstOrDefaultAsync();
+        if (trackingProduct is null)
+        {
+            return null;
+        }
+
+        return new BuyerTrackingSupplierFormViewModel
+        {
+            CurrentUserId = trackingProduct.UserId,
+            UserBuyerId = trackingProduct.UserBuyerId,
+            BuyerTrackingProductId = trackingProduct.Id,
+            BuyerId = trackingProduct.BuyerId,
+            BuyerLocationId = trackingProduct.LocationId,
+            ProductId = trackingProduct.ProductId,
+            ProductName = trackingProduct.ProductName ?? string.Empty,
+            SupplierId = selectedSupplierId,
+            SupplierLocationId = selectedLocationId,
+            SupplierOptions = await GetTrackingSupplierOptionsAsync(trackingProduct.ProductId, trackingProduct.BuyerId, trackingProduct.LocationId, selectedSupplierId),
+            LocationOptions = selectedSupplierId.HasValue
+                ? await GetTrackingSupplierLocationOptionsAsync(trackingProduct.ProductId, trackingProduct.BuyerId, trackingProduct.LocationId, selectedSupplierId.Value, selectedLocationId)
+                : [],
+        };
+    }
+
+    private async Task<List<SelectListItem>> GetTrackingProductOptionsAsync(int buyerId, int buyerLocationId, int? selectedId) =>
+        await Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product =>
+                product.BuyerSupplier != null
+                && product.BuyerSupplier.Buyer == buyerId
+                && product.BuyerSupplier.BuyerLocation == buyerLocationId
+                && product.BuyerSupplier.IsActive == true
+                && product.SupplierProductNavigation != null
+                && product.SupplierProductNavigation.IsActive
+                && product.SupplierProductNavigation.ProductNavigation != null
+                && product.SupplierProductNavigation.ProductNavigation.IsActive == true
+                && product.SupplierProductNavigation.SupplierNavigation != null
+                && product.SupplierProductNavigation.SupplierNavigation.IsActive == true
+                && product.SupplierProductNavigation.LocationNavigation != null
+                && product.SupplierProductNavigation.LocationNavigation.IsActive)
+            .Select(product => new
+            {
+                Id = product.SupplierProductNavigation!.Product!.Value,
+                Name = product.SupplierProductNavigation.ProductNavigation!.Name ?? string.Empty,
+            })
+            .Distinct()
+            .OrderBy(product => product.Name)
+            .Select(product => new SelectListItem
+            {
+                Value = product.Id.ToString(),
+                Text = product.Name,
+                Selected = selectedId == product.Id,
+            })
+            .ToListAsync();
+
+    private async Task<IEnumerable<SelectListItem>> GetTrackingSupplierOptionsAsync(int productId, int buyerId, int buyerLocationId, int? selectedId) =>
+        await Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product =>
+                product.BuyerSupplier != null
+                && product.BuyerSupplier.Buyer == buyerId
+                && product.BuyerSupplier.BuyerLocation == buyerLocationId
+                && product.BuyerSupplier.IsActive == true
+                && product.SupplierProductNavigation != null
+                && product.SupplierProductNavigation.IsActive
+                && product.SupplierProductNavigation.Product == productId
+                && product.SupplierProductNavigation.SupplierNavigation != null
+                && product.SupplierProductNavigation.SupplierNavigation.IsActive == true)
+            .Select(product => new
+            {
+                Id = product.SupplierProductNavigation!.Supplier!.Value,
+                Name = product.SupplierProductNavigation.SupplierNavigation!.Name ?? string.Empty,
+            })
+            .Distinct()
+            .OrderBy(supplier => supplier.Name)
+            .Select(supplier => new SelectListItem
+            {
+                Value = supplier.Id.ToString(),
+                Text = supplier.Name,
+                Selected = selectedId == supplier.Id,
+            })
+            .ToListAsync();
+
+    private async Task<List<SelectListItem>> GetTrackingSupplierLocationOptionsAsync(int productId, int buyerId, int buyerLocationId, int supplierId, int? selectedId) =>
+        await Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product =>
+                product.BuyerSupplier != null
+                && product.BuyerSupplier.Buyer == buyerId
+                && product.BuyerSupplier.BuyerLocation == buyerLocationId
+                && product.BuyerSupplier.IsActive == true
+                && product.SupplierProductNavigation != null
+                && product.SupplierProductNavigation.IsActive
+                && product.SupplierProductNavigation.Product == productId
+                && product.SupplierProductNavigation.Supplier == supplierId
+                && product.SupplierProductNavigation.LocationNavigation != null
+                && product.SupplierProductNavigation.LocationNavigation.IsActive
+                && product.SupplierProductNavigation.LocationNavigation.IsBuyer == false)
+            .Select(product => new
+            {
+                Id = product.SupplierProductNavigation!.Location!.Value,
+                Name = product.SupplierProductNavigation.LocationNavigation!.Location1 ?? string.Empty,
+            })
+            .Distinct()
+            .OrderBy(location => location.Name)
+            .Select(location => new SelectListItem
+            {
+                Value = location.Id.ToString(),
+                Text = location.Name,
+                Selected = selectedId == location.Id,
+            })
+            .ToListAsync();
+
+    private async Task<bool> BuyerTrackingProductExistsAsync(int buyerId, int buyerLocationId, int productId) =>
+        await Context.BuyerSupplierProducts.AnyAsync(product =>
+            product.BuyerSupplier != null
+            && product.BuyerSupplier.Buyer == buyerId
+            && product.BuyerSupplier.BuyerLocation == buyerLocationId
+            && product.BuyerSupplier.IsActive == true
+            && product.SupplierProductNavigation != null
+            && product.SupplierProductNavigation.IsActive
+            && product.SupplierProductNavigation.Product == productId
+            && product.SupplierProductNavigation.ProductNavigation != null
+            && product.SupplierProductNavigation.ProductNavigation.IsActive == true
+            && product.SupplierProductNavigation.SupplierNavigation != null
+            && product.SupplierProductNavigation.SupplierNavigation.IsActive == true
+            && product.SupplierProductNavigation.LocationNavigation != null
+            && product.SupplierProductNavigation.LocationNavigation.IsActive
+            && product.SupplierProductNavigation.LocationNavigation.IsBuyer == false);
+
+    private async Task<bool> BuyerTrackingSupplierLocationExistsAsync(int productId, int buyerId, int buyerLocationId, int supplierId, int supplierLocationId) =>
+        await Context.BuyerSupplierProducts.AnyAsync(product =>
+            product.BuyerSupplier != null
+            && product.BuyerSupplier.Buyer == buyerId
+            && product.BuyerSupplier.BuyerLocation == buyerLocationId
+            && product.BuyerSupplier.IsActive == true
+            && product.SupplierProductNavigation != null
+            && product.SupplierProductNavigation.IsActive
+            && product.SupplierProductNavigation.Product == productId
+            && product.SupplierProductNavigation.Supplier == supplierId
+            && product.SupplierProductNavigation.Location == supplierLocationId
+            && product.SupplierProductNavigation.ProductNavigation != null
+            && product.SupplierProductNavigation.ProductNavigation.IsActive == true
+            && product.SupplierProductNavigation.SupplierNavigation != null
+            && product.SupplierProductNavigation.SupplierNavigation.IsActive == true
+            && product.SupplierProductNavigation.LocationNavigation != null
+            && product.SupplierProductNavigation.LocationNavigation.IsActive
+            && product.SupplierProductNavigation.LocationNavigation.IsBuyer == false);
 
     private async Task<IReadOnlyList<RecentLoadListItemViewModel>> GetRecentLoadsAsync(int buyerId)
     {

@@ -1115,6 +1115,97 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task BuyerTrackingBuyer_AddsUserBuyerAndRejectsDuplicate()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new User { Id = 99, FirstName = "Ava", LastName = "Auditor", IsActive = true });
+        context.Buyers.Add(new Buyer { Id = 3, Name = "Legacy Buyer", IsActive = true });
+        context.Locations.Add(new Location { Id = 4, ClientId = 3, IsBuyer = true, Location1 = "Buyer Dock", IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerController(context));
+
+        var result = await controller.AddTrackingBuyer(new BuyerTrackingBuyerFormViewModel
+        {
+            CurrentUserId = 99,
+            BuyerId = 3,
+            LocationId = 4,
+        });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Tracking", redirect.ActionName);
+        Assert.Equal(99, redirect.RouteValues!["userId"]);
+
+        var userBuyer = await context.UserBuyers.SingleAsync();
+        Assert.Equal(99, userBuyer.UserId);
+        Assert.Equal(3, userBuyer.BuyerId);
+        Assert.Equal(4, userBuyer.LocationId);
+        Assert.Equal(0, userBuyer.OrderCount);
+        Assert.Equal(99, userBuyer.CreatedBy);
+
+        result = await controller.AddTrackingBuyer(new BuyerTrackingBuyerFormViewModel
+        {
+            CurrentUserId = 99,
+            BuyerId = 3,
+            LocationId = 4,
+        });
+
+        Assert.IsType<ViewResult>(result);
+        Assert.Single(await context.UserBuyers.ToListAsync());
+        Assert.False(controller.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task BuyerTrackingProductAndSupplier_AddsTiedProductSupplierLocation()
+    {
+        await using var context = CreateContext();
+        SeedBuyerTrackingData(context);
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerController(context));
+
+        var productResult = await controller.AddTrackingProduct(new BuyerTrackingProductFormViewModel
+        {
+            UserBuyerId = 20,
+            ProductId = 5,
+        });
+
+        var productRedirect = Assert.IsType<RedirectToActionResult>(productResult);
+        Assert.Equal("Tracking", productRedirect.ActionName);
+        Assert.Equal(99, productRedirect.RouteValues!["userId"]);
+
+        var trackingProduct = await context.BuyerTrackingProducts.SingleAsync();
+        Assert.Equal(20, trackingProduct.UserBuyerId);
+        Assert.Equal(5, trackingProduct.ProductId);
+        Assert.Equal(0, trackingProduct.Order);
+        Assert.Equal(99, trackingProduct.CreatedBy);
+
+        var locations = Assert.IsType<JsonResult>(await controller.GetTrackingSupplierLocations(trackingProduct.Id, 7));
+        var location = Assert.Single((IEnumerable<object>)locations.Value!);
+        Assert.Equal("8", location.GetType().GetProperty("id")!.GetValue(location));
+        Assert.Equal("Supplier Dock", location.GetType().GetProperty("text")!.GetValue(location));
+
+        var supplierResult = await controller.AddTrackingSupplier(new BuyerTrackingSupplierFormViewModel
+        {
+            BuyerTrackingProductId = trackingProduct.Id,
+            SupplierId = 7,
+            SupplierLocationId = 8,
+        });
+
+        var supplierRedirect = Assert.IsType<RedirectToActionResult>(supplierResult);
+        Assert.Equal("Tracking", supplierRedirect.ActionName);
+        Assert.Equal(99, supplierRedirect.RouteValues!["userId"]);
+
+        var trackedSupplier = await context.BuyerTrackingProductSuppliers.SingleAsync();
+        Assert.Equal(20, trackedSupplier.UserBuyerId);
+        Assert.Equal(trackingProduct.Id, trackedSupplier.BuyerProductId);
+        Assert.Equal(7, trackedSupplier.SupplierId);
+        Assert.Equal(8, trackedSupplier.LocationId);
+        Assert.Equal(0, trackedSupplier.OrderCount);
+        Assert.Equal(99, trackedSupplier.CreatedBy);
+    }
+
+    [Fact]
     public async Task SupplierProductRateChanges_RecordAndDisplayHistory()
     {
         await using var context = CreateContext();
@@ -1824,6 +1915,42 @@ public class RestoredWorkflowControllerTests
                             IsActive = true,
                         },
                     ],
+                },
+            ],
+        });
+    }
+
+    private static void SeedBuyerTrackingData(EcoGoodzDbContext context)
+    {
+        context.Users.Add(new User { Id = 99, FirstName = "Ava", LastName = "Auditor", IsActive = true });
+        context.Buyers.Add(new Buyer { Id = 3, Name = "Legacy Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 7, Name = "Legacy Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 4, ClientId = 3, IsBuyer = true, Location1 = "Buyer Dock", IsActive = true },
+            new Location { Id = 8, ClientId = 7, IsBuyer = false, Location1 = "Supplier Dock", IsActive = true });
+        context.Products.Add(new Product { Id = 5, Name = "OCC", IsActive = true });
+        context.UserBuyers.Add(new UserBuyer { Id = 20, UserId = 99, BuyerId = 3, LocationId = 4, OrderCount = 0 });
+        context.BuyerSuppliers.Add(new BuyerSupplier
+        {
+            Id = 30,
+            Buyer = 3,
+            BuyerLocation = 4,
+            Supplier = 7,
+            SupplierLocation = 8,
+            IsActive = true,
+            BuyerSupplierProducts =
+            [
+                new BuyerSupplierProduct
+                {
+                    Id = 31,
+                    SupplierProductNavigation = new SupplierProduct
+                    {
+                        Id = 32,
+                        Supplier = 7,
+                        Location = 8,
+                        Product = 5,
+                        IsActive = true,
+                    },
                 },
             ],
         });

@@ -1,4 +1,4 @@
-@model EcoGoodz.Web.Models.Supplier.SupplierTrackingSupplierFormViewModel
+@model EcoGoodz.Web.Models.Buyer.BuyerTrackingSupplierFormViewModel
 @{
     ViewData["Title"] = "Add tracking supplier";
 }
@@ -6,7 +6,7 @@
 <div class="page-header d-print-none mb-3">
     <div class="row g-2 align-items-center">
         <div class="col">
-            <div class="page-pretitle">Supplier tracking</div>
+            <div class="page-pretitle">Buyer tracking</div>
             <h2 class="page-title">Add supplier</h2>
             <div class="text-secondary">@Model.ProductName</div>
         </div>
@@ -20,7 +20,10 @@
     <div class="card-body">
         <form asp-action="AddTrackingSupplier" method="post">
             <input asp-for="CurrentUserId" type="hidden" />
-            <input asp-for="UserProductId" type="hidden" />
+            <input asp-for="UserBuyerId" type="hidden" />
+            <input asp-for="BuyerTrackingProductId" type="hidden" />
+            <input asp-for="BuyerId" type="hidden" />
+            <input asp-for="BuyerLocationId" type="hidden" />
             <input asp-for="ProductId" type="hidden" />
             <input asp-for="ProductName" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
@@ -32,12 +35,11 @@
                 <span asp-validation-for="SupplierId" class="text-danger"></span>
             </div>
             <div class="mb-3">
-                <label asp-for="LocationId" class="form-label"></label>
-                <select asp-for="LocationId" asp-items="Model.LocationOptions" class="form-select">
+                <label asp-for="SupplierLocationId" class="form-label"></label>
+                <select asp-for="SupplierLocationId" asp-items="Model.LocationOptions" class="form-select">
                     <option value="">Choose a location</option>
                 </select>
-                <span asp-validation-for="LocationId" class="text-danger"></span>
-                <div class="form-hint">Locations are limited to active supplier-product locations for @Model.ProductName.</div>
+                <span asp-validation-for="SupplierLocationId" class="text-danger"></span>
             </div>
             <div class="d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Save supplier</button>
@@ -52,18 +54,18 @@
     <script>
         (() => {
             const supplier = document.getElementById('SupplierId');
-            const location = document.getElementById('LocationId');
-            const productId = document.getElementById('ProductId')?.value;
-            const url = '@Url.Action("GetTrackingSupplierLocations", "Supplier")';
+            const location = document.getElementById('SupplierLocationId');
+            const buyerTrackingProductId = document.getElementById('BuyerTrackingProductId')?.value;
+            const url = '@Url.Action("GetTrackingSupplierLocations", "Buyer")';
 
             async function loadLocations() {
                 const supplierId = supplier.value;
                 location.innerHTML = '<option value="">Choose a location</option>';
-                if (!supplierId || !productId) {
+                if (!supplierId || !buyerTrackingProductId) {
                     return;
                 }
 
-                const response = await fetch(`${url}?productId=${encodeURIComponent(productId)}&supplierId=${encodeURIComponent(supplierId)}`);
+                const response = await fetch(`${url}?buyerTrackingProductId=${encodeURIComponent(buyerTrackingProductId)}&supplierId=${encodeURIComponent(supplierId)}`);
                 if (!response.ok) {
                     return;
                 }

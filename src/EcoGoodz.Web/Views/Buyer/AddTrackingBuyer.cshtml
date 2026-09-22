@@ -1,14 +1,13 @@
-@model EcoGoodz.Web.Models.Supplier.SupplierTrackingSupplierFormViewModel
+@model EcoGoodz.Web.Models.Buyer.BuyerTrackingBuyerFormViewModel
 @{
-    ViewData["Title"] = "Add tracking supplier";
+    ViewData["Title"] = "Add tracked buyer";
 }
 
 <div class="page-header d-print-none mb-3">
     <div class="row g-2 align-items-center">
         <div class="col">
-            <div class="page-pretitle">Supplier tracking</div>
-            <h2 class="page-title">Add supplier</h2>
-            <div class="text-secondary">@Model.ProductName</div>
+            <div class="page-pretitle">Buyer tracking</div>
+            <h2 class="page-title">Add tracked buyer</h2>
         </div>
         <div class="col-auto ms-auto">
             <a asp-action="Tracking" asp-route-userId="@Model.CurrentUserId" class="btn">Back to tracking</a>
@@ -18,18 +17,15 @@
 
 <div class="card">
     <div class="card-body">
-        <form asp-action="AddTrackingSupplier" method="post">
+        <form asp-action="AddTrackingBuyer" method="post">
             <input asp-for="CurrentUserId" type="hidden" />
-            <input asp-for="UserProductId" type="hidden" />
-            <input asp-for="ProductId" type="hidden" />
-            <input asp-for="ProductName" type="hidden" />
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
             <div class="mb-3">
-                <label asp-for="SupplierId" class="form-label"></label>
-                <select asp-for="SupplierId" asp-items="Model.SupplierOptions" class="form-select" data-searchable-select="true">
-                    <option value="">Choose a supplier</option>
+                <label asp-for="BuyerId" class="form-label"></label>
+                <select asp-for="BuyerId" asp-items="Model.BuyerOptions" class="form-select" data-searchable-select="true">
+                    <option value="">Choose a buyer</option>
                 </select>
-                <span asp-validation-for="SupplierId" class="text-danger"></span>
+                <span asp-validation-for="BuyerId" class="text-danger"></span>
             </div>
             <div class="mb-3">
                 <label asp-for="LocationId" class="form-label"></label>
@@ -37,10 +33,9 @@
                     <option value="">Choose a location</option>
                 </select>
                 <span asp-validation-for="LocationId" class="text-danger"></span>
-                <div class="form-hint">Locations are limited to active supplier-product locations for @Model.ProductName.</div>
             </div>
             <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Save supplier</button>
+                <button type="submit" class="btn btn-primary">Save buyer</button>
                 <a asp-action="Tracking" asp-route-userId="@Model.CurrentUserId" class="btn">Cancel</a>
             </div>
         </form>
@@ -51,19 +46,18 @@
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script>
         (() => {
-            const supplier = document.getElementById('SupplierId');
+            const buyer = document.getElementById('BuyerId');
             const location = document.getElementById('LocationId');
-            const productId = document.getElementById('ProductId')?.value;
-            const url = '@Url.Action("GetTrackingSupplierLocations", "Supplier")';
+            const url = '@Url.Action("GetTrackingBuyerLocations", "Buyer")';
 
             async function loadLocations() {
-                const supplierId = supplier.value;
+                const buyerId = buyer.value;
                 location.innerHTML = '<option value="">Choose a location</option>';
-                if (!supplierId || !productId) {
+                if (!buyerId) {
                     return;
                 }
 
-                const response = await fetch(`${url}?productId=${encodeURIComponent(productId)}&supplierId=${encodeURIComponent(supplierId)}`);
+                const response = await fetch(`${url}?buyerId=${encodeURIComponent(buyerId)}`);
                 if (!response.ok) {
                     return;
                 }
@@ -77,7 +71,7 @@
                 }
             }
 
-            supplier?.addEventListener('change', loadLocations);
+            buyer?.addEventListener('change', loadLocations);
         })();
     </script>
 }
