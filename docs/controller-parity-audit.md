@@ -36,8 +36,8 @@ modules that were already deferred or retired.
 | `LoadController` | `LoadController` | **Core complete; helper gap** | Load CRUD/details, buyer/supplier locations, product lines, validation, and CSV export of the filtered/sorted load list are rebuilt. Legacy AJAX helper actions are replaced by populated forms/searches. Not rebuilt: manager-specific load lookup endpoint. |
 | `BuyerProductController` | `BuyerProductController` | **Core complete** | Buyer product CRUD and packaging preservation are rebuilt. Legacy partial/AJAX create endpoints are replaced by current pages/search endpoints. |
 | `BuyerProductRateController` | `BuyerSupplierController` product-rate actions | **Core complete** | Buyer-side rates on buyer/supplier product assignments can be added, edited, deactivated, audited into `BuyerProductHistory`, and reviewed on the match-product details page. |
-| `SupplierProductController` | `SupplierProductController`, `BuyerSupplierController` | **Core complete; bulk gaps** | Supplier product CRUD, supplier rate management, supplier rate audit history, and the supplier-product-to-buyer assignment wizard are rebuilt. Not rebuilt: bulk supplier-location product update and broader assignment wizard surfaces. |
-| `SupplierProductRateController` | `SupplierProductController` rate actions | **Core rate workflow rebuilt; bulk update gap** | Supplier rates can be added, edited, and deactivated. Not rebuilt: `EditBuyerSupplierProductPrice` / `UpdateBuyerSupplierProductRate` bulk propagation helper for tied buyer/supplier product rates. |
+| `SupplierProductController` | `SupplierProductController`, `BuyerSupplierController` | **Core complete; bulk gaps reduced** | Supplier product CRUD, supplier rate management, supplier rate audit history, supplier-rate propagation to tied buyer/supplier product rates, and the supplier-product-to-buyer assignment wizard are rebuilt. Not rebuilt: bulk supplier-location product update and broader assignment wizard surfaces. |
+| `SupplierProductRateController` | `SupplierProductController` rate actions | **Core complete** | Supplier rates can be added, edited, deactivated, audited, and propagated to selected tied buyer/supplier product rates while preventing duplicate effective dates. |
 | `BuyerSupplierController` | `BuyerSupplierController` | **Core complete; legacy wizard/report helpers missing** | Buyer/supplier match CRUD, assigned supplier products, buyer-side rates, search endpoints, and details are rebuilt. Not rebuilt: create-with-wizard flow, buyer/supplier location assignment list, accounting product DataTables endpoint as a separate list, markup color info helper, and standalone recent-load partials. |
 | `ReportController` | `ReportController` | **One prioritized report rebuilt; rest deferred** | `LastLoadShippedReport` is rebuilt as `/Report/LastLoadShipped`. Buyer/supplier chart reports, gross profit reports, proposed-products report, last-login/new-account reports, communication reports, unique buyer reports, projection reports, show-communication settings, 2017/account-manager static reports, and average gross-profit report remain deferred pending staff prioritization. |
 | `SummaryReportController` | none | **Deferred** | Summary graph and markup-share reports are intentionally not blindly ported. Rebuild only after staff selects the next high-value report. |
@@ -64,16 +64,14 @@ core app" to "full 1:1 legacy parity":
 3. **Task board parity**: multi-assignee edit expansion,
    per-user headline/task board AJAX views, and read/unread behavior.
 4. **Supplier/buyer tracking wizards**: legacy buyer/supplier tracking flows.
-5. **Bulk rate propagation surfaces**: supplier-rate propagation to tied
-   buyer/supplier product rates.
-6. **Remaining buyer/supplier helper workflows**: buyer/supplier tracking
+5. **Remaining buyer/supplier helper workflows**: buyer/supplier tracking
    wizards and related page fragments.
-7. **Specialized lookup endpoints**: account manager-specific load lookup helpers.
+6. **Specialized lookup endpoints**: account manager-specific load lookup helpers.
 
 ## Recommendation
 
 Do not treat the missing items above as bugs in the restored core app. Convert
 only staff-confirmed gaps into scoped issues, with the legacy controller/action
-names copied into the issue. The highest-risk parity candidates are now the task
-headline board, product markup matrix, and rate propagation surfaces because they
-are operational data-entry accelerators rather than broad reporting surfaces.
+names copied into the issue. The highest-risk parity candidates are now the task headline board and product
+markup matrix because they are operational data-entry accelerators rather than
+broad reporting surfaces.

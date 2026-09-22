@@ -212,6 +212,141 @@ public class SupplierProductController : PagedListController<SupplierProductCont
         return model is null ? NotFound() : View(model);
     }
 
+    public async Task<IActionResult> PropagateBuyerRates(int id, decimal? rate, DateTime? effectiveDate)
+    {
+        var model = await BuildRatePropagationModelAsync(id, rate, effectiveDate);
+        return model is null ? NotFound() : View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PropagateBuyerRates(SupplierProductRatePropagationViewModel model)
+    {
+        var selectedRows = model.BuyerProducts.Where(row => row.IsSelected).ToList();
+        if (selectedRows.Count == 0)
+        {
+            ModelState.AddModelError(string.Empty, "Select at least one buyer product.");
+        }
+
+        for (var index = 0; index < model.BuyerProducts.Count; index++)
+        {
+            var row = model.BuyerProducts[index];
+            if (!row.IsSelected)
+            {
+                continue;
+            }
+
+            if (!row.UpdatedRate.HasValue)
+            {
+                ModelState.AddModelError($"{nameof(model.BuyerProducts)}[{index}].{nameof(row.UpdatedRate)}", $"Enter an updated rate for {row.BuyerName}.");
+            }
+
+            if (!row.UpdatedEffectiveDate.HasValue)
+            {
+                ModelState.AddModelError($"{nameof(model.BuyerProducts)}[{index}].{nameof(row.UpdatedEffectiveDate)}", $"Enter an effective date for {row.BuyerName}.");
+            }
+        }
+
+        var duplicatePostedProductIds = selectedRows
+            .GroupBy(row => row.BuyerSupplierProductId)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
+        if (duplicatePostedProductIds.Count != 0)
+        {
+            ModelState.AddModelError(string.Empty, "One or more buyer products was submitted more than once.");
+        }
+
+        var validProducts = await Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product => product.SupplierProduct == model.SupplierProductId && product.BuyerSupplier != null && product.BuyerSupplier.IsActive == true)
+            .Select(product => new
+            {
+                product.Id,
+                CurrentRate = product.BuyerProductRates
+                    .Where(productRate => productRate.IsActive && (productRate.EffectiveDate == null || productRate.EffectiveDate <= DateTime.Today))
+                    .OrderByDescending(productRate => productRate.EffectiveDate)
+                    .ThenByDescending(productRate => productRate.Id)
+                    .Select(productRate => new { productRate.Price, productRate.EffectiveDate })
+                    .FirstOrDefault(),
+            })
+            .ToListAsync();
+        var validProductsById = validProducts.ToDictionary(product => product.Id);
+        foreach (var row in selectedRows)
+        {
+            if (!validProductsById.ContainsKey(row.BuyerSupplierProductId))
+            {
+                ModelState.AddModelError(string.Empty, "One or more selected buyer products is no longer tied to this supplier product.");
+            }
+        }
+
+        var duplicatePostedRates = selectedRows
+            .Where(row => row.UpdatedEffectiveDate.HasValue)
+            .GroupBy(row => new { row.BuyerSupplierProductId, EffectiveDate = row.UpdatedEffectiveDate!.Value.Date })
+            .Where(group => group.Count() > 1)
+            .ToList();
+        foreach (var group in duplicatePostedRates)
+        {
+            var row = group.First();
+            ModelState.AddModelError(string.Empty, $"The buyer rate for {row.BuyerName} on {group.Key.EffectiveDate:yyyy-MM-dd} was submitted more than once.");
+        }
+
+        foreach (var row in selectedRows.Where(row => row.UpdatedEffectiveDate.HasValue))
+        {
+            var duplicate = await Context.BuyerProductRates.AnyAsync(rate =>
+                rate.BuyerSupplierProductId == row.BuyerSupplierProductId
+                && rate.EffectiveDate.HasValue
+                && rate.EffectiveDate.Value.Date == row.UpdatedEffectiveDate!.Value.Date);
+            if (duplicate)
+            {
+                ModelState.AddModelError(string.Empty, $"A buyer rate already exists on {row.UpdatedEffectiveDate:yyyy-MM-dd} for {row.BuyerName}.");
+            }
+        }
+
+        if (!ModelState.IsValid)
+        {
+            var rebuilt = await BuildRatePropagationModelAsync(model.SupplierProductId, model.SuggestedRate, model.SuggestedEffectiveDate);
+            if (rebuilt is null)
+            {
+                return NotFound();
+            }
+
+            RestorePropagationRows(rebuilt.BuyerProducts, model.BuyerProducts);
+            return View(rebuilt);
+        }
+
+        var userId = User.GetLegacyUserId();
+        var now = DateTime.UtcNow;
+        foreach (var row in selectedRows)
+        {
+            Context.BuyerProductRates.Add(new BuyerProductRate
+            {
+                BuyerSupplierProductId = row.BuyerSupplierProductId,
+                Price = row.UpdatedRate,
+                EffectiveDate = row.UpdatedEffectiveDate,
+                CreatedDate = now,
+                UserId = userId,
+                IsActive = true,
+            });
+            Context.BuyerProductHistories.Add(new BuyerProductHistory
+            {
+                BuyerSupplierProductId = row.BuyerSupplierProductId,
+                OldPrice = validProductsById[row.BuyerSupplierProductId].CurrentRate?.Price,
+                NewPrice = row.UpdatedRate,
+                OldEffectiveDate = validProductsById[row.BuyerSupplierProductId].CurrentRate?.EffectiveDate,
+                NewEffectiveDate = row.UpdatedEffectiveDate,
+                CreatedDate = now,
+                UserId = userId,
+                Action = "Add",
+            });
+        }
+
+        await Context.SaveChangesAsync();
+        TempData["Success"] = $"Updated {selectedRows.Count} buyer product rate{(selectedRows.Count == 1 ? string.Empty : "s")}.";
+
+        return RedirectToAction(nameof(Details), new { id = model.SupplierProductId });
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AssignToBuyers(SupplierProductAssignToBuyersViewModel model)
@@ -768,6 +903,94 @@ public class SupplierProductController : PagedListController<SupplierProductCont
             }
 
             index++;
+        }
+    }
+
+    private async Task<SupplierProductRatePropagationViewModel?> BuildRatePropagationModelAsync(int supplierProductId, decimal? rate, DateTime? effectiveDate)
+    {
+        var supplierProduct = await Context.SupplierProducts
+            .AsNoTracking()
+            .Where(product => product.Id == supplierProductId)
+            .Select(product => new
+            {
+                product.Id,
+                SupplierName = product.SupplierNavigation != null ? product.SupplierNavigation.Name : null,
+                ProductName = product.ProductNavigation != null ? product.ProductNavigation.Name : null,
+                CurrentRate = product.SupplierProductRates
+                    .Where(productRate => productRate.IsActive)
+                    .OrderByDescending(productRate => productRate.EffectiveDate)
+                    .ThenByDescending(productRate => productRate.Id)
+                    .Select(productRate => new { productRate.Price, productRate.EffectiveDate })
+                    .FirstOrDefault(),
+            })
+            .FirstOrDefaultAsync();
+        if (supplierProduct is null)
+        {
+            return null;
+        }
+
+        rate ??= supplierProduct.CurrentRate?.Price;
+        effectiveDate ??= supplierProduct.CurrentRate?.EffectiveDate ?? DateTime.Today;
+
+        var rows = await Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product => product.SupplierProduct == supplierProductId && product.BuyerSupplier != null && product.BuyerSupplier.IsActive == true)
+            .Select(product => new SupplierProductRatePropagationRowViewModel
+            {
+                BuyerSupplierProductId = product.Id,
+                BuyerName = product.BuyerSupplier != null && product.BuyerSupplier.BuyerNavigation != null
+                    ? product.BuyerSupplier.BuyerNavigation.Name ?? string.Empty
+                    : string.Empty,
+                BuyerLocationName = product.BuyerSupplier != null && product.BuyerSupplier.BuyerLocationNavigation != null
+                    ? product.BuyerSupplier.BuyerLocationNavigation.Location1
+                    : null,
+                CurrentRate = product.BuyerProductRates
+                    .Where(productRate => productRate.IsActive && (productRate.EffectiveDate == null || productRate.EffectiveDate <= DateTime.Today))
+                    .OrderByDescending(productRate => productRate.EffectiveDate)
+                    .ThenByDescending(productRate => productRate.Id)
+                    .Select(productRate => productRate.Price)
+                    .FirstOrDefault(),
+                CurrentEffectiveDate = product.BuyerProductRates
+                    .Where(productRate => productRate.IsActive && (productRate.EffectiveDate == null || productRate.EffectiveDate <= DateTime.Today))
+                    .OrderByDescending(productRate => productRate.EffectiveDate)
+                    .ThenByDescending(productRate => productRate.Id)
+                    .Select(productRate => productRate.EffectiveDate)
+                    .FirstOrDefault(),
+                UpdatedRate = rate,
+                UpdatedEffectiveDate = effectiveDate,
+            })
+            .OrderBy(row => row.BuyerName)
+            .ThenBy(row => row.BuyerLocationName)
+            .ToListAsync();
+
+        return new SupplierProductRatePropagationViewModel
+        {
+            SupplierProductId = supplierProduct.Id,
+            SupplierName = supplierProduct.SupplierName ?? string.Empty,
+            ProductName = supplierProduct.ProductName ?? string.Empty,
+            SuggestedRate = rate,
+            SuggestedEffectiveDate = effectiveDate,
+            BuyerProducts = rows,
+        };
+    }
+
+    private static void RestorePropagationRows(
+        List<SupplierProductRatePropagationRowViewModel> rebuiltRows,
+        List<SupplierProductRatePropagationRowViewModel> postedRows)
+    {
+        var postedById = postedRows
+            .GroupBy(row => row.BuyerSupplierProductId)
+            .ToDictionary(group => group.Key, group => group.First());
+        foreach (var row in rebuiltRows)
+        {
+            if (!postedById.TryGetValue(row.BuyerSupplierProductId, out var posted))
+            {
+                continue;
+            }
+
+            row.IsSelected = posted.IsSelected;
+            row.UpdatedRate = posted.UpdatedRate;
+            row.UpdatedEffectiveDate = posted.UpdatedEffectiveDate;
         }
     }
 

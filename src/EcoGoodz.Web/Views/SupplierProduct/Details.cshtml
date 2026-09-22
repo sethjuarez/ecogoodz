@@ -11,6 +11,7 @@
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
             <a asp-action="AssignToBuyers" asp-route-id="@Model.Id" class="btn">Assign to buyers</a>
+            <a asp-action="PropagateBuyerRates" asp-route-id="@Model.Id" class="btn">Propagate buyer rates</a>
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
             <a asp-action="Index" class="btn">Back to list</a>
         </div>

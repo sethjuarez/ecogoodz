@@ -1138,6 +1138,145 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task SupplierProductPropagateBuyerRates_ListsActiveTiedBuyerProducts()
+    {
+        await using var context = CreateContext();
+        SeedSupplierProductPropagationData(context);
+        context.BuyerSuppliers.Add(new BuyerSupplier
+        {
+            Id = 20,
+            Buyer = 2,
+            Supplier = 1,
+            BuyerLocation = 4,
+            SupplierLocation = 3,
+            IsActive = false,
+            BuyerSupplierProducts = [new BuyerSupplierProduct { Id = 21, SupplierProduct = 6 }],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.PropagateBuyerRates(6, null, null));
+        var model = Assert.IsType<SupplierProductRatePropagationViewModel>(result.Model);
+
+        var row = Assert.Single(model.BuyerProducts);
+        Assert.Equal(8, row.BuyerSupplierProductId);
+        Assert.Equal("Legacy Buyer", row.BuyerName);
+        Assert.Equal("Buyer Dock", row.BuyerLocationName);
+        Assert.Equal(90m, row.CurrentRate);
+        Assert.Equal(new DateTime(2026, 9, 1), row.CurrentEffectiveDate);
+        Assert.Equal(120m, row.UpdatedRate);
+        Assert.Equal(new DateTime(2026, 9, 22), row.UpdatedEffectiveDate);
+    }
+
+    [Fact]
+    public async Task SupplierProductPropagateBuyerRates_PrefillsLatestSupplierRate()
+    {
+        await using var context = CreateContext();
+        SeedSupplierProductPropagationData(context);
+        context.SupplierProductRates.Add(new SupplierProductRate
+        {
+            Id = 31,
+            SupplierProductId = 6,
+            Price = 135m,
+            EffectiveDate = new DateTime(2026, 10, 1),
+            CreatedDate = new DateTime(2026, 9, 25),
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.PropagateBuyerRates(6, null, null));
+        var model = Assert.IsType<SupplierProductRatePropagationViewModel>(result.Model);
+        var row = Assert.Single(model.BuyerProducts);
+
+        Assert.Equal(135m, row.UpdatedRate);
+        Assert.Equal(new DateTime(2026, 10, 1), row.UpdatedEffectiveDate);
+    }
+
+    [Fact]
+    public async Task SupplierProductPropagateBuyerRates_ShowsRowValidationErrors()
+    {
+        await using var context = CreateContext();
+        SeedSupplierProductPropagationData(context);
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+
+        var result = await controller.PropagateBuyerRates(new SupplierProductRatePropagationViewModel
+        {
+            SupplierProductId = 6,
+            BuyerProducts =
+            [
+                new SupplierProductRatePropagationRowViewModel
+                {
+                    BuyerSupplierProductId = 8,
+                    BuyerName = "Legacy Buyer",
+                    BuyerLocationName = "Buyer Dock",
+                    IsSelected = true,
+                },
+            ],
+        });
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.True(controller.ModelState.ContainsKey("BuyerProducts[0].UpdatedRate"));
+        Assert.True(controller.ModelState.ContainsKey("BuyerProducts[0].UpdatedEffectiveDate"));
+    }
+
+    [Fact]
+    public async Task SupplierProductPropagateBuyerRates_AddsRatesAndHistoryForSelectedRows()
+    {
+        await using var context = CreateContext();
+        SeedSupplierProductPropagationData(context);
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+        controller.TempData = new TempDataDictionary(new DefaultHttpContext(), new TestTempDataProvider());
+
+        var result = await controller.PropagateBuyerRates(new SupplierProductRatePropagationViewModel
+        {
+            SupplierProductId = 6,
+            SuggestedRate = 130m,
+            SuggestedEffectiveDate = new DateTime(2026, 10, 1),
+            BuyerProducts =
+            [
+                new SupplierProductRatePropagationRowViewModel
+                {
+                    BuyerSupplierProductId = 8,
+                    BuyerName = "Legacy Buyer",
+                    BuyerLocationName = "Buyer Dock",
+                    CurrentRate = 1m,
+                    CurrentEffectiveDate = new DateTime(2020, 1, 1),
+                    IsSelected = true,
+                    UpdatedRate = 130m,
+                    UpdatedEffectiveDate = new DateTime(2026, 10, 1),
+                },
+            ],
+        });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Details", redirect.ActionName);
+        Assert.Equal(6, redirect.RouteValues!["id"]);
+
+        var rates = await context.BuyerProductRates.Where(rate => rate.BuyerSupplierProductId == 8).OrderBy(rate => rate.Id).ToListAsync();
+        Assert.Equal(2, rates.Count);
+        Assert.Equal(130m, rates[1].Price);
+        Assert.Equal(new DateTime(2026, 10, 1), rates[1].EffectiveDate);
+        Assert.True(rates[1].IsActive);
+
+        var history = await context.BuyerProductHistories.SingleAsync();
+        Assert.Equal(8, history.BuyerSupplierProductId);
+        Assert.Equal(90m, history.OldPrice);
+        Assert.Equal(130m, history.NewPrice);
+        Assert.Equal(new DateTime(2026, 9, 1), history.OldEffectiveDate);
+        Assert.Equal(new DateTime(2026, 10, 1), history.NewEffectiveDate);
+        Assert.Equal("Add", history.Action);
+        Assert.Equal(99, history.UserId);
+    }
+
+    [Fact]
     public async Task LoadExport_ReturnsFilteredCsvWithOperationalColumns()
     {
         await using var context = CreateContext();
@@ -1543,6 +1682,64 @@ public class RestoredWorkflowControllerTests
             Product = 6,
             Packaging = 7,
             IsActive = true,
+        });
+    }
+
+    private static void SeedSupplierProductPropagationData(EcoGoodzDbContext context)
+    {
+        context.Users.Add(new User { Id = 99, FirstName = "Ava", LastName = "Auditor", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 1, Name = "Legacy Supplier", IsActive = true });
+        context.Buyers.Add(new Buyer { Id = 2, Name = "Legacy Buyer", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" },
+            new Location { Id = 4, ClientId = 2, IsBuyer = true, IsActive = true, BuyerStatus = 2, Location1 = "Buyer Dock" });
+        context.Products.Add(new Product { Id = 5, Name = "OCC", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct
+        {
+            Id = 6,
+            Supplier = 1,
+            Location = 3,
+            Product = 5,
+            IsActive = true,
+            SupplierProductRates =
+            [
+                new SupplierProductRate
+                {
+                    Id = 30,
+                    Price = 120m,
+                    EffectiveDate = new DateTime(2026, 9, 22),
+                    CreatedDate = new DateTime(2026, 9, 20),
+                    IsActive = true,
+                },
+            ],
+        });
+        context.BuyerSuppliers.Add(new BuyerSupplier
+        {
+            Id = 7,
+            Buyer = 2,
+            Supplier = 1,
+            BuyerLocation = 4,
+            SupplierLocation = 3,
+            IsActive = true,
+            BuyerSupplierProducts =
+            [
+                new BuyerSupplierProduct
+                {
+                    Id = 8,
+                    SupplierProduct = 6,
+                    BuyerProductRates =
+                    [
+                        new BuyerProductRate
+                        {
+                            Id = 9,
+                            Price = 90m,
+                            EffectiveDate = new DateTime(2026, 9, 1),
+                            CreatedDate = new DateTime(2026, 8, 31),
+                            IsActive = true,
+                        },
+                    ],
+                },
+            ],
         });
     }
 
