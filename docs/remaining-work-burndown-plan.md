@@ -19,7 +19,7 @@ legacy action. Each feature slice follows the same rubric:
 | 3 | Rate/history power tools | Rate history tables, supplier-rate propagation to tied buyer/supplier products | Rate changes are auditable and bulk updates avoid manual re-entry. |
 | 4 | Catalog/admin completeness | Product markup color/margin matrix with conflict validation | Product margin color rules can be maintained when staff confirms they still matter. |
 | 5 | Reports and dashboards | Communication report first, then staff-selected gross-profit/summary/dashboard reports | Each report has named users, filters, columns, and Playwright validation before implementation. |
-| 6 | Low-priority helpers | Location favorite toggle (**done**), load export (**done**), favorite list filters (**done**), quick status/substatus helpers | Implement only if users confirm the workflow still matters. |
+| 6 | Low-priority helpers | Location favorite toggle (**done**), load export (**done**), favorite list filters (**done**), quick status/substatus helpers (**done**) | Implement only if users confirm the workflow still matters. |
 
 Retired modules (`MessagesController`, `CustomFieldController`) stay retired
 unless new requirements appear. Deferred modules (`CompnyNewsController`,

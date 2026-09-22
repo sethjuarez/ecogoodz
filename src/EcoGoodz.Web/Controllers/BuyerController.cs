@@ -303,6 +303,48 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
         return RedirectToAction(nameof(Index));
     }
 
+    public async Task<IActionResult> GetSubStatus(int id)
+    {
+        var subStatuses = await Context.BuyerStatuses
+            .Where(status => status.ParentStatusId == id)
+            .OrderBy(status => status.Status)
+            .Select(status => new { id = status.Id, text = status.Status })
+            .ToListAsync();
+
+        return Json(subStatuses);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangeStatus(int lid, int status, string? otherStatus)
+    {
+        var location = await Context.Locations.FindAsync(lid);
+        if (location is null)
+        {
+            return NotFound();
+        }
+
+        if (location.IsBuyer != true)
+        {
+            return BadRequest("Location is not a buyer location.");
+        }
+
+        var statusExists = await Context.BuyerStatuses.AnyAsync(buyerStatus => buyerStatus.Id == status);
+        if (!statusExists)
+        {
+            return BadRequest("Unknown buyer status.");
+        }
+
+        location.BuyerStatus = status;
+        location.OtherStatus = string.IsNullOrWhiteSpace(otherStatus) ? null : otherStatus;
+        location.UpdatedOn = DateTime.UtcNow;
+        location.UpdatedBy = User.GetLegacyUserId();
+
+        await Context.SaveChangesAsync();
+
+        return Json(new { success = true });
+    }
+
     private async Task<IEnumerable<SelectListItem>> GetAccountManagerOptionsAsync()
     {
         return await Context.Users

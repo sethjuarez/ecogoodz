@@ -959,6 +959,76 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task BuyerGetSubStatus_ReturnsChildStatuses()
+    {
+        await using var context = CreateContext();
+        context.BuyerStatuses.AddRange(
+            new BuyerStatus { Id = 1, Status = "Parent" },
+            new BuyerStatus { Id = 2, Status = "Beta", ParentStatusId = 1 },
+            new BuyerStatus { Id = 3, Status = "Alpha", ParentStatusId = 1 },
+            new BuyerStatus { Id = 4, Status = "Other", ParentStatusId = 99 });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerController(context));
+
+        var result = Assert.IsType<JsonResult>(await controller.GetSubStatus(1));
+        var values = Assert.IsAssignableFrom<IEnumerable<object>>(result.Value).ToList();
+
+        Assert.Equal(["Alpha", "Beta"], values.Select(GetTextProperty));
+    }
+
+    [Fact]
+    public async Task BuyerChangeStatus_UpdatesBuyerLocationStatusAndOtherStatus()
+    {
+        await using var context = CreateContext();
+        context.BuyerStatuses.Add(new BuyerStatus { Id = 2, Status = "Interested" });
+        context.Locations.Add(new Location { Id = 10, IsBuyer = true, BuyerStatus = 1, OtherStatus = "Old", IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerController(context));
+
+        var result = Assert.IsType<JsonResult>(await controller.ChangeStatus(10, 2, "Needs follow-up"));
+
+        Assert.True((bool)result.Value!.GetType().GetProperty("success")!.GetValue(result.Value)!);
+        var location = await context.Locations.FindAsync(10);
+        Assert.Equal(2, location!.BuyerStatus);
+        Assert.Equal("Needs follow-up", location.OtherStatus);
+        Assert.Equal(99, location.UpdatedBy);
+    }
+
+    [Fact]
+    public async Task SupplierChangeStatus_UpdatesSupplierLocationStatusAndClearsBlankOtherStatus()
+    {
+        await using var context = CreateContext();
+        context.SupplierStatuses.Add(new SupplierStatus { Id = 2, Status = "Dormant" });
+        context.Locations.Add(new Location { Id = 10, IsBuyer = false, SupplierStatus = 1, OtherStatus = "Old", IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierController(context));
+
+        var result = Assert.IsType<JsonResult>(await controller.ChangeStatus(10, 2, " "));
+
+        Assert.True((bool)result.Value!.GetType().GetProperty("success")!.GetValue(result.Value)!);
+        var location = await context.Locations.FindAsync(10);
+        Assert.Equal(2, location!.SupplierStatus);
+        Assert.Null(location.OtherStatus);
+        Assert.Equal(99, location.UpdatedBy);
+    }
+
+    [Fact]
+    public async Task SupplierChangeStatus_RejectsBuyerLocation()
+    {
+        await using var context = CreateContext();
+        context.SupplierStatuses.Add(new SupplierStatus { Id = 2, Status = "Dormant" });
+        context.Locations.Add(new Location { Id = 10, IsBuyer = true, BuyerStatus = 1, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierController(context));
+
+        Assert.IsType<BadRequestObjectResult>(await controller.ChangeStatus(10, 2, null));
+    }
+
+    [Fact]
     public async Task LoadExport_ReturnsFilteredCsvWithOperationalColumns()
     {
         await using var context = CreateContext();
@@ -1472,6 +1542,9 @@ public class RestoredWorkflowControllerTests
         };
         return controller;
     }
+
+    private static string? GetTextProperty(object value) =>
+        value.GetType().GetProperty("text")?.GetValue(value)?.ToString();
 
     private sealed class TestTempDataProvider : ITempDataProvider
     {
