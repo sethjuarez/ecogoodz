@@ -48,13 +48,29 @@ jobs:
         working-directory: src/EcoGoodz.Web
         run: npm ci
 
+      - name: Build frontend assets
+        working-directory: src/EcoGoodz.Web
+        run: npm run build
+
       - name: Restore .NET solution
         working-directory: src
         run: dotnet restore EcoGoodz.slnx
 
+      - name: Test .NET solution
+        working-directory: src
+        run: dotnet test EcoGoodz.slnx --no-restore --configuration Release
+
       - name: Publish web project
         working-directory: src/EcoGoodz.Web
         run: dotnet publish EcoGoodz.Web.csproj --no-restore --configuration Release --output ${{ github.workspace }}/publish
+
+      - name: Verify staged deploy script is published
+        shell: pwsh
+        run: |
+          $script = Join-Path "${{ github.workspace }}" "publish/deployment/Plesk-StagedDeploy.ps1"
+          if (-not (Test-Path $script)) {
+            throw "Missing staged deploy script in publish output: $script"
+          }
 
       - name: Push publish output to deploy branch
         uses: peaceiris/actions-gh-pages@v4

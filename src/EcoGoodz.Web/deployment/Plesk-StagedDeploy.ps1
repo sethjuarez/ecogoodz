@@ -4,7 +4,11 @@ param(
 
     [string] $LivePath = "",
 
-    [int] $ShutdownDelaySeconds = 5
+    [int] $ShutdownDelaySeconds = 5,
+
+    [string] $SmokeTestUrl = "",
+
+    [int] $SmokeTimeoutSeconds = 120
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,24 +54,54 @@ else {
 
 Start-Sleep -Seconds $ShutdownDelaySeconds
 
-$robocopyArgs = @(
-    $stagingFullPath,
-    $liveFullPath,
-    "/MIR",
-    "/XD", ".git", "deployment",
-    "/XF", "app_offline.htm",
-    "/R:3",
-    "/W:2",
-    "/NFL",
-    "/NDL",
-    "/NP"
-)
+try {
+    $robocopyArgs = @(
+        $stagingFullPath,
+        $liveFullPath,
+        "/MIR",
+        "/XD", ".git", "deployment",
+        "/XF", "app_offline.htm",
+        "/R:3",
+        "/W:2",
+        "/NFL",
+        "/NDL",
+        "/NP"
+    )
 
-& robocopy @robocopyArgs
-$robocopyExitCode = $LASTEXITCODE
-if ($robocopyExitCode -gt 7) {
-    throw "Robocopy failed with exit code $robocopyExitCode."
+    & robocopy @robocopyArgs
+    $robocopyExitCode = $LASTEXITCODE
+    if ($robocopyExitCode -gt 7) {
+        throw "Robocopy failed with exit code $robocopyExitCode. App remains offline for safe manual recovery."
+    }
+
+    Remove-Item -Path $offlinePath -Force -ErrorAction SilentlyContinue
+    Start-WebAppPool -Name $AppPoolName
+
+    if (-not [string]::IsNullOrWhiteSpace($SmokeTestUrl)) {
+        $deadline = (Get-Date).AddSeconds($SmokeTimeoutSeconds)
+        $lastError = $null
+
+        do {
+            try {
+                $response = Invoke-WebRequest -Uri $SmokeTestUrl -UseBasicParsing -TimeoutSec 10
+                if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 400) {
+                    Write-Host "Smoke test passed: $SmokeTestUrl returned HTTP $($response.StatusCode)."
+                    return
+                }
+
+                $lastError = "HTTP $($response.StatusCode)"
+            }
+            catch {
+                $lastError = $_.Exception.Message
+            }
+
+            Start-Sleep -Seconds 2
+        } while ((Get-Date) -lt $deadline)
+
+        throw "Smoke test failed for '$SmokeTestUrl' within $SmokeTimeoutSeconds seconds. Last error: $lastError"
+    }
 }
-
-Remove-Item -Path $offlinePath -Force -ErrorAction SilentlyContinue
-Start-WebAppPool -Name $AppPoolName
+catch {
+    Write-Error $_
+    throw
+}
