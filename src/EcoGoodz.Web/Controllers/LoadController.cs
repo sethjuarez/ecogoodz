@@ -342,14 +342,17 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         var productsLookup = new Dictionary<int, string>();
         if (loads.Count > 0)
         {
-            var productNamesByLoad = await query
-                .SelectMany(load => load.LoadProducts.Select(loadProduct => new
+            var loadIds = loads.Select(load => load.Id).ToList();
+            var productNamesByLoad = await Context.LoadProducts
+                .AsNoTracking()
+                .Where(loadProduct => loadIds.Contains(loadProduct.Load))
+                .Select(loadProduct => new
                 {
-                    LoadId = load.Id,
+                    LoadId = loadProduct.Load,
                     Name = loadProduct.ProductNavigation.ProductNavigation != null
                         ? loadProduct.ProductNavigation.ProductNavigation.Name
                         : null,
-                }))
+                })
                 .Where(product => !string.IsNullOrWhiteSpace(product.Name))
                 .ToListAsync();
 
