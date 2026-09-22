@@ -1,6 +1,8 @@
 @model EcoGoodz.Web.Models.StaffTask.StaffTaskFormViewModel
 @{
     var allowMultipleAssignees = ViewData["AllowMultipleAssignees"] as bool? ?? false;
+    var showHeadline = ViewData["ShowHeadline"] as bool? ?? true;
+    var showIsActive = ViewData["ShowIsActive"] as bool? ?? true;
 }
 
 <div class="card-body">
@@ -37,17 +39,27 @@
                 <span asp-validation-for="AssignedTo" class="text-danger"></span>
             }
         </div>
-        <div class="col-md-4">
-            <label asp-for="TaskHeadline" class="form-label"></label>
-            <select asp-for="TaskHeadline" asp-items="Model.HeadlineOptions" class="form-select">
-                <option value="">Assigned</option>
-            </select>
-        </div>
-        <div class="col-12">
-            <label class="form-check">
-                <input asp-for="IsActive" class="form-check-input" />
-                <span class="form-check-label">Active</span>
-            </label>
-        </div>
+        @if (showHeadline)
+        {
+            <div class="col-md-4">
+                <label asp-for="TaskHeadline" class="form-label"></label>
+                <select asp-for="TaskHeadline" asp-items="Model.HeadlineOptions" class="form-select">
+                    <option value="">Assigned</option>
+                </select>
+            </div>
+        }
+        @if (showIsActive)
+        {
+            <div class="col-12">
+                <label class="form-check">
+                    <input asp-for="IsActive" class="form-check-input" />
+                    <span class="form-check-label">Active</span>
+                </label>
+            </div>
+        }
+        else
+        {
+            <input asp-for="IsActive" type="hidden" />
+        }
     </div>
 </div>

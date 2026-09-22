@@ -14,7 +14,7 @@ legacy action. Each feature slice follows the same rubric:
 
 | Phase | Scope | Feature slices | Done when |
 |---:|---|---|---|
-| 1 | Operational data-entry accelerators | Location copy (**done**), contact copy (**done**), task multi-assignee create (**done**), task headline CRUD/list/delete guard (**done**), per-headline task board and unread handling (**done**), creator-owned multi-assignee edit expansion | Staff can perform the high-frequency data-entry shortcuts that existed in legacy. |
+| 1 | Operational data-entry accelerators | Location copy (**done**), contact copy (**done**), task multi-assignee create (**done**), task creator-owned multi-assignee edit expansion (**done**), task headline CRUD/list/delete guard (**done**), per-headline task board and unread handling (**done**) | Staff can perform the high-frequency data-entry shortcuts that existed in legacy. |
 | 2 | Trading setup accelerators | Supplier-product-to-buyer wizard (**done**), recent-load widgets (**done**), supplier tracking product/supplier helpers (**done**), buyer tracking buyer/product/supplier helpers (**done**) | Relationship/product setup can be done with the same few-click paths as legacy where still useful. |
 | 3 | Rate/history power tools | Rate history tables (**done**), supplier-rate propagation to tied buyer/supplier products (**done**) | Rate changes are auditable and bulk updates avoid manual re-entry. |
 | 4 | Catalog/admin completeness | Product markup color/margin matrix with conflict validation (**done**) | Product margin color rules can be maintained. |

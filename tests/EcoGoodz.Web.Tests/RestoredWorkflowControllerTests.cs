@@ -354,6 +354,130 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task StaffTaskEditGroup_UpdatesCreatorOwnedTaskAssigneeSet()
+    {
+        await using var context = CreateContext();
+        context.Users.AddRange(
+            new User { Id = 5, FirstName = "Ava", LastName = "Trader", IsActive = true },
+            new User { Id = 6, FirstName = "Ben", LastName = "Broker", IsActive = true },
+            new User { Id = 7, FirstName = "Cam", LastName = "Coordinator", IsActive = true });
+        context.TaskHeadlines.AddRange(
+            new TaskHeadline { Id = 50, UserId = 5, Headline = "Calls", IsActive = true },
+            new TaskHeadline { Id = 60, UserId = 6, Headline = "Assigned", IsActive = true },
+            new TaskHeadline { Id = 70, UserId = 7, Headline = "Old closed tab", IsActive = false },
+            new TaskHeadline { Id = 71, UserId = 7, Headline = "Assigned", IsActive = true });
+        context.Tasks.Add(new TaskItem
+        {
+            Id = 10,
+            Description = "Original task",
+            CreatedBy = 99,
+            Duedate = new DateTime(2026, 10, 1),
+            IsActive = true,
+            AssignTasks =
+            [
+                new AssignTask { Id = 11, AssignedTo = 5, TaskHeadline = 50, IsActive = true, IsRead = false },
+                new AssignTask { Id = 12, AssignedTo = 6, TaskHeadline = 60, IsActive = true, IsRead = false },
+                new AssignTask { Id = 13, AssignedTo = 7, TaskHeadline = 70, IsActive = false, IsDone = true, DoneDate = new DateTime(2026, 10, 3), IsRead = true },
+            ],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = await controller.EditGroup(10, new StaffTaskFormViewModel
+        {
+            TaskId = 10,
+            Description = "Updated task",
+            DueDate = new DateTime(2026, 11, 2),
+            AssignedToIds = [5, 7],
+            IsActive = true,
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var task = await context.Tasks.Include(task => task.AssignTasks).SingleAsync(task => task.Id == 10);
+        Assert.Equal("Updated task", task.Description);
+        Assert.Equal(new DateTime(2026, 11, 2), task.Duedate);
+        Assert.True(task.AssignTasks.Single(assignment => assignment.Id == 11).IsActive);
+        Assert.Equal(50, task.AssignTasks.Single(assignment => assignment.Id == 11).TaskHeadline);
+        Assert.False(task.AssignTasks.Single(assignment => assignment.Id == 12).IsActive);
+        var added = task.AssignTasks.Single(assignment => assignment.AssignedTo == 7);
+        Assert.Equal(13, added.Id);
+        Assert.True(added.IsActive);
+        Assert.False(added.IsDone);
+        Assert.Null(added.DoneDate);
+        Assert.False(added.IsRead);
+        Assert.Equal(71, added.TaskHeadline);
+        Assert.Equal(3, task.AssignTasks.Count);
+    }
+
+    [Fact]
+    public async Task StaffTaskEditGroup_DoesNotAllowEditingAnotherUsersTask()
+    {
+        await using var context = CreateContext();
+        context.Tasks.Add(new TaskItem { Id = 10, Description = "Other creator", CreatedBy = 5, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        Assert.IsType<NotFoundResult>(await controller.EditGroup(10));
+    }
+
+    [Fact]
+    public async Task StaffTaskEditGroupPost_DoesNotAllowEditingAnotherUsersTask()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new User { Id = 5, FirstName = "Ava", LastName = "Trader", IsActive = true });
+        context.Tasks.Add(new TaskItem { Id = 10, Description = "Other creator", CreatedBy = 5, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = await controller.EditGroup(10, new StaffTaskFormViewModel
+        {
+            TaskId = 10,
+            Description = "Tampered",
+            AssignedToIds = [5],
+            IsActive = true,
+        });
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.Equal("Other creator", (await context.Tasks.FindAsync(10))!.Description);
+    }
+
+    [Fact]
+    public async Task StaffTaskEditGroup_RejectsInactiveOrMissingAssigneesBeforeMutating()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new User { Id = 5, FirstName = "Ava", LastName = "Trader", IsActive = false });
+        context.Tasks.Add(new TaskItem
+        {
+            Id = 10,
+            Description = "Original task",
+            CreatedBy = 99,
+            Duedate = new DateTime(2026, 10, 1),
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = await controller.EditGroup(10, new StaffTaskFormViewModel
+        {
+            TaskId = 10,
+            Description = "Should not save",
+            DueDate = new DateTime(2026, 11, 2),
+            AssignedToIds = [5],
+            IsActive = true,
+        });
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        var task = await context.Tasks.FindAsync(10);
+        Assert.Equal("Original task", task!.Description);
+        Assert.Equal(new DateTime(2026, 10, 1), task.Duedate);
+    }
+
+    [Fact]
     public async Task StaffTaskHeadlineCreate_AddsHeadlineForCurrentUser()
     {
         await using var context = CreateContext();

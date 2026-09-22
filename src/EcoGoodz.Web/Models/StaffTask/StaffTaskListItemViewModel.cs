@@ -12,4 +12,5 @@ public class StaffTaskListItemViewModel
     public bool IsDone { get; set; }
     public DateTime? DoneDate { get; set; }
     public bool IsActive { get; set; }
+    public bool IsCreatedByCurrentUser { get; set; }
 }

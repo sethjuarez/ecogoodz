@@ -93,6 +93,10 @@
                                 <td class="text-end">
                                     <div class="d-flex gap-2 justify-content-end">
                                         <a asp-action="Edit" asp-route-id="@task.Id" asp-route-returnUrl="@returnUrl" class="btn btn-sm">Edit</a>
+                                        @if (task.IsCreatedByCurrentUser)
+                                        {
+                                            <a asp-action="EditGroup" asp-route-taskId="@task.TaskId" asp-route-returnUrl="@returnUrl" class="btn btn-sm">Edit group</a>
+                                        }
                                         <form asp-action="ToggleDone" asp-route-id="@task.Id" asp-route-done="@(!task.IsDone)" asp-route-returnUrl="@returnUrl" method="post">
                                             <button type="submit" class="btn btn-sm">@(task.IsDone ? "Reopen" : "Done")</button>
                                         </form>

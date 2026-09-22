@@ -21,6 +21,7 @@ public class StaffTaskController : Controller
 
     public async Task<IActionResult> Index(bool includeCompleted = false)
     {
+        var currentUserId = User.GetLegacyUserId();
         var query = _context.AssignTasks
             .Where(t => t.IsActive && t.Task != null && t.Task.IsActive)
             .Include(t => t.AssignedToNavigation)
@@ -54,6 +55,7 @@ public class StaffTaskController : Controller
                 IsDone = t.IsDone,
                 DoneDate = t.DoneDate,
                 IsActive = t.IsActive,
+                IsCreatedByCurrentUser = currentUserId.HasValue && t.Task.CreatedBy == currentUserId,
             })
             .ToListAsync();
 
@@ -170,6 +172,130 @@ public class StaffTaskController : Controller
         return View(model);
     }
 
+    public async Task<IActionResult> EditGroup(int taskId, string? returnUrl = null)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        var task = await _context.Tasks
+            .Include(task => task.AssignTasks.Where(assignment => assignment.IsActive))
+            .AsNoTracking()
+            .FirstOrDefaultAsync(task => task.Id == taskId && task.CreatedBy == userId && task.IsActive);
+
+        if (task is null)
+        {
+            return NotFound();
+        }
+
+        var model = new StaffTaskFormViewModel
+        {
+            TaskId = task.Id,
+            Description = task.Description ?? string.Empty,
+            DueDate = task.Duedate,
+            AssignedToIds = task.AssignTasks
+                .Where(assignment => assignment.AssignedTo.HasValue)
+                .Select(assignment => assignment.AssignedTo!.Value)
+                .Distinct()
+                .ToList(),
+            IsActive = task.IsActive,
+            ReturnUrl = returnUrl,
+        };
+
+        await PopulateOptionsAsync(model);
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditGroup(int taskId, StaffTaskFormViewModel model)
+    {
+        var userId = User.GetLegacyUserId();
+        if (userId is null)
+        {
+            return Forbid();
+        }
+
+        if (taskId != model.TaskId)
+        {
+            return NotFound();
+        }
+
+        var assignedUserIds = GetAssignedUserIds(model);
+        if (assignedUserIds.Count == 0)
+        {
+            ModelState.AddModelError(nameof(model.AssignedToIds), "Choose at least one assignee.");
+        }
+
+        await ValidateAssignedUsersAsync(assignedUserIds, nameof(model.AssignedToIds));
+
+        if (!ModelState.IsValid)
+        {
+            await PopulateOptionsAsync(model);
+            return View(model);
+        }
+
+        var task = await _context.Tasks
+            .Include(task => task.AssignTasks)
+            .FirstOrDefaultAsync(task => task.Id == taskId && task.CreatedBy == userId && task.IsActive);
+
+        if (task is null)
+        {
+            return NotFound();
+        }
+
+        task.Description = model.Description;
+        task.Duedate = model.DueDate;
+        task.IsActive = true;
+
+        var activeAssignments = task.AssignTasks.Where(assignment => assignment.IsActive).ToList();
+        foreach (var assignment in activeAssignments.Where(assignment => !assignment.AssignedTo.HasValue || !assignedUserIds.Contains(assignment.AssignedTo.Value)))
+        {
+            assignment.IsActive = false;
+            assignment.UpdatedOn = DateTime.UtcNow;
+            assignment.UpdatedBy = userId;
+        }
+
+        var existingActiveAssignedUserIds = activeAssignments
+            .Where(assignment => assignment.AssignedTo.HasValue && assignedUserIds.Contains(assignment.AssignedTo.Value))
+            .Select(assignment => assignment.AssignedTo!.Value)
+            .ToHashSet();
+
+        foreach (var assignedUserId in assignedUserIds.Where(assignedUserId => !existingActiveAssignedUserIds.Contains(assignedUserId)))
+        {
+            var inactiveAssignment = task.AssignTasks
+                .Where(assignment => !assignment.IsActive && assignment.AssignedTo == assignedUserId)
+                .OrderByDescending(assignment => assignment.Id)
+                .FirstOrDefault();
+
+            if (inactiveAssignment is not null)
+            {
+                inactiveAssignment.IsActive = true;
+                inactiveAssignment.IsDone = false;
+                inactiveAssignment.DoneDate = null;
+                inactiveAssignment.IsRead = assignedUserId == userId;
+                inactiveAssignment.UpdatedOn = DateTime.UtcNow;
+                inactiveAssignment.UpdatedBy = userId;
+                inactiveAssignment.TaskHeadline = await ResolveHeadlineAsync(assignedUserId, inactiveAssignment.TaskHeadline);
+                continue;
+            }
+
+            task.AssignTasks.Add(new AssignTask
+            {
+                AssignedTo = assignedUserId,
+                TaskHeadline = await ResolveHeadlineAsync(assignedUserId, null),
+                IsActive = true,
+                IsRead = assignedUserId == userId,
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        return RedirectToLocalOrIndex(model.ReturnUrl);
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(StaffTaskFormViewModel model)
@@ -179,6 +305,8 @@ public class StaffTaskController : Controller
         {
             ModelState.AddModelError(nameof(model.AssignedToIds), "Choose at least one assignee.");
         }
+
+        await ValidateAssignedUsersAsync(assignedUserIds, nameof(model.AssignedToIds));
 
         if (!ModelState.IsValid)
         {
@@ -456,6 +584,11 @@ public class StaffTaskController : Controller
             ModelState.AddModelError(nameof(model.AssignedTo), "Choose an assignee.");
         }
 
+        if (model.AssignedTo.HasValue)
+        {
+            await ValidateAssignedUsersAsync([model.AssignedTo.Value], nameof(model.AssignedTo));
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateOptionsAsync(model);
@@ -602,5 +735,23 @@ public class StaffTaskController : Controller
         }
 
         return assignedUserIds;
+    }
+
+    private async Task ValidateAssignedUsersAsync(IReadOnlyCollection<int> assignedUserIds, string modelKey)
+    {
+        if (assignedUserIds.Count == 0)
+        {
+            return;
+        }
+
+        var activeUserIds = await _context.Users
+            .Where(user => user.IsActive == true && assignedUserIds.Contains(user.Id))
+            .Select(user => user.Id)
+            .ToListAsync();
+
+        if (activeUserIds.Count != assignedUserIds.Count)
+        {
+            ModelState.AddModelError(modelKey, "Choose active assignees.");
+        }
     }
 }
