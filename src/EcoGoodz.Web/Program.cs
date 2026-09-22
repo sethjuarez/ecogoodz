@@ -3,6 +3,7 @@ using EcoGoodz.Data.Identity;
 using EcoGoodz.Web.Diagnostics;
 using EcoGoodz.Web.Email;
 using EcoGoodz.Web.Identity;
+using EcoGoodz.Web.Infrastructure;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -146,6 +147,9 @@ using (var scope = app.Services.CreateScope())
 
     await IdentitySeeder.SeedRolesAsync(scope.ServiceProvider);
     await LegacyUserMigrator.MigrateAsync(scope.ServiceProvider);
+
+    var legacyContext = scope.ServiceProvider.GetRequiredService<EcoGoodzDbContext>();
+    await LegacyDatabaseIndexes.EnsureAsync(legacyContext);
 }
 
 // Configure the HTTP request pipeline.

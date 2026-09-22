@@ -28,7 +28,7 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
     protected override IReadOnlyDictionary<string, Expression<Func<Data.Models.Supplier, object?>>> SortColumns { get; } =
         new Dictionary<string, Expression<Func<Data.Models.Supplier, object?>>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["name"] = s => s.Name,
+            ["name"] = s => EF.Property<string>(s, "NameSort"),
             ["accountManager"] = s => s.AccountManagerNavigation != null ? s.AccountManagerNavigation.FirstName : null,
             ["active"] = s => s.IsActive,
         };
