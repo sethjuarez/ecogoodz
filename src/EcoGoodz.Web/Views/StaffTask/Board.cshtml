@@ -68,7 +68,7 @@
                         {
                             <tr class="@(!task.IsRead ? "table-active" : null)">
                                 <td>
-                                    <div>@task.Description</div>
+                                    <div><a asp-action="Details" asp-route-id="@task.Id" class="text-reset">@task.Description</a></div>
                                     @if (!task.IsRead)
                                     {
                                         <span class="badge bg-blue-lt mt-1">New</span>

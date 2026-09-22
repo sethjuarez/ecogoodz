@@ -52,6 +52,30 @@ public class ContactController : Controller
         return View(contacts);
     }
 
+    public async Task<IActionResult> Details(int id)
+    {
+        var contact = await ContactRows()
+            .Where(c => c.Contact.Id == id)
+            .Select(c => new ContactListItemViewModel
+            {
+                Id = c.Contact.Id,
+                LocationId = c.Contact.Location,
+                ClientName = c.Contact.IsBuyer == true ? c.BuyerName : c.SupplierName,
+                LocationName = c.Contact.LocationNavigation != null ? c.Contact.LocationNavigation.Location1 : null,
+                Name = ((c.Contact.ContactNavigation.FirstName ?? string.Empty) + " " + (c.Contact.ContactNavigation.LastName ?? string.Empty)).Trim(),
+                Title = c.Contact.ContactNavigation.Title,
+                Email = c.Contact.ContactNavigation.Email,
+                OfficePhone = c.Contact.ContactNavigation.OfficePhone,
+                CellPhone = c.Contact.ContactNavigation.CellPhone,
+                IsPrimaryContact = c.Contact.IsPrimaryContact == true,
+                IsDockContact = c.Contact.IsDockContact == true,
+                IsActive = c.Contact.IsActive,
+            })
+            .FirstOrDefaultAsync();
+
+        return contact is null ? NotFound() : View(contact);
+    }
+
     public async Task<IActionResult> Create(int? locationId)
     {
         var model = new ContactFormViewModel { LocationId = locationId };

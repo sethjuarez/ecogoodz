@@ -41,7 +41,7 @@
                 @foreach (var item in Model)
                 {
                     <tr>
-                        <td>@item.Description</td>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Description</a></td>
                         <td>@item.DueDate?.ToShortDateString()</td>
                         <td>@item.AssignedToName</td>
                         <td>@item.Headline</td>

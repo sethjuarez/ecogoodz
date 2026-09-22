@@ -62,6 +62,38 @@ public class StaffTaskController : Controller
         return View(tasks);
     }
 
+    public async Task<IActionResult> Details(int id)
+    {
+        var currentUserId = User.GetLegacyUserId();
+        var task = await _context.AssignTasks
+            .Where(t => t.Id == id && t.IsActive && t.Task != null && t.Task.IsActive)
+            .Include(t => t.AssignedToNavigation)
+            .Include(t => t.Task)
+                .ThenInclude(t => t!.CreatedByNavigation)
+            .Include(t => t.TaskHeadlineNavigation)
+            .Select(t => new StaffTaskListItemViewModel
+            {
+                Id = t.Id,
+                TaskId = t.TaskId ?? 0,
+                Description = t.Task!.Description ?? string.Empty,
+                DueDate = t.Task.Duedate,
+                AssignedToName = t.AssignedToNavigation != null
+                    ? t.AssignedToNavigation.FirstName + " " + t.AssignedToNavigation.LastName
+                    : null,
+                Headline = t.TaskHeadlineNavigation != null ? t.TaskHeadlineNavigation.Headline : null,
+                CreatedByName = t.Task.CreatedByNavigation != null
+                    ? t.Task.CreatedByNavigation.FirstName + " " + t.Task.CreatedByNavigation.LastName
+                    : null,
+                IsDone = t.IsDone,
+                DoneDate = t.DoneDate,
+                IsActive = t.IsActive,
+                IsCreatedByCurrentUser = currentUserId.HasValue && t.Task.CreatedBy == currentUserId,
+            })
+            .FirstOrDefaultAsync();
+
+        return task is null ? NotFound() : View(task);
+    }
+
     public async Task<IActionResult> Board(int? headlineId)
     {
         var userId = User.GetLegacyUserId();

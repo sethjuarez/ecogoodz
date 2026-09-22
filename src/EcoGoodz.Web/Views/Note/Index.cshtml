@@ -38,8 +38,21 @@
                     <tr>
                         <td>@item.Date?.ToShortDateString()</td>
                         <td>@item.Scope</td>
-                        <td>@(item.ProductName ?? item.LocationName)</td>
-                        <td>@item.Notes</td>
+                        <td>
+                            @if (item.ProductId.HasValue)
+                            {
+                                <a asp-controller="SupplierProduct" asp-action="Details" asp-route-id="@item.ProductId" class="text-reset">@item.ProductName</a>
+                            }
+                            else if (item.LocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@item.LocationId" class="text-reset">@item.LocationName</a>
+                            }
+                            else
+                            {
+                                @(item.ProductName ?? item.LocationName)
+                            }
+                        </td>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Notes</a></td>
                         <td>@item.CreatedByName</td>
                         <td class="text-end">
                             <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm">Edit</a>

@@ -344,6 +344,36 @@ a {
   box-shadow: 0 .75rem 1.5rem rgba(31, 42, 30, .2);
 }
 
+.eg-breadcrumbs {
+  margin: -.35rem 0 1rem;
+
+  .breadcrumb {
+    --breadcrumb-divider-color: var(--eg-ink-muted);
+    margin-bottom: 0;
+    color: var(--eg-ink-muted);
+    font-size: .875rem;
+  }
+
+  .breadcrumb-item + .breadcrumb-item::before {
+    color: var(--eg-ink-muted);
+  }
+
+  a {
+    color: var(--eg-ink-muted);
+    text-decoration: none;
+
+    &:hover {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+  }
+
+  .active {
+    color: var(--eg-ink);
+    font-weight: 600;
+  }
+}
+
 .ts-wrapper .ts-control,
 .ts-wrapper.single.input-active .ts-control {
   background: var(--bg-surface, #fff);

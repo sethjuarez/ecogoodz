@@ -46,6 +46,8 @@ public class NoteController : Controller
             .Select(n => new NoteListItemViewModel
             {
                 Id = n.Id,
+                LocationId = n.BuyerLocation ?? n.SupplierLocation,
+                ProductId = n.Product,
                 Scope = n.IsProduct ? "Product" : n.BuyerLocation.HasValue ? "Buyer location" : "Supplier location",
                 LocationName = n.BuyerLocationNavigation != null
                     ? n.BuyerLocationNavigation.Location1
@@ -63,6 +65,39 @@ public class NoteController : Controller
             .ToListAsync();
 
         return View(notes);
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        var note = await _context.Notes
+            .Where(n => n.Id == id)
+            .Include(n => n.BuyerLocationNavigation)
+            .Include(n => n.SupplierLocationNavigation)
+            .Include(n => n.ProductNavigation)
+                .ThenInclude(p => p!.ProductNavigation)
+            .Include(n => n.CreatedByNavigation)
+            .Select(n => new NoteListItemViewModel
+            {
+                Id = n.Id,
+                LocationId = n.BuyerLocation ?? n.SupplierLocation,
+                ProductId = n.Product,
+                Scope = n.IsProduct ? "Product" : n.BuyerLocation.HasValue ? "Buyer location" : "Supplier location",
+                LocationName = n.BuyerLocationNavigation != null
+                    ? n.BuyerLocationNavigation.Location1
+                    : n.SupplierLocationNavigation != null ? n.SupplierLocationNavigation.Location1 : null,
+                ProductName = n.ProductNavigation != null && n.ProductNavigation.ProductNavigation != null
+                    ? n.ProductNavigation.ProductNavigation.Name
+                    : null,
+                Notes = n.Notes ?? string.Empty,
+                Date = n.UpdatedOn ?? n.CreateOn,
+                CreatedByName = n.CreatedByNavigation != null
+                    ? n.CreatedByNavigation.FirstName + " " + n.CreatedByNavigation.LastName
+                    : null,
+                IsActive = n.IsActive == true,
+            })
+            .FirstOrDefaultAsync();
+
+        return note is null ? NotFound() : View(note);
     }
 
     public async Task<IActionResult> Create(string? scope, int? id)

@@ -18,6 +18,40 @@
     var isAdminActive = string.Equals(currentController, "StaffUser", StringComparison.OrdinalIgnoreCase);
     var userDisplayName = User.Identity?.Name ?? string.Empty;
     var userInitial = string.IsNullOrWhiteSpace(userDisplayName) ? "U" : userDisplayName[..1].ToUpperInvariant();
+    var pageTitle = ViewData["Title"]?.ToString() ?? currentAction;
+    var showBreadcrumbs = !string.Equals(currentController, "Account", StringComparison.OrdinalIgnoreCase)
+        && !(string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase) && string.Equals(currentAction, "Index", StringComparison.OrdinalIgnoreCase));
+    var sectionLabel = isTradingActive ? "Trading"
+        : isPartnersActive ? "Partners"
+        : isCatalogActive ? "Catalog"
+        : isReportsActive ? "Reports"
+        : isAdminActive ? "Admin"
+        : null;
+    var sectionController = isTradingActive ? "Load"
+        : isPartnersActive ? "Buyer"
+        : isCatalogActive ? "Product"
+        : isReportsActive ? "Report"
+        : isAdminActive ? "StaffUser"
+        : "Home";
+    var sectionAction = isReportsActive ? "LastLoadShipped" : "Index";
+    var resourceLabel = currentController switch
+    {
+        "Buyer" => "Buyers",
+        "Supplier" => "Suppliers",
+        "Location" => "Locations",
+        "Load" => "Loads",
+        "BuyerSupplier" => "Buyer/supplier matches",
+        "Communication" => "Communications",
+        "Note" => "Notes",
+        "StaffTask" => "Tasks",
+        "Product" => "Products",
+        "BuyerProduct" => "Buyer products",
+        "SupplierProduct" => "Supplier products",
+        "PackageType" => "Package types",
+        "Report" => "Reports",
+        "StaffUser" => "Staff users",
+        _ => currentController,
+    };
 }
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
@@ -153,6 +187,31 @@
         <div class="page-wrapper">
             <main id="content" class="page-body">
                 <div class="container-xl">
+                    @if (showBreadcrumbs)
+                    {
+                        <nav class="eg-breadcrumbs" aria-label="Breadcrumb">
+                            <ol class="breadcrumb">
+                                <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Dashboard</a></li>
+                                @if (!string.IsNullOrWhiteSpace(sectionLabel))
+                                {
+                                    <li class="breadcrumb-item"><a asp-controller="@sectionController" asp-action="@sectionAction">@sectionLabel</a></li>
+                                }
+                                @if (string.Equals(currentController, "Report", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <li class="breadcrumb-item active" aria-current="page">@pageTitle</li>
+                                }
+                                else if (!string.Equals(currentAction, "Index", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <li class="breadcrumb-item"><a asp-controller="@currentController" asp-action="Index">@resourceLabel</a></li>
+                                    <li class="breadcrumb-item active" aria-current="page">@pageTitle</li>
+                                }
+                                else
+                                {
+                                    <li class="breadcrumb-item active" aria-current="page">@resourceLabel</li>
+                                }
+                            </ol>
+                        </nav>
+                    }
                     @RenderBody()
                 </div>
             </main>

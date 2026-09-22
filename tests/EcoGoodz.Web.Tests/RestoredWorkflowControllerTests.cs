@@ -1971,6 +1971,135 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task ContactDetails_ReturnsReadOnlyContactSummary()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer One", IsActive = true });
+        context.Locations.Add(new Location { Id = 2, ClientId = 1, IsBuyer = true, Location1 = "Main Dock", IsActive = true });
+        context.Contacts.Add(new Contact
+        {
+            Id = 3,
+            ClientId = 1,
+            Location = 2,
+            IsBuyer = true,
+            IsActive = true,
+            ContactNavigation = new ContactInformation { FirstName = "Ava", LastName = "Contact", Email = "ava@example.com" },
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ContactController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Details(3));
+        var model = Assert.IsType<ContactListItemViewModel>(result.Model);
+        Assert.Equal("Ava Contact", model.Name);
+        Assert.Equal("Buyer One", model.ClientName);
+        Assert.Equal("Main Dock", model.LocationName);
+    }
+
+    [Fact]
+    public async Task CommunicationDetails_ReturnsCommunicationSummary()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer One", IsActive = true });
+        context.CommunicationTypes.Add(new CommunicationType { Id = 2, Type = "Call" });
+        context.Users.Add(new User { Id = 4, FirstName = "Ava", LastName = "Manager", IsActive = true });
+        context.Communications.Add(new Communication
+        {
+            Id = 3,
+            ClientId = 1,
+            IsBuyer = true,
+            CommunicationType = 2,
+            Note = "Discussed next load",
+            Date = new DateTime(2026, 9, 22),
+            CreatedBy = 4,
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new CommunicationController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Details(3));
+        var model = Assert.IsType<CommunicationListItemViewModel>(result.Model);
+        Assert.Equal("Buyer One", model.ClientName);
+        Assert.Equal("Call", model.TypeName);
+        Assert.Equal("Ava Manager", model.CreatedByName);
+    }
+
+    [Fact]
+    public async Task NoteDetails_ReturnsNoteWithContextLinkData()
+    {
+        await using var context = CreateContext();
+        context.Locations.Add(new Location { Id = 1, Location1 = "Main Dock", IsBuyer = true, IsActive = true });
+        context.Users.Add(new User { Id = 2, FirstName = "Ava", LastName = "Manager", IsActive = true });
+        context.Notes.Add(new Note
+        {
+            Id = 3,
+            BuyerLocation = 1,
+            IsProduct = false,
+            Notes = "Follow up next week",
+            CreatedBy = 2,
+            CreateOn = new DateTime(2026, 9, 22),
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new NoteController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Details(3));
+        var model = Assert.IsType<NoteListItemViewModel>(result.Model);
+        Assert.Equal(1, model.LocationId);
+        Assert.Equal("Main Dock", model.LocationName);
+        Assert.Equal("Follow up next week", model.Notes);
+    }
+
+    [Fact]
+    public async Task StaffTaskDetails_ReturnsAssignmentSummary()
+    {
+        await using var context = CreateContext();
+        context.Users.AddRange(
+            new User { Id = 1, FirstName = "Ava", LastName = "Assignee", IsActive = true },
+            new User { Id = 99, FirstName = "Casey", LastName = "Creator", IsActive = true });
+        context.TaskHeadlines.Add(new TaskHeadline { Id = 2, UserId = 1, Headline = "Assigned", IsActive = true });
+        context.Tasks.Add(new TaskItem { Id = 3, Description = "Call buyer", CreatedBy = 99, IsActive = true });
+        context.AssignTasks.Add(new AssignTask { Id = 4, TaskId = 3, AssignedTo = 1, TaskHeadline = 2, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Details(4));
+        var model = Assert.IsType<StaffTaskListItemViewModel>(result.Model);
+        Assert.Equal("Call buyer", model.Description);
+        Assert.Equal("Ava Assignee", model.AssignedToName);
+        Assert.True(model.IsCreatedByCurrentUser);
+    }
+
+    [Fact]
+    public async Task StaffUserDetails_ReturnsUserSummary()
+    {
+        await using var context = CreateContext();
+        context.Roles.Add(new Role { Id = 1, RoleName = "Admin" });
+        context.Users.Add(new User
+        {
+            Id = 2,
+            FirstName = "Ava",
+            LastName = "Manager",
+            UserName = "ava",
+            Email = "ava@example.com",
+            Role = 1,
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+        await using var identityContext = CreateIdentityContext();
+
+        var controller = WithLegacyUser(new StaffUserController(context, CreateUserManager(identityContext)));
+
+        var result = Assert.IsType<ViewResult>(await controller.Details(2));
+        var model = Assert.IsType<StaffUserListItemViewModel>(result.Model);
+        Assert.Equal("Ava Manager", model.Name);
+        Assert.Equal("Admin", model.RoleName);
+    }
+
+    [Fact]
     public async Task BuyerProductEdit_PreservesAdditionalPackagingRows()
     {
         await using var context = CreateContext();

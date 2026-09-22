@@ -53,6 +53,30 @@ public class CommunicationController : Controller
         return View(communications);
     }
 
+    public async Task<IActionResult> Details(int id)
+    {
+        var communication = await CommunicationRows()
+            .Where(c => c.Communication.Id == id)
+            .Select(c => new CommunicationListItemViewModel
+            {
+                Id = c.Communication.Id,
+                ClientId = c.Communication.ClientId,
+                IsBuyer = c.Communication.IsBuyer == true,
+                ClientName = c.Communication.IsBuyer == true ? c.BuyerName : c.SupplierName,
+                TypeName = c.Communication.CommunicationTypeNavigation != null
+                    ? c.Communication.CommunicationTypeNavigation.Type ?? string.Empty
+                    : c.Communication.OtherType ?? "Other",
+                Note = c.Communication.Note,
+                Date = c.Communication.Date ?? c.Communication.CreateOn,
+                CreatedByName = c.Communication.CreatedByNavigation != null
+                    ? c.Communication.CreatedByNavigation.FirstName + " " + c.Communication.CreatedByNavigation.LastName
+                    : null,
+            })
+            .FirstOrDefaultAsync();
+
+        return communication is null ? NotFound() : View(communication);
+    }
+
     public async Task<IActionResult> Create(string? clientType, int? clientId)
     {
         var model = new CommunicationFormViewModel { ClientType = clientType == SupplierClientType ? SupplierClientType : BuyerClientType };

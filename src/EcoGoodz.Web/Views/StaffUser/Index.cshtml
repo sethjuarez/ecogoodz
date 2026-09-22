@@ -37,7 +37,7 @@
                 @foreach (var item in Model)
                 {
                     <tr>
-                        <td>@item.Name</td>
+                        <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></td>
                         <td>@item.UserName</td>
                         <td><a href="mailto:@item.Email">@item.Email</a></td>
                         <td>

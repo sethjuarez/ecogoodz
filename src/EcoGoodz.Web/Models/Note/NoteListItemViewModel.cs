@@ -3,6 +3,8 @@ namespace EcoGoodz.Web.Models.Note;
 public class NoteListItemViewModel
 {
     public int Id { get; set; }
+    public int? LocationId { get; set; }
+    public int? ProductId { get; set; }
     public string Scope { get; set; } = string.Empty;
     public string? LocationName { get; set; }
     public string? ProductName { get; set; }

@@ -45,6 +45,27 @@ public class StaffUserController : Controller
         return View(users);
     }
 
+    public async Task<IActionResult> Details(int id)
+    {
+        var user = await _context.Users
+            .Include(u => u.RoleNavigation)
+            .Where(u => u.Id == id)
+            .Select(u => new StaffUserListItemViewModel
+            {
+                Id = u.Id,
+                Name = ((u.FirstName ?? string.Empty) + " " + (u.LastName ?? string.Empty)).Trim(),
+                UserName = u.UserName,
+                Email = u.Email,
+                OfficePhone = u.OfficePhone,
+                CellPhone = u.CellPhone,
+                RoleName = u.RoleNavigation != null ? u.RoleNavigation.RoleName : null,
+                IsActive = u.IsActive == true,
+            })
+            .FirstOrDefaultAsync();
+
+        return user is null ? NotFound() : View(user);
+    }
+
     public async Task<IActionResult> Create()
     {
         var model = new StaffUserFormViewModel();
