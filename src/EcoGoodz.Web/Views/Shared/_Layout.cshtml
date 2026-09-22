@@ -27,13 +27,6 @@
         : isReportsActive ? "Reports"
         : isAdminActive ? "Admin"
         : null;
-    var sectionController = isTradingActive ? "Load"
-        : isPartnersActive ? "Buyer"
-        : isCatalogActive ? "Product"
-        : isReportsActive ? "Report"
-        : isAdminActive ? "StaffUser"
-        : "Home";
-    var sectionAction = isReportsActive ? "LastLoadShipped" : "Index";
     var resourceLabel = currentController switch
     {
         "Buyer" => "Buyers",
@@ -194,7 +187,7 @@
                                 <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Dashboard</a></li>
                                 @if (!string.IsNullOrWhiteSpace(sectionLabel))
                                 {
-                                    <li class="breadcrumb-item"><a asp-controller="@sectionController" asp-action="@sectionAction">@sectionLabel</a></li>
+                                    <li class="breadcrumb-item">@sectionLabel</li>
                                 }
                                 @if (string.Equals(currentController, "Report", StringComparison.OrdinalIgnoreCase))
                                 {
