@@ -11,6 +11,20 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Production secrets (connection string, SMTP creds, DataProtection keys dir, etc.) are
+// loaded from a JSON file OUTSIDE the web root (e.g. ...\private\appsettings.Production.json
+// on the VPS), instead of IIS/applicationHost.config environment variables. This is
+// deliberate: on this host, Plesk periodically regenerates the site's IIS config from its
+// own internal database (triggered by things like clicking "Deploy"/"Fetch" on the Git tab,
+// or other panel actions), and it silently drops any <location> block / environmentVariables
+// collection it doesn't recognize - which wiped out every custom env var we'd set via
+// PowerShell more than once in practice. A file living outside httpdocs is untouched by both
+// git deploys (which only replace tracked files under httpdocs) and Plesk's config
+// regeneration, so it only needs to be created once. See docs/deployment.md.
+var externalConfigPath = builder.Configuration["ExternalConfigPath"]
+    ?? Path.Combine(Directory.GetParent(builder.Environment.ContentRootPath)!.FullName, "private", "appsettings.Production.json");
+builder.Configuration.AddJsonFile(externalConfigPath, optional: true, reloadOnChange: false);
+
 var connectionString = builder.Configuration.GetConnectionString("EcoGoodz")
     ?? throw new InvalidOperationException("Connection string 'EcoGoodz' not found.");
 
