@@ -4,8 +4,8 @@ The legacy ASP.NET MVC5 app (`D:\projects\ecogoodz\backup\decompiled_project`) h
 controllers. This tracks what's rebuilt, what's next, and what's likely dead weight -
 to help decide what's worth the effort versus what the business no longer needs.
 
-**Already rebuilt** (4 of 30): Account (auth), Buyer, Supplier, Product, Load, Home
-(dashboard).
+**Already rebuilt**: Account (auth), Buyer, Supplier, Product, Load, Home
+(dashboard), Location, PackageType, BuyerSupplier, BuyerProduct, SupplierProduct.
 
 ## Tier 1 - core trading workflow (highest value, do next)
 
@@ -16,8 +16,8 @@ match.
 | Controller | Legacy size | What it does |
 |---|---|---|
 | `BuyerSupplierController` | 1447 lines / 27 actions | The buyer&lt;-&gt;supplier matching engine - assigns which suppliers serve which buyer (and vice versa) per location, sets/edits negotiated rates with markup, shows recent loads per match. This is the operational core; Load records reference these matches. |
-| `BuyerProductController` / `BuyerProductRateController` | 306 + 228 lines | Which products a buyer wants, and at what rate over time (rate history, not just current price). |
-| `SupplierProductController` / `SupplierProductRateController` | 630 + 306 lines | Same shape, supplier side - what a supplier offers and at what rate over time. |
+| `BuyerProductController` / `BuyerProductRateController` | 306 + 228 lines | First-pass buyer wanted-product CRUD is rebuilt. Buyer product rate history is still pending because rates attach to buyer/supplier product assignments rather than directly to `BuyerProduct`. |
+| `SupplierProductController` / `SupplierProductRateController` | 630 + 306 lines | First-pass supplier offered-product CRUD and supplier product rate history are rebuilt. Legacy wizard flows and buyer-assignment automation are intentionally deferred. |
 | `LocationController` | 202 lines | Already has a DbSet and is referenced heavily by Buyer/Supplier/Load - needs its own CRUD UI (currently only used as a dropdown source). |
 | `PackageTypeController` | 129 lines | Small reference/lookup table (used on Load/Product forms). |
 
@@ -82,8 +82,8 @@ accumulated many that were built once and never opened again.
 
 1. **Location + PackageType CRUD** (small, unblocks the rest of Tier 1's forms).
 2. **BuyerSupplier matching** (the biggest single win - the actual trading workflow).
-3. **BuyerProduct/BuyerProductRate + SupplierProduct/SupplierProductRate** (rate
-   history alongside the matching).
+3. Finish buyer/supplier product assignment rates and decide whether the legacy
+   supplier-product-to-buyer wizard is still needed.
 4. Revisit Tier 2 based on what the user says staff actually use day-to-day.
 5. Tier 3 reports - only after confirming with the user which ones matter; do not
    port all of them by default.

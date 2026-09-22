@@ -1,0 +1,43 @@
+@model EcoGoodz.Web.Models.BuyerProduct.BuyerProductDetailsViewModel
+@{
+    ViewData["Title"] = "Buyer product";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Buyer products</div>
+            <h2 class="page-title">@Model.ProductName</h2>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="datagrid">
+            <div class="datagrid-item"><div class="datagrid-title">Buyer</div><div class="datagrid-content">@Model.BuyerName</div></div>
+            <div class="datagrid-item"><div class="datagrid-title">Location</div><div class="datagrid-content">@Model.LocationName</div></div>
+            <div class="datagrid-item"><div class="datagrid-title">Product</div><div class="datagrid-content">@Model.ProductName</div></div>
+            <div class="datagrid-item"><div class="datagrid-title">Packaging</div><div class="datagrid-content">@string.Join(", ", Model.PackagingNames)</div></div>
+            <div class="datagrid-item">
+                <div class="datagrid-title">Active</div>
+                <div class="datagrid-content">
+                    @if (Model.IsActive)
+                    {
+                        <span class="badge bg-success-lt">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary-lt">Inactive</span>
+                    }
+                </div>
+            </div>
+            <div class="datagrid-item"><div class="datagrid-title">Created</div><div class="datagrid-content">@Model.CreateOn</div></div>
+            <div class="datagrid-item"><div class="datagrid-title">Updated</div><div class="datagrid-content">@Model.UpdatedOn</div></div>
+        </div>
+    </div>
+</div>

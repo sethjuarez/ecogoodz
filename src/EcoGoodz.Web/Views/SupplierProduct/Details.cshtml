@@ -1,0 +1,97 @@
+@model EcoGoodz.Web.Models.SupplierProduct.SupplierProductDetailsViewModel
+@{
+    ViewData["Title"] = "Supplier product";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Supplier products</div>
+            <h2 class="page-title">@Model.ProductName</h2>
+        </div>
+        <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
+            <a asp-action="Index" class="btn">Back to list</a>
+        </div>
+    </div>
+</div>
+
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+<div class="row row-deck row-cards">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <div class="datagrid">
+                    <div class="datagrid-item"><div class="datagrid-title">Supplier</div><div class="datagrid-content">@Model.SupplierName</div></div>
+                    <div class="datagrid-item"><div class="datagrid-title">Location</div><div class="datagrid-content">@Model.LocationName</div></div>
+                    <div class="datagrid-item"><div class="datagrid-title">Product</div><div class="datagrid-content">@Model.ProductName</div></div>
+                    <div class="datagrid-item"><div class="datagrid-title">Packaging</div><div class="datagrid-content">@Model.PackagingName</div></div>
+                    <div class="datagrid-item"><div class="datagrid-title">Packaging price</div><div class="datagrid-content">@Model.PackagingPrice?.ToString("C")</div></div>
+                    <div class="datagrid-item"><div class="datagrid-title">Volume</div><div class="datagrid-content">@Model.Volume</div></div>
+                    <div class="datagrid-item"><div class="datagrid-title">Frequency</div><div class="datagrid-content">@Model.FrequencyLabel</div></div>
+                    <div class="datagrid-item"><div class="datagrid-title">Active</div><div class="datagrid-content">@(Model.IsActive ? "Active" : "Inactive")</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header"><h3 class="card-title">Rate history</h3></div>
+            <div class="table-responsive">
+                <table class="table card-table table-vcenter">
+                    <thead><tr><th>Effective date</th><th>Price</th><th>Created</th><th>User</th><th>Active</th><th class="w-1"></th></tr></thead>
+                    <tbody>
+                        @if (Model.Rates.Count == 0)
+                        {
+                            <tr><td colspan="6" class="text-center text-secondary py-4">No rates found.</td></tr>
+                        }
+                        @foreach (var rate in Model.Rates)
+                        {
+                            <tr>
+                                <td>@rate.EffectiveDate?.ToString("yyyy-MM-dd")</td>
+                                <td>@rate.Price?.ToString("C")</td>
+                                <td>@rate.CreatedDate?.ToString("yyyy-MM-dd")</td>
+                                <td>@rate.UserName</td>
+                                <td>@(rate.IsActive ? "Active" : "Inactive")</td>
+                                <td class="text-end">
+                                    @if (rate.IsActive)
+                                    {
+                                        <form asp-action="DeactivateRate" asp-route-id="@rate.Id" asp-route-supplierProductId="@Model.Id" method="post">
+                                            <button type="submit" class="btn btn-sm">Deactivate</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-4">
+        <div class="card">
+            <div class="card-header"><h3 class="card-title">Add rate</h3></div>
+            <div class="card-body">
+                <form asp-action="AddRate" method="post">
+                    <input asp-for="NewRate.SupplierProductId" name="SupplierProductId" type="hidden" />
+                    <div class="mb-3">
+                        <label asp-for="NewRate.Price" class="form-label"></label>
+                        <input asp-for="NewRate.Price" name="Price" class="form-control" />
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="NewRate.EffectiveDate" class="form-label"></label>
+                        <input asp-for="NewRate.EffectiveDate" name="EffectiveDate" class="form-control" type="date" />
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add rate</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

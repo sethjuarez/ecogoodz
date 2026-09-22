@@ -7,7 +7,9 @@
         || string.Equals(currentController, "Supplier", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase);
     var isCatalogActive = string.Equals(currentController, "Product", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase);
+        || string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "BuyerProduct", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "SupplierProduct", StringComparison.OrdinalIgnoreCase);
 }
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="light">
@@ -87,6 +89,8 @@
                                 </a>
                                 <div class="dropdown-menu">
                                     <a class="dropdown-item @(string.Equals(currentController, "Product", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Product" asp-action="Index">Products</a>
+                                    <a class="dropdown-item @(string.Equals(currentController, "BuyerProduct", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="BuyerProduct" asp-action="Index">Buyer products</a>
+                                    <a class="dropdown-item @(string.Equals(currentController, "SupplierProduct", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="SupplierProduct" asp-action="Index">Supplier products</a>
                                     <a class="dropdown-item @(string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="PackageType" asp-action="Index">Package types</a>
                                 </div>
                             </li>

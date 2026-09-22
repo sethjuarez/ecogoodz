@@ -1,0 +1,45 @@
+@model EcoGoodz.Web.Models.SupplierProduct.SupplierProductFormViewModel
+@{
+    ViewData["Title"] = "Create supplier product";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Supplier products</div>
+            <h2 class="page-title">Create supplier product</h2>
+        </div>
+    </div>
+</div>
+
+<div class="row row-deck">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form asp-action="Create" method="post">
+                    @await Html.PartialAsync("_Form", Model)
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="InitialPrice" class="form-label"></label>
+                            <input asp-for="InitialPrice" class="form-control" />
+                            <span asp-validation-for="InitialPrice" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="InitialEffectiveDate" class="form-label"></label>
+                            <input asp-for="InitialEffectiveDate" class="form-control" type="date" />
+                            <span asp-validation-for="InitialEffectiveDate" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="form-footer">
+                        <button type="submit" class="btn btn-primary">Create</button>
+                        <a asp-action="Index" class="btn btn-link">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

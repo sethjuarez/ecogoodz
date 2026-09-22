@@ -1,0 +1,34 @@
+@model EcoGoodz.Web.Models.SupplierProduct.SupplierProductFormViewModel
+@{
+    ViewData["Title"] = "Edit supplier product";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Supplier products</div>
+            <h2 class="page-title">Edit supplier product</h2>
+        </div>
+    </div>
+</div>
+
+<div class="row row-deck">
+    <div class="col-12 col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+                    <input asp-for="Id" type="hidden" />
+                    @await Html.PartialAsync("_Form", Model)
+                    <div class="form-footer d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-link">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

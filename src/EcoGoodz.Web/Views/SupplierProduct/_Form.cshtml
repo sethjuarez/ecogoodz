@@ -1,0 +1,61 @@
+@model EcoGoodz.Web.Models.SupplierProduct.SupplierProductFormViewModel
+
+<div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<div class="mb-3">
+    <label asp-for="Supplier" class="form-label"></label>
+    <select asp-for="Supplier" asp-items="Model.SupplierOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchSuppliers", "SupplierProduct")">
+        <option value="">-- choose supplier --</option>
+    </select>
+    <span asp-validation-for="Supplier" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="Location" class="form-label"></label>
+    <select asp-for="Location" asp-items="Model.LocationOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchLocations", "SupplierProduct")">
+        <option value="">-- choose supplier location --</option>
+    </select>
+    <span asp-validation-for="Location" class="text-danger"></span>
+</div>
+<div class="mb-3">
+    <label asp-for="Product" class="form-label"></label>
+    <select asp-for="Product" asp-items="Model.ProductOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchProducts", "SupplierProduct")">
+        <option value="">-- choose product --</option>
+    </select>
+    <span asp-validation-for="Product" class="text-danger"></span>
+</div>
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <label asp-for="Packaging" class="form-label"></label>
+        <select asp-for="Packaging" asp-items="Model.PackagingOptions" class="form-select">
+            <option value="">-- none --</option>
+        </select>
+    </div>
+    <div class="col-md-6 mb-3">
+        <label asp-for="PackagingPrice" class="form-label"></label>
+        <input asp-for="PackagingPrice" class="form-control" />
+    </div>
+</div>
+<div class="mb-3">
+    <label asp-for="OtherPackaging" class="form-label"></label>
+    <input asp-for="OtherPackaging" class="form-control" />
+    <span asp-validation-for="OtherPackaging" class="text-danger"></span>
+</div>
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <label asp-for="Volume" class="form-label"></label>
+        <input asp-for="Volume" class="form-control" />
+    </div>
+    <div class="col-md-4 mb-3">
+        <label asp-for="Frequency" class="form-label"></label>
+        <input asp-for="Frequency" class="form-control" />
+    </div>
+    <div class="col-md-4 mb-3">
+        <label asp-for="FrequencyPackageType" class="form-label"></label>
+        <select asp-for="FrequencyPackageType" asp-items="Model.FrequencyPackageTypeOptions" class="form-select">
+            <option value="">-- none --</option>
+        </select>
+    </div>
+</div>
+<label class="form-check form-switch mb-3">
+    <input asp-for="IsActive" class="form-check-input" type="checkbox" />
+    <span class="form-check-label">Active</span>
+</label>
