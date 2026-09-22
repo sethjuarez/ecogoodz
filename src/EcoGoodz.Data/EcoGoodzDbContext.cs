@@ -707,6 +707,8 @@ public partial class EcoGoodzDbContext : DbContext
 
             entity.HasIndex(e => new { e.Supplier, e.IsActive, e.ShipmentDate, e.Id }, "IX_Loads_Supplier_Active_ShipmentDate_Id");
 
+            entity.HasIndex(e => new { e.Supplier, e.ShipmentDate, e.Id }, "IX_Loads_Supplier_ShipmentDate_Id");
+
             entity.HasIndex(e => new { e.Buyer, e.ShipmentDate, e.Id }, "IX_Loads_Buyer_ShipmentDate_Id");
 
             entity.HasIndex(e => new { e.BuyerLocation, e.ShipmentDate, e.Id }, "IX_Loads_BuyerLocation_ShipmentDate_Id");

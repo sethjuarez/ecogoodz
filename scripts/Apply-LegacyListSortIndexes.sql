@@ -92,6 +92,12 @@ BEGIN
         INCLUDE (Buyer, BuyerLocation, SupplierLocation, LoadStatus);
 END;
 
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_Supplier_ShipmentDate_Id')
+BEGIN
+    CREATE INDEX IX_Loads_Supplier_ShipmentDate_Id ON dbo.Loads (Supplier, ShipmentDate DESC, Id DESC)
+        INCLUDE (Buyer, BuyerLocation, SupplierLocation, LoadStatus, IsActive);
+END;
+
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_Buyer_ShipmentDate_Id')
 BEGIN
     CREATE INDEX IX_Loads_Buyer_ShipmentDate_Id ON dbo.Loads (Buyer, ShipmentDate DESC, Id DESC)
