@@ -1,3 +1,5 @@
+using EcoGoodz.Web.Models.Shared;
+
 namespace EcoGoodz.Web.Models.Buyer;
 
 public class BuyerDetailsViewModel
@@ -12,4 +14,5 @@ public class BuyerDetailsViewModel
     public int ProductCount { get; set; }
     public int SupplierCount { get; set; }
     public int LoadCount { get; set; }
+    public IReadOnlyList<RecentLoadListItemViewModel> RecentLoads { get; set; } = [];
 }

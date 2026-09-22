@@ -5,6 +5,7 @@ using EcoGoodz.Data.Identity;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers;
 using EcoGoodz.Web.Identity;
+using EcoGoodz.Web.Models.Buyer;
 using EcoGoodz.Web.Models.BuyerProduct;
 using EcoGoodz.Web.Models.BuyerSupplier;
 using EcoGoodz.Web.Models.Communication;
@@ -15,6 +16,7 @@ using EcoGoodz.Web.Models.Note;
 using EcoGoodz.Web.Models.Report;
 using EcoGoodz.Web.Models.StaffTask;
 using EcoGoodz.Web.Models.StaffUser;
+using EcoGoodz.Web.Models.Supplier;
 using EcoGoodz.Web.Models.SupplierProduct;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -674,6 +676,129 @@ public class RestoredWorkflowControllerTests
         var assignedProduct = await context.BuyerSupplierProducts.SingleAsync();
         Assert.Equal(7, assignedProduct.BuyerSupplierId);
         Assert.Equal(6, assignedProduct.SupplierProduct);
+    }
+
+    [Fact]
+    public async Task BuyerDetails_IncludesFiveMostRecentActiveLoads()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Recent Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 2, Name = "Recent Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = true, IsActive = true, Location1 = "Buyer Dock" },
+            new Location { Id = 4, ClientId = 2, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" });
+        context.LoadStatuses.Add(new LoadStatus { Id = 5, Status = "Shipped" });
+        context.Products.Add(new Product { Id = 6, Name = "OCC", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 7, Supplier = 2, Location = 4, Product = 6, IsActive = true });
+        for (var i = 0; i < 6; i++)
+        {
+            context.Loads.Add(new Load
+            {
+                Id = 10 + i,
+                Buyer = 1,
+                Supplier = 2,
+                BuyerLocation = 3,
+                SupplierLocation = 4,
+                LoadStatus = 5,
+                ShipmentDate = new DateTime(2026, 9, 1).AddDays(i),
+                IsActive = true,
+                LoadProducts = [new LoadProduct { Id = 100 + i, Product = 7 }],
+            });
+        }
+
+        context.Loads.Add(new Load
+        {
+            Id = 99,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            ShipmentDate = new DateTime(2026, 10, 1),
+            IsActive = false,
+        });
+        context.Loads.Add(new Load
+        {
+            Id = 16,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            ShipmentDate = new DateTime(2026, 9, 7),
+            IsActive = true,
+            LoadProducts = [new LoadProduct { Id = 198, Product = 999 }],
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Details(1));
+        var model = Assert.IsType<BuyerDetailsViewModel>(result.Model);
+
+        Assert.Equal([16, 15, 14, 13, 12], model.RecentLoads.Select(load => load.Id).ToList());
+        Assert.All(model.RecentLoads, load =>
+        {
+            Assert.Equal("Recent Supplier", load.SupplierName);
+            Assert.Equal("Shipped", load.StatusName);
+        });
+        Assert.Equal(string.Empty, model.RecentLoads[0].Products);
+        Assert.Equal("OCC", model.RecentLoads[1].Products);
+    }
+
+    [Fact]
+    public async Task SupplierDetails_IncludesFiveMostRecentActiveLoads()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Recent Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 2, Name = "Recent Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 3, ClientId = 1, IsBuyer = true, IsActive = true, Location1 = "Buyer Dock" },
+            new Location { Id = 4, ClientId = 2, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" });
+        context.LoadStatuses.Add(new LoadStatus { Id = 5, Status = "Pending" });
+        context.Products.Add(new Product { Id = 6, Name = "Mixed Rags", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 7, Supplier = 2, Location = 4, Product = 6, IsActive = true });
+        for (var i = 0; i < 6; i++)
+        {
+            context.Loads.Add(new Load
+            {
+                Id = 20 + i,
+                Buyer = 1,
+                Supplier = 2,
+                BuyerLocation = 3,
+                SupplierLocation = 4,
+                LoadStatus = 5,
+                ShipmentDate = new DateTime(2026, 8, 1).AddDays(i),
+                IsActive = true,
+                LoadProducts = [new LoadProduct { Id = 200 + i, Product = 7 }],
+            });
+        }
+
+        context.Loads.Add(new Load
+        {
+            Id = 99,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 4,
+            LoadStatus = 5,
+            ShipmentDate = new DateTime(2026, 10, 1),
+            IsActive = false,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Details(2));
+        var model = Assert.IsType<SupplierDetailsViewModel>(result.Model);
+
+        Assert.Equal([25, 24, 23, 22, 21], model.RecentLoads.Select(load => load.Id).ToList());
+        Assert.All(model.RecentLoads, load =>
+        {
+            Assert.Equal("Recent Buyer", load.BuyerName);
+            Assert.Equal("Mixed Rags", load.Products);
+            Assert.Equal("Pending", load.StatusName);
+        });
     }
 
     [Fact]

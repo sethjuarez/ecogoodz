@@ -119,6 +119,8 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
             return NotFound();
         }
 
+        supplier.RecentLoads = await GetRecentLoadsAsync(id);
+
         return View(supplier);
     }
 
@@ -235,5 +237,41 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
                 Text = u.FirstName + " " + u.LastName,
             })
             .ToListAsync();
+    }
+
+    private async Task<IReadOnlyList<RecentLoadListItemViewModel>> GetRecentLoadsAsync(int supplierId)
+    {
+        var loads = await Context.Loads
+            .AsNoTracking()
+            .Where(load => load.Supplier == supplierId && load.IsActive == true)
+            .Include(load => load.LoadStatusNavigation)
+            .Include(load => load.BuyerNavigation)
+            .Include(load => load.SupplierNavigation)
+            .Include(load => load.BuyerLocationNavigation)
+            .Include(load => load.SupplierLocationNavigation)
+            .Include(load => load.LoadProducts)
+                .ThenInclude(loadProduct => loadProduct.ProductNavigation)
+                    .ThenInclude(product => product.ProductNavigation)
+            .OrderByDescending(load => load.ShipmentDate)
+            .ThenByDescending(load => load.Id)
+            .Take(5)
+            .ToListAsync();
+
+        return loads
+            .Select(load => new RecentLoadListItemViewModel
+            {
+                Id = load.Id,
+                ShipmentDate = load.ShipmentDate,
+                StatusName = load.LoadStatusNavigation?.Status,
+                BuyerName = load.BuyerNavigation?.Name,
+                SupplierName = load.SupplierNavigation?.Name,
+                BuyerLocationName = load.BuyerLocationNavigation?.Location1,
+                SupplierLocationName = load.SupplierLocationNavigation?.Location1,
+                Products = string.Join(", ", load.LoadProducts
+                    .Select(loadProduct => loadProduct.ProductNavigation?.ProductNavigation?.Name)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct()),
+            })
+            .ToList();
     }
 }
