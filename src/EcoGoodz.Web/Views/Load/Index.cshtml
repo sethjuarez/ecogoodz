@@ -11,6 +11,7 @@
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
             @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search loads…" })
+            <a asp-action="Export" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" class="btn text-nowrap">Export CSV</a>
             <a asp-action="Create" class="btn btn-primary text-nowrap">New load</a>
         </div>
     </div>

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Text;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Identity;
 using EcoGoodz.Data.Models;
@@ -886,6 +887,64 @@ public class RestoredWorkflowControllerTests
 
         Assert.IsType<BadRequestResult>(await controller.ToggleFavorite(1));
         Assert.Empty(context.Favorites);
+    }
+
+    [Fact]
+    public async Task LoadExport_ReturnsFilteredCsvWithOperationalColumns()
+    {
+        await using var context = CreateContext();
+        context.Buyers.AddRange(
+            new Buyer { Id = 1, Name = "Needle, Buyer", IsActive = true },
+            new Buyer { Id = 2, Name = "Other Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 3, Name = "Export Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 4, ClientId = 1, IsBuyer = true, IsActive = true, Location1 = "Buyer Dock" },
+            new Location { Id = 5, ClientId = 3, IsBuyer = false, IsActive = true, Location1 = "Supplier Dock" });
+        context.LoadStatuses.Add(new LoadStatus { Id = 6, Status = "Shipped" });
+        context.Products.Add(new Product { Id = 7, Name = "Mixed Rags", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 8, Supplier = 3, Location = 5, Product = 7, IsActive = true });
+        context.Loads.AddRange(
+            new Load
+            {
+                Id = 9,
+                Buyer = 1,
+                Supplier = 3,
+                BuyerLocation = 4,
+                SupplierLocation = 5,
+                LoadStatus = 6,
+                ShipmentDate = new DateTime(2026, 9, 22),
+                BookingDate = new DateTime(2026, 9, 20),
+                BuyerRef = "BR-1",
+                SupplierRef = "SR-1",
+                Container = "CONT-1",
+                BuyerInvoiceAmount = 123.45m,
+                SupplierInvoiceAmount = 67.89m,
+                IsActive = true,
+                LoadProducts = [new LoadProduct { Id = 10, Product = 8 }],
+            },
+            new Load
+            {
+                Id = 11,
+                Buyer = 2,
+                Supplier = 3,
+                BuyerLocation = 4,
+                SupplierLocation = 5,
+                LoadStatus = 6,
+                ShipmentDate = new DateTime(2026, 9, 21),
+                IsActive = true,
+            });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+
+        var result = Assert.IsType<FileContentResult>(await controller.Export(search: "Needle", sort: "shipmentDate", desc: true));
+        var csv = Encoding.UTF8.GetString(result.FileContents);
+
+        Assert.Equal("text/csv", result.ContentType);
+        Assert.Equal("loads.csv", result.FileDownloadName);
+        Assert.Contains("Id,Status,Buyer,Buyer Location,Supplier,Supplier Location,Products,Shipment Date", csv);
+        Assert.Contains("9,Shipped,\"Needle, Buyer\",Buyer Dock,Export Supplier,Supplier Dock,Mixed Rags,2026-09-22,2026-09-20,BR-1,SR-1,CONT-1", csv);
+        Assert.DoesNotContain("Other Buyer", csv);
     }
 
     [Fact]

@@ -33,7 +33,7 @@ modules that were already deferred or retired.
 | `TaskController` | `StaffTaskController` | **Partial** | Staff task create/edit/list/toggle done/deactivate is rebuilt, including legacy-style multi-assignee task creation. Not rebuilt: multi-assignee edit expansion, per-user headline board AJAX endpoints, home-task partials, read/unread handling, and headline-specific task lists. |
 | `TaskHeadlineController` | `StaffTaskController` headline actions | **Rebuilt / folded in** | Default headlines are created for staff users. Dedicated per-user headline list/create/edit/delete is rebuilt, excluding the reserved `Assigned` headline and blocking deletion while visible open tasks remain assigned to that headline. |
 | `UserController` | `StaffUserController`, `AccountController` | **Complete for staff admin; modernized auth** | Staff user CRUD/deactivate and Identity user synchronization are rebuilt. Password reset/change flows are handled by modern account routes instead of legacy admin partials. |
-| `LoadController` | `LoadController` | **Core complete; export/helper gaps** | Load CRUD/details, buyer/supplier locations, product lines, and validation are rebuilt. Legacy AJAX helper actions are replaced by populated forms/searches. Not rebuilt: `Export` and manager-specific load lookup endpoint. |
+| `LoadController` | `LoadController` | **Core complete; helper gap** | Load CRUD/details, buyer/supplier locations, product lines, validation, and CSV export of the filtered/sorted load list are rebuilt. Legacy AJAX helper actions are replaced by populated forms/searches. Not rebuilt: manager-specific load lookup endpoint. |
 | `BuyerProductController` | `BuyerProductController` | **Core complete** | Buyer product CRUD and packaging preservation are rebuilt. Legacy partial/AJAX create endpoints are replaced by current pages/search endpoints. |
 | `BuyerProductRateController` | `BuyerSupplierController` product-rate actions | **Core rate workflow rebuilt; history partial missing** | Buyer-side rates on buyer/supplier product assignments can be added, edited, and deactivated. Legacy rate-history table (`BuyerProductHistory`) is not exposed as a dedicated report/table. |
 | `SupplierProductController` | `SupplierProductController`, `BuyerSupplierController` | **Core complete; history/bulk gaps** | Supplier product CRUD, supplier rate management, and the supplier-product-to-buyer assignment wizard are rebuilt. Not rebuilt: supplier product history table, bulk supplier-location product update, and broader assignment wizard surfaces. |
@@ -68,8 +68,7 @@ core app" to "full 1:1 legacy parity":
    buyer/supplier product rates, and explicit rate history tables.
 6. **Favorite filters/status helper workflows**: favorite-filtered list views and
    quick status/substatus endpoints on buyer/supplier pages.
-7. **Load export and specialized lookup endpoints**: legacy export and account
-   manager-specific lookup helpers.
+7. **Specialized lookup endpoints**: account manager-specific load lookup helpers.
 
 ## Recommendation
 

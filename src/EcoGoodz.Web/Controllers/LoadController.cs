@@ -1,7 +1,10 @@
+using System.Globalization;
 using System.Linq.Expressions;
+using System.Text;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
+using EcoGoodz.Web.Extensions;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Load;
 using Microsoft.AspNetCore.Mvc;
@@ -129,6 +132,88 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             .ToListAsync();
 
         return View(load);
+    }
+
+    public async Task<IActionResult> Export(string? search, string? sort, bool desc = false)
+    {
+        IQueryable<Data.Models.Load> query = GetBaseQuery()
+            .AsNoTracking()
+            .Include(load => load.BuyerLocationNavigation)
+            .Include(load => load.SupplierLocationNavigation)
+            .Include(load => load.LoadProducts)
+                .ThenInclude(loadProduct => loadProduct.ProductNavigation)
+                    .ThenInclude(product => product.ProductNavigation);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = ApplySearch(query, search);
+        }
+
+        var loads = await query
+            .ApplySort(sort, desc, SortColumns, DefaultSortColumn, out _)
+            .ToListAsync();
+
+        var csv = new StringBuilder();
+        AppendCsvRow(csv,
+            "Id",
+            "Status",
+            "Buyer",
+            "Buyer Location",
+            "Supplier",
+            "Supplier Location",
+            "Products",
+            "Shipment Date",
+            "Booking Date",
+            "Buyer Ref",
+            "Supplier Ref",
+            "Container",
+            "Buyer Invoice",
+            "Buyer Invoice Amount",
+            "Supplier Invoice",
+            "Supplier Invoice Amount",
+            "Freight Carrier",
+            "Freight Invoice",
+            "Freight Quoted",
+            "Freight Billed",
+            "Active");
+
+        foreach (var load in loads)
+        {
+            AppendCsvRow(csv,
+                load.Id.ToString(),
+                load.LoadStatusNavigation?.Status,
+                load.BuyerNavigation?.Name,
+                load.BuyerLocationNavigation?.Location1,
+                load.SupplierNavigation?.Name,
+                load.SupplierLocationNavigation?.Location1,
+                string.Join(", ", load.LoadProducts
+                    .Select(loadProduct => loadProduct.ProductNavigation?.ProductNavigation?.Name)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct()),
+                FormatDate(load.ShipmentDate),
+                FormatDate(load.BookingDate),
+                load.BuyerRef,
+                load.SupplierRef,
+                load.Container,
+                load.BuyerInvoice,
+                FormatDecimal(load.BuyerInvoiceAmount),
+                load.SupplierInvoice,
+                FormatDecimal(load.SupplierInvoiceAmount),
+                load.FreightCarrier,
+                load.FreightInvoice,
+                FormatDecimal(load.FreightAmountQuoted),
+                FormatDecimal(load.FreightAmountBilled),
+                (load.IsActive ?? false) ? "Yes" : "No");
+        }
+
+        var csvContent = csv.ToString();
+        var preamble = Encoding.UTF8.GetPreamble();
+        var content = Encoding.UTF8.GetBytes(csvContent);
+        var bytes = new byte[preamble.Length + content.Length];
+        Buffer.BlockCopy(preamble, 0, bytes, 0, preamble.Length);
+        Buffer.BlockCopy(content, 0, bytes, preamble.Length, content.Length);
+
+        return File(bytes, "text/csv", "loads.csv");
     }
 
     public async Task<IActionResult> Create()
@@ -374,6 +459,23 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             .OrderBy(s => s.Status)
             .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Status })
             .ToListAsync();
+
+    private static void AppendCsvRow(StringBuilder csv, params string?[] values)
+    {
+        csv.AppendLine(string.Join(",", values.Select(EscapeCsv)));
+    }
+
+    private static string EscapeCsv(string? value)
+    {
+        value ??= string.Empty;
+        return value.Contains('"') || value.Contains(',') || value.Contains('\r') || value.Contains('\n')
+            ? "\"" + value.Replace("\"", "\"\"") + "\""
+            : value;
+    }
+
+    private static string? FormatDate(DateTime? value) => value?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static string? FormatDecimal(decimal? value) => value?.ToString("0.####", CultureInfo.InvariantCulture);
 
     private async Task ValidateSelectionsAsync(LoadFormViewModel model, int? loadId)
     {
