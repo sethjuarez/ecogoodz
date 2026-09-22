@@ -2,7 +2,10 @@
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
     var isDashboardActive = string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase);
     var isTradingActive = string.Equals(currentController, "Load", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(currentController, "BuyerSupplier", StringComparison.OrdinalIgnoreCase);
+        || string.Equals(currentController, "BuyerSupplier", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "Communication", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "Note", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "StaffTask", StringComparison.OrdinalIgnoreCase);
     var isPartnersActive = string.Equals(currentController, "Buyer", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "Supplier", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase);
@@ -10,6 +13,7 @@
         || string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "BuyerProduct", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "SupplierProduct", StringComparison.OrdinalIgnoreCase);
+    var isAdminActive = string.Equals(currentController, "StaffUser", StringComparison.OrdinalIgnoreCase);
     var userDisplayName = User.Identity?.Name ?? string.Empty;
     var userInitial = string.IsNullOrWhiteSpace(userDisplayName) ? "U" : userDisplayName[..1].ToUpperInvariant();
 }
@@ -85,6 +89,9 @@
                             <div class="dropdown-menu">
                                 <a class="dropdown-item @(string.Equals(currentController, "Load", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Load" asp-action="Index">Loads</a>
                                 <a class="dropdown-item @(string.Equals(currentController, "BuyerSupplier", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="BuyerSupplier" asp-action="Index">Buyer/supplier matches</a>
+                                <a class="dropdown-item @(string.Equals(currentController, "Communication", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Communication" asp-action="Index">Communications</a>
+                                <a class="dropdown-item @(string.Equals(currentController, "Note", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Note" asp-action="Index">Notes</a>
+                                <a class="dropdown-item @(string.Equals(currentController, "StaffTask", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="StaffTask" asp-action="Index">Tasks</a>
                             </div>
                         </li>
                         <li class="nav-item dropdown @(isPartnersActive ? "active" : null)">
@@ -112,6 +119,17 @@
                                 <a class="dropdown-item @(string.Equals(currentController, "BuyerProduct", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="BuyerProduct" asp-action="Index">Buyer products</a>
                                 <a class="dropdown-item @(string.Equals(currentController, "SupplierProduct", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="SupplierProduct" asp-action="Index">Supplier products</a>
                                 <a class="dropdown-item @(string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="PackageType" asp-action="Index">Package types</a>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown @(isAdminActive ? "active" : null)">
+                            <a class="nav-link dropdown-toggle" href="#navbar-admin" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
+                                <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6a4 4 0 1 0 0 8a4 4 0 0 0 0 -8" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
+                                </span>
+                                <span class="nav-link-title">Admin</span>
+                            </a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item @(string.Equals(currentController, "StaffUser", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="StaffUser" asp-action="Index">Staff users</a>
                             </div>
                         </li>
                     </ul>

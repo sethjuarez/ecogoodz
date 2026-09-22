@@ -10,6 +10,7 @@
             <h2 class="page-title">@Model.Name</h2>
         </div>
         <div class="col-auto ms-auto d-flex gap-2">
+            <a asp-controller="Communication" asp-action="Index" asp-route-clientType="Buyer" asp-route-clientId="@Model.Id" class="btn">Communications</a>
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
             <a asp-action="Index" class="btn">Back to list</a>
         </div>
@@ -75,4 +76,3 @@
         </div>
     </div>
 </div>
-

@@ -1,0 +1,21 @@
+@model EcoGoodz.Web.Models.Communication.CommunicationFormViewModel
+@{
+    ViewData["Title"] = "Log communication";
+}
+
+<div class="page-header d-print-none mb-3">
+    <div class="row g-2 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Communications</div>
+            <h2 class="page-title">Log communication</h2>
+        </div>
+    </div>
+</div>
+
+<form asp-action="Create" method="post" class="card">
+    @await Html.PartialAsync("_Form", Model)
+    <div class="card-footer text-end">
+        <a asp-action="Index" asp-route-clientType="@Model.ClientType" asp-route-clientId="@(Model.ClientType == "Buyer" ? Model.BuyerId : Model.SupplierId)" class="btn">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save communication</button>
+    </div>
+</form>

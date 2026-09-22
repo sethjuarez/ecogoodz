@@ -1,0 +1,84 @@
+@model EcoGoodz.Web.Models.Contact.ContactFormViewModel
+
+<div class="card-body">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <input asp-for="Id" type="hidden" />
+    <input asp-for="ContactInformationId" type="hidden" />
+    <input asp-for="ClientId" type="hidden" />
+    <input asp-for="IsBuyer" type="hidden" />
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label asp-for="LocationId" class="form-label"></label>
+            <select asp-for="LocationId" asp-items="Model.LocationOptions" class="form-select">
+                <option value="">Choose location</option>
+            </select>
+            <span asp-validation-for="LocationId" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="FirstName" class="form-label"></label>
+            <input asp-for="FirstName" class="form-control" />
+            <span asp-validation-for="FirstName" class="text-danger"></span>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="LastName" class="form-label"></label>
+            <input asp-for="LastName" class="form-control" />
+            <span asp-validation-for="LastName" class="text-danger"></span>
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Title" class="form-label"></label>
+            <input asp-for="Title" class="form-control" />
+        </div>
+        <div class="col-md-4">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="OfficePhone" class="form-label"></label>
+            <input asp-for="OfficePhone" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label asp-for="CellPhone" class="form-label"></label>
+            <input asp-for="CellPhone" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Address" class="form-label"></label>
+            <input asp-for="Address" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="City" class="form-label"></label>
+            <input asp-for="City" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="PinCode" class="form-label"></label>
+            <input asp-for="PinCode" class="form-control" />
+        </div>
+        <div class="col-md-6">
+            <label asp-for="State" class="form-label"></label>
+            <select asp-for="State" asp-items="Model.StateOptions" class="form-select">
+                <option value="">Choose state</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label asp-for="Country" class="form-label"></label>
+            <select asp-for="Country" asp-items="Model.CountryOptions" class="form-select">
+                <option value="">Choose country</option>
+            </select>
+        </div>
+        <div class="col-12">
+            <label class="form-check form-check-inline">
+                <input asp-for="IsPrimaryContact" class="form-check-input" />
+                <span class="form-check-label">Primary contact</span>
+            </label>
+            <label class="form-check form-check-inline">
+                <input asp-for="IsDockContact" class="form-check-input" />
+                <span class="form-check-label">Dock contact</span>
+            </label>
+            <label class="form-check form-check-inline">
+                <input asp-for="IsActive" class="form-check-input" />
+                <span class="form-check-label">Active</span>
+            </label>
+        </div>
+    </div>
+</div>
