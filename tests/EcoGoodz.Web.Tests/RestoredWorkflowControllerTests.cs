@@ -18,6 +18,7 @@ using EcoGoodz.Web.Models.Report;
 using EcoGoodz.Web.Models.Shared;
 using EcoGoodz.Web.Models.StaffTask;
 using EcoGoodz.Web.Models.StaffUser;
+using EcoGoodz.Web.Models.Product;
 using EcoGoodz.Web.Models.Supplier;
 using EcoGoodz.Web.Models.SupplierProduct;
 using Microsoft.AspNetCore.Http;
@@ -1545,6 +1546,151 @@ public class RestoredWorkflowControllerTests
         var manager = Assert.Single(managers);
         Assert.Equal(99, manager.GetType().GetProperty("id")!.GetValue(manager));
         Assert.Equal("Ava Manager", manager.GetType().GetProperty("text")!.GetValue(manager));
+    }
+
+    [Fact]
+    public async Task ProductMarkup_SavesRangesAndUpdatesExistingRows()
+    {
+        await using var context = CreateContext();
+        context.Products.Add(new Product { Id = 1, Name = "OCC", IsActive = true });
+        context.MarkUpColors.AddRange(
+            new MarkUpColor { Id = 2, Color = "Green", ColorCode = "#008000" },
+            new MarkUpColor { Id = 3, Color = "Yellow", ColorCode = "#ffff00" },
+            new MarkUpColor { Id = 4, Color = "Red", ColorCode = "#ff0000" });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ProductController(context));
+
+        var result = await controller.Markup(new ProductMarkupViewModel
+        {
+            ProductId = 1,
+            MarkupColors =
+            [
+                new ProductMarkupColorLineViewModel { MarkUpColorId = 2, Color = "Green", MinRate = 0m, MaxRate = 10m },
+                new ProductMarkupColorLineViewModel { MarkUpColorId = 3, Color = "Yellow", MinRate = 10.01m, MaxRate = 20m },
+                new ProductMarkupColorLineViewModel { MarkUpColorId = 4, Color = "Red" },
+            ],
+        });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal("Details", redirect.ActionName);
+        Assert.Equal(1, redirect.RouteValues!["id"]);
+
+        var rows = await context.ProductMarkUpColors.OrderBy(row => row.MarkUpColor).ToListAsync();
+        Assert.Equal(3, rows.Count);
+        Assert.Equal(0m, rows[0].MinRate);
+        Assert.Equal(10m, rows[0].MaxRate);
+        Assert.Equal(10.01m, rows[1].MinRate);
+        Assert.Equal(20m, rows[1].MaxRate);
+        Assert.Null(rows[2].MinRate);
+        Assert.Null(rows[2].MaxRate);
+
+        result = await controller.Markup(new ProductMarkupViewModel
+        {
+            ProductId = 1,
+            MarkupColors =
+            [
+                new ProductMarkupColorLineViewModel { Id = rows[0].Id, MarkUpColorId = 2, Color = "Green", MinRate = 0m, MaxRate = 12m },
+                new ProductMarkupColorLineViewModel { Id = rows[1].Id, MarkUpColorId = 3, Color = "Yellow", MinRate = 12.01m, MaxRate = 22m },
+                new ProductMarkupColorLineViewModel { Id = rows[2].Id, MarkUpColorId = 4, Color = "Red" },
+            ],
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        rows = await context.ProductMarkUpColors.OrderBy(row => row.MarkUpColor).ToListAsync();
+        Assert.Equal(3, rows.Count);
+        Assert.Equal(12m, rows[0].MaxRate);
+        Assert.Equal(12.01m, rows[1].MinRate);
+
+        var product = await context.Products.FindAsync(1);
+        Assert.Equal(99, product!.UpdatedBy);
+    }
+
+    [Fact]
+    public async Task ProductMarkup_RejectsConflictingRanges()
+    {
+        await using var context = CreateContext();
+        context.Products.Add(new Product { Id = 1, Name = "OCC", IsActive = true });
+        context.MarkUpColors.AddRange(
+            new MarkUpColor { Id = 2, Color = "Green", ColorCode = "#008000" },
+            new MarkUpColor { Id = 3, Color = "Yellow", ColorCode = "#ffff00" });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ProductController(context));
+
+        var result = await controller.Markup(new ProductMarkupViewModel
+        {
+            ProductId = 1,
+            MarkupColors =
+            [
+                new ProductMarkupColorLineViewModel { MarkUpColorId = 2, Color = "Green", MinRate = 0m, MaxRate = 10m },
+                new ProductMarkupColorLineViewModel { MarkUpColorId = 3, Color = "Yellow", MinRate = 5m, MaxRate = 20m },
+            ],
+        });
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Empty(await context.ProductMarkUpColors.ToListAsync());
+    }
+
+    [Fact]
+    public async Task ProductMarkup_HandlesLegacyDuplicateColorRows()
+    {
+        await using var context = CreateContext();
+        context.Products.Add(new Product { Id = 1, Name = "OCC", IsActive = true });
+        context.MarkUpColors.Add(new MarkUpColor { Id = 2, Color = "Green", ColorCode = "#008000" });
+        context.ProductMarkUpColors.AddRange(
+            new ProductMarkUpColor { Id = 10, Product = 1, MarkUpColor = 2, MinRate = 0m, MaxRate = 10m },
+            new ProductMarkUpColor { Id = 11, Product = 1, MarkUpColor = 2, MinRate = 1m, MaxRate = 11m });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ProductController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Markup(1));
+        var model = Assert.IsType<ProductMarkupViewModel>(result.Model);
+        var row = Assert.Single(model.MarkupColors);
+        Assert.Equal(10, row.Id);
+        Assert.Equal(0m, row.MinRate);
+        Assert.Equal(10m, row.MaxRate);
+
+        var post = await controller.Markup(new ProductMarkupViewModel
+        {
+            ProductId = 1,
+            MarkupColors =
+            [
+                new ProductMarkupColorLineViewModel { Id = 10, MarkUpColorId = 2, Color = "Green", MinRate = 2m, MaxRate = 12m },
+            ],
+        });
+
+        Assert.IsType<RedirectToActionResult>(post);
+        var rows = await context.ProductMarkUpColors.OrderBy(markup => markup.Id).ToListAsync();
+        Assert.Equal([2m, 2m], rows.Select(markup => markup.MinRate).ToList());
+        Assert.Equal([12m, 12m], rows.Select(markup => markup.MaxRate).ToList());
+    }
+
+    [Fact]
+    public async Task ProductMarkup_RejectsDuplicatePostedColors()
+    {
+        await using var context = CreateContext();
+        context.Products.Add(new Product { Id = 1, Name = "OCC", IsActive = true });
+        context.MarkUpColors.Add(new MarkUpColor { Id = 2, Color = "Green", ColorCode = "#008000" });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ProductController(context));
+
+        var result = await controller.Markup(new ProductMarkupViewModel
+        {
+            ProductId = 1,
+            MarkupColors =
+            [
+                new ProductMarkupColorLineViewModel { MarkUpColorId = 2, Color = "Green", MinRate = 0m, MaxRate = 10m },
+                new ProductMarkupColorLineViewModel { MarkUpColorId = 2, Color = "Green", MinRate = 10.01m, MaxRate = 20m },
+            ],
+        });
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Empty(await context.ProductMarkUpColors.ToListAsync());
     }
 
     [Fact]

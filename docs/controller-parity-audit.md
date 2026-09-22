@@ -24,7 +24,7 @@ modules that were already deferred or retired.
 | `HomeController` | `HomeController`, `ReportController` | **Partial** | Current dashboard has live counts/recent loads. Legacy `GetReport` monthly invoice-lbs/goal dashboard charts are not rebuilt; they depend on goal/report data and should stay deferred with reporting unless staff confirms dashboard chart usage. |
 | `BuyerController` | `BuyerController`, related child controllers | **Core complete; auxiliaries partial** | Buyer CRUD, detail page, locations/products/contacts/communications/notes links, recent-load widget, buyer tracking buyer/product/supplier-location helpers, location favorite toggle, current-user favorite-filtered list view, and status/substatus AJAX helpers are rebuilt. Legacy list/detail AJAX wrappers are replaced by MVC pages. Not rebuilt: note quick-update endpoint and legacy report fragments. |
 | `SupplierController` | `SupplierController`, `SupplierProductController`, related child controllers | **Core complete; auxiliaries partial** | Supplier CRUD, detail page, products/locations/contacts/communications/notes links, recent-load widget, supplier-product-to-buyer helper, supplier tracking product/supplier-location helpers, location favorite toggle, current-user favorite-filtered list view, and status/substatus AJAX helpers are rebuilt. Not rebuilt: packaging/product lookup helpers and report fragments. |
-| `ProductController` | `ProductController` | **Partial** | Product CRUD and parent category selection are rebuilt. Legacy separate parent-product create/edit endpoints are represented by one product form. Not rebuilt: markup color / margin-parameter matrix (`ProductMarkUpColor`) and its overlap validation. |
+| `ProductController` | `ProductController` | **Core complete** | Product CRUD, parent category selection, and the markup color / margin-parameter matrix (`ProductMarkUpColor`) with overlap validation are rebuilt. Legacy separate parent-product create/edit endpoints are represented by one product form. |
 | `PackageTypeController` | `PackageTypeController` | **Complete** | CRUD/list behavior is rebuilt; legacy DataTables JSON endpoint is replaced by paged server-rendered list. |
 | `LocationController` | `LocationController` | **Core complete; extended fields partial** | Location CRUD, copy-from-existing-location, and current-user favorite toggle are rebuilt. Copy preserves hidden legacy logistics fields and clones non-dock contacts plus buyer products/packages. Some extended logistics fields are still not directly editable on the current form. |
 | `ContactController` | `ContactController` | **Complete for CRUD/copy** | Contact CRUD, primary-contact invariant, and legacy `CopyContact` behavior are rebuilt. `SetPrimaryContact` behavior is covered by create/edit primary flag. |
@@ -59,17 +59,15 @@ core app" to "full 1:1 legacy parity":
 
 1. **Reports beyond Last Load Shipped**: communication, gross profit/summary,
    goal, company, email, and account-manager dashboard reports.
-2. **Product markup color/margin matrix**: legacy `ProductMarkUpColor` editing and
-   conflict validation.
-3. **Task board parity**: multi-assignee edit expansion,
+2. **Task board parity**: multi-assignee edit expansion,
    per-user headline/task board AJAX views, and read/unread behavior.
-4. **Remaining buyer/supplier helper workflows**: low-level tracking order/delete/note
+3. **Remaining buyer/supplier helper workflows**: low-level tracking order/delete/note
    fragments and other confirmed helper needs.
 
 ## Recommendation
 
 Do not treat the missing items above as bugs in the restored core app. Convert
 only staff-confirmed gaps into scoped issues, with the legacy controller/action
-names copied into the issue. The highest-risk parity candidates are now the task headline board and product
-markup matrix because they are operational data-entry accelerators rather than
-broad reporting surfaces.
+names copied into the issue. The highest-risk parity candidate is now the task
+headline board because it is an operational data-entry accelerator rather than
+a broad reporting surface.
