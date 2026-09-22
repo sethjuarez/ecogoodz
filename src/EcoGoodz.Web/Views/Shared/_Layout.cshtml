@@ -13,6 +13,7 @@
         || string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "BuyerProduct", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "SupplierProduct", StringComparison.OrdinalIgnoreCase);
+    var isReportsActive = string.Equals(currentController, "Report", StringComparison.OrdinalIgnoreCase);
     var isAdminActive = string.Equals(currentController, "StaffUser", StringComparison.OrdinalIgnoreCase);
     var userDisplayName = User.Identity?.Name ?? string.Empty;
     var userInitial = string.IsNullOrWhiteSpace(userDisplayName) ? "U" : userDisplayName[..1].ToUpperInvariant();
@@ -119,6 +120,17 @@
                                 <a class="dropdown-item @(string.Equals(currentController, "BuyerProduct", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="BuyerProduct" asp-action="Index">Buyer products</a>
                                 <a class="dropdown-item @(string.Equals(currentController, "SupplierProduct", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="SupplierProduct" asp-action="Index">Supplier products</a>
                                 <a class="dropdown-item @(string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="PackageType" asp-action="Index">Package types</a>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown @(isReportsActive ? "active" : null)">
+                            <a class="nav-link dropdown-toggle" href="#navbar-reports" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false">
+                                <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 16l3 -3l3 2l5 -7" /></svg>
+                                </span>
+                                <span class="nav-link-title">Reports</span>
+                            </a>
+                            <div class="dropdown-menu">
+                                <a class="dropdown-item @(string.Equals(currentController, "Report", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Report" asp-action="LastLoadShipped">Last load shipped</a>
                             </div>
                         </li>
                         <li class="nav-item dropdown @(isAdminActive ? "active" : null)">

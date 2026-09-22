@@ -11,6 +11,7 @@ using EcoGoodz.Web.Models.Communication;
 using EcoGoodz.Web.Models.Contact;
 using EcoGoodz.Web.Models.Load;
 using EcoGoodz.Web.Models.Note;
+using EcoGoodz.Web.Models.Report;
 using EcoGoodz.Web.Models.StaffTask;
 using EcoGoodz.Web.Models.StaffUser;
 using Microsoft.AspNetCore.Http;
@@ -411,6 +412,56 @@ public class RestoredWorkflowControllerTests
         Assert.Contains(results, result => result.MemberNames.Contains(nameof(BuyerSupplierFormViewModel.SupplierLocation)));
     }
 
+    [Fact]
+    public async Task LastLoadShippedReport_GroupsByBuyerAndUsesMostRecentLoad()
+    {
+        await using var context = CreateContext();
+        SeedLastLoadReportData(context);
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ReportController(context));
+
+        var result = await controller.LastLoadShipped(new LastLoadShippedReportViewModel
+        {
+            ClientType = "Buyer",
+            StartDate = DateTime.Today.AddDays(-90),
+            EndDate = DateTime.Today,
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<LastLoadShippedReportViewModel>(view.Model);
+        Assert.Equal(2, model.Rows.Count);
+
+        var buyerOne = model.Rows.Single(row => row.ClientName == "Buyer One");
+        Assert.Equal(DateTime.Today.AddDays(-5), buyerOne.ShipmentDate);
+        Assert.Equal(5, buyerOne.DaysSinceShipment);
+        Assert.Equal("HDPE", buyerOne.Products);
+        Assert.Equal("Ava Manager", buyerOne.AccountManagerName);
+        Assert.Equal(DateTime.Today.AddDays(-2), buyerOne.LastCommunicationDate);
+    }
+
+    [Fact]
+    public async Task LastLoadShippedReport_StaleDaysFiltersAfterMostRecentLoad()
+    {
+        await using var context = CreateContext();
+        SeedLastLoadReportData(context);
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ReportController(context));
+
+        var result = await controller.LastLoadShipped(new LastLoadShippedReportViewModel
+        {
+            ClientType = "Buyer",
+            StaleDays = 30,
+        });
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<LastLoadShippedReportViewModel>(view.Model);
+        var row = Assert.Single(model.Rows);
+        Assert.Equal("Buyer Two", row.ClientName);
+        Assert.Equal(60, row.DaysSinceShipment);
+    }
+
     private static EcoGoodzDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<EcoGoodzDbContext>()
@@ -455,6 +506,76 @@ public class RestoredWorkflowControllerTests
             Location = 4,
             Product = 6,
             Packaging = 7,
+            IsActive = true,
+        });
+    }
+
+    private static void SeedLastLoadReportData(EcoGoodzDbContext context)
+    {
+        context.Users.Add(new User { Id = 10, FirstName = "Ava", LastName = "Manager", IsActive = true });
+        context.Buyers.AddRange(
+            new Buyer { Id = 1, Name = "Buyer One", AccountManager = 10, IsActive = true },
+            new Buyer { Id = 2, Name = "Buyer Two", AccountManager = 10, IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 3, Name = "Supplier", AccountManager = 10, IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 4, ClientId = 1, IsBuyer = true, Location1 = "Buyer One Dock", IsActive = true },
+            new Location { Id = 5, ClientId = 2, IsBuyer = true, Location1 = "Buyer Two Dock", IsActive = true },
+            new Location { Id = 6, ClientId = 3, IsBuyer = false, Location1 = "Supplier Dock", IsActive = true });
+        context.LoadStatuses.AddRange(
+            new LoadStatus { Id = 2, Status = "Shipped" },
+            new LoadStatus { Id = 4, Status = "Completed" });
+        context.Products.AddRange(
+            new Product { Id = 7, Name = "PET", IsActive = true },
+            new Product { Id = 8, Name = "HDPE", IsActive = true });
+        context.SupplierProducts.AddRange(
+            new SupplierProduct { Id = 9, Supplier = 3, Location = 6, Product = 7, IsActive = true },
+            new SupplierProduct { Id = 10, Supplier = 3, Location = 6, Product = 8, IsActive = true });
+        context.Loads.AddRange(
+            new Load
+            {
+                Id = 20,
+                Buyer = 1,
+                Supplier = 3,
+                BuyerLocation = 4,
+                SupplierLocation = 6,
+                BuyerAccountMgr = 10,
+                LoadStatus = 2,
+                ShipmentDate = DateTime.Today.AddDays(-40),
+                IsActive = true,
+                LoadProducts = [new LoadProduct { Id = 21, Product = 9 }],
+            },
+            new Load
+            {
+                Id = 22,
+                Buyer = 1,
+                Supplier = 3,
+                BuyerLocation = 4,
+                SupplierLocation = 6,
+                BuyerAccountMgr = 10,
+                LoadStatus = 4,
+                ShipmentDate = DateTime.Today.AddDays(-5),
+                IsActive = true,
+                LoadProducts = [new LoadProduct { Id = 23, Product = 10 }],
+            },
+            new Load
+            {
+                Id = 24,
+                Buyer = 2,
+                Supplier = 3,
+                BuyerLocation = 5,
+                SupplierLocation = 6,
+                BuyerAccountMgr = 10,
+                LoadStatus = 2,
+                ShipmentDate = DateTime.Today.AddDays(-60),
+                IsActive = true,
+                LoadProducts = [new LoadProduct { Id = 25, Product = 9 }],
+            });
+        context.Communications.Add(new Communication
+        {
+            Id = 30,
+            ClientId = 1,
+            IsBuyer = true,
+            Date = DateTime.Today.AddDays(-2),
             IsActive = true,
         });
     }
