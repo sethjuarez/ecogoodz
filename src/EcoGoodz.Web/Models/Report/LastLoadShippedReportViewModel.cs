@@ -33,11 +33,17 @@ public class AccountManagerReportOption
 
 public class LastLoadShippedReportRow
 {
+    public int LoadId { get; set; }
+
     public int? ClientId { get; set; }
 
     public string ClientName { get; set; } = string.Empty;
 
+    public int? AccountManagerId { get; set; }
+
     public string? AccountManagerName { get; set; }
+
+    public int? LocationId { get; set; }
 
     public string? LocationName { get; set; }
 
@@ -46,6 +52,8 @@ public class LastLoadShippedReportRow
     public int DaysSinceShipment { get; set; }
 
     public string Products { get; set; } = string.Empty;
+
+    public int? LastCommunicationId { get; set; }
 
     public DateTime? LastCommunicationDate { get; set; }
 }

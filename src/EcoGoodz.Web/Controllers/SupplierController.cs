@@ -42,6 +42,7 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
         {
             Id = s.Id,
             Name = s.Name ?? string.Empty,
+            AccountManagerId = s.AccountManager,
             AccountManagerName = s.AccountManagerNavigation != null
                 ? s.AccountManagerNavigation.FirstName + " " + s.AccountManagerNavigation.LastName
                 : null,
@@ -80,6 +81,7 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
                 {
                     Id = supplier.Id,
                     Name = supplier.Name ?? string.Empty,
+                    AccountManagerId = supplier.AccountManager,
                     AccountManagerName = accountManager != null
                         ? accountManager.FirstName + " " + accountManager.LastName
                         : null,
@@ -173,6 +175,7 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
             {
                 Id = s.Id,
                 Name = s.Name ?? string.Empty,
+                AccountManagerId = s.AccountManager,
                 AccountManagerName = s.AccountManagerNavigation != null
                     ? s.AccountManagerNavigation.FirstName + " " + s.AccountManagerNavigation.LastName
                     : null,

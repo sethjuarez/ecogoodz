@@ -42,6 +42,7 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
         {
             Id = b.Id,
             Name = b.Name ?? string.Empty,
+            AccountManagerId = b.AccountManager,
             AccountManagerName = b.AccountManagerNavigation != null
                 ? b.AccountManagerNavigation.FirstName + " " + b.AccountManagerNavigation.LastName
                 : null,
@@ -80,6 +81,7 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
                 {
                     Id = buyer.Id,
                     Name = buyer.Name ?? string.Empty,
+                    AccountManagerId = buyer.AccountManager,
                     AccountManagerName = accountManager != null
                         ? accountManager.FirstName + " " + accountManager.LastName
                         : null,
@@ -173,6 +175,7 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
             {
                 Id = b.Id,
                 Name = b.Name ?? string.Empty,
+                AccountManagerId = b.AccountManager,
                 AccountManagerName = b.AccountManagerNavigation != null
                     ? b.AccountManagerNavigation.FirstName + " " + b.AccountManagerNavigation.LastName
                     : null,

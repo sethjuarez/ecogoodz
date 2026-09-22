@@ -120,6 +120,7 @@
         <table class="table card-table table-vcenter">
             <thead>
                 <tr>
+                    <th>Load</th>
                     <th>Buyer</th>
                     <th>Supplier</th>
                     <th>Status</th>
@@ -130,7 +131,7 @@
                 @if (Model.RecentLoads.Count == 0)
                 {
                     <tr>
-                        <td colspan="4">
+                        <td colspan="5">
                             <div class="eg-empty-state">
                                 <span class="eg-icon-bubble" aria-hidden="true">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v8H3z" /><path d="M14 10h4l3 3v2h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></svg>
@@ -143,7 +144,8 @@
                 @foreach (var load in Model.RecentLoads)
                 {
                     <tr>
-                        <td><a asp-controller="Load" asp-action="Details" asp-route-id="@load.Id" class="text-reset">@load.BuyerName</a></td>
+                        <td><a asp-controller="Load" asp-action="Details" asp-route-id="@load.Id" class="text-reset">#@load.Id</a></td>
+                        <td><a asp-controller="Buyer" asp-action="Details" asp-route-id="@load.BuyerId" class="text-reset">@load.BuyerName</a></td>
                         <td><a asp-controller="Supplier" asp-action="Details" asp-route-id="@load.SupplierId" class="text-reset">@load.SupplierName</a></td>
                         <td>@load.StatusName</td>
                         <td>@load.ShipmentDate?.ToString("yyyy-MM-dd")</td>

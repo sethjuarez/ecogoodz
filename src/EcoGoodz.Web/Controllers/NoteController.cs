@@ -1,7 +1,9 @@
+using System.Globalization;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Note;
+using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -22,7 +24,7 @@ public class NoteController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index(string? scope, int? id)
+    public async Task<IActionResult> Index(string? scope, int? id, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
         var query = _context.Notes
             .Where(n => n.IsActive == true)
@@ -41,8 +43,24 @@ public class NoteController : Controller
             _ => query,
         };
 
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+        var totalCount = await query.CountAsync();
+        var scopeParameters = new Dictionary<string, string?>();
+        if (!string.IsNullOrWhiteSpace(scope))
+        {
+            scopeParameters["scope"] = scope;
+        }
+
+        if (id.HasValue)
+        {
+            scopeParameters["id"] = id.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
         var notes = await query
             .OrderByDescending(n => n.UpdatedOn ?? n.CreateOn)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(n => new NoteListItemViewModel
             {
                 Id = n.Id,
@@ -64,7 +82,17 @@ public class NoteController : Controller
             })
             .ToListAsync();
 
-        return View(notes);
+        return View(new PagedResult<NoteListItemViewModel>
+        {
+            Items = notes,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                AdditionalQueryParameters = scopeParameters,
+            },
+        });
     }
 
     public async Task<IActionResult> Details(int id)

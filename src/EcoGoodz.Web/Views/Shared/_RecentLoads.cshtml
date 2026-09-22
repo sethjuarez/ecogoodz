@@ -30,7 +30,9 @@
                                 <span class="eg-icon-bubble" aria-hidden="true">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v8H3z" /><path d="M14 10h4l3 3v2h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></svg>
                                 </span>
-                                <div>No recent loads found.</div>
+                                <h3 class="mb-1">No recent loads yet</h3>
+                                <div class="mb-3">When loads connect this record to trading activity, they will appear here.</div>
+                                <a asp-controller="Load" asp-action="Create" class="btn btn-primary">Create load</a>
                             </div>
                         </td>
                     </tr>
@@ -41,10 +43,46 @@
                         <td><a asp-controller="Load" asp-action="Details" asp-route-id="@load.Id">#@load.Id</a></td>
                         <td>@load.ShipmentDate?.ToString("yyyy-MM-dd")</td>
                         <td>@load.StatusName</td>
-                        <td><a asp-controller="Buyer" asp-action="Details" asp-route-id="@load.BuyerId" class="text-reset">@load.BuyerName</a></td>
-                        <td><a asp-controller="Supplier" asp-action="Details" asp-route-id="@load.SupplierId" class="text-reset">@load.SupplierName</a></td>
-                        <td><a asp-controller="Location" asp-action="Details" asp-route-id="@load.BuyerLocationId" class="text-reset">@load.BuyerLocationName</a></td>
-                        <td><a asp-controller="Location" asp-action="Details" asp-route-id="@load.SupplierLocationId" class="text-reset">@load.SupplierLocationName</a></td>
+                        <td>
+                            @if (load.BuyerId.HasValue)
+                            {
+                                <a asp-controller="Buyer" asp-action="Details" asp-route-id="@load.BuyerId" class="text-reset">@load.BuyerName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (load.SupplierId.HasValue)
+                            {
+                                <a asp-controller="Supplier" asp-action="Details" asp-route-id="@load.SupplierId" class="text-reset">@load.SupplierName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (load.BuyerLocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@load.BuyerLocationId" class="text-reset">@load.BuyerLocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (load.SupplierLocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@load.SupplierLocationId" class="text-reset">@load.SupplierLocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
                         <td>@load.Products</td>
                     </tr>
                 }

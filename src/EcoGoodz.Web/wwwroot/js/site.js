@@ -1,4 +1,36 @@
 ﻿(() => {
+    const storageKey = "ecogoodz.theme";
+    const toggle = document.querySelector("[data-theme-toggle]");
+    const label = document.querySelector("[data-theme-toggle-label]");
+
+    if (!toggle) {
+        return;
+    }
+
+    const applyTheme = (theme) => {
+        const isDark = theme === "dark";
+        document.documentElement.dataset.bsTheme = isDark ? "dark" : "light";
+        toggle.setAttribute("aria-pressed", isDark ? "true" : "false");
+        toggle.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
+        if (label) {
+            label.textContent = isDark ? "Light" : "Dark";
+        }
+    };
+
+    applyTheme(document.documentElement.dataset.bsTheme === "dark" ? "dark" : "light");
+
+    toggle.addEventListener("click", () => {
+        const nextTheme = document.documentElement.dataset.bsTheme === "dark" ? "light" : "dark";
+        applyTheme(nextTheme);
+        try {
+            window.localStorage.setItem(storageKey, nextTheme);
+        } catch {
+            // The visible theme can still change when storage is unavailable.
+        }
+    });
+})();
+
+(() => {
     const breadcrumbs = document.querySelector("[data-history-breadcrumbs]");
     const current = {
         path: `${window.location.pathname}${window.location.search}${window.location.hash}`,

@@ -2,6 +2,7 @@ using EcoGoodz.Data;
 using EcoGoodz.Data.Identity;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Identity;
+using EcoGoodz.Web.Models.Shared;
 using EcoGoodz.Web.Models.StaffUser;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -23,12 +24,19 @@ public class StaffUserController : Controller
         _userManager = userManager;
     }
 
-    public async Task<IActionResult> Index()
+    public async Task<IActionResult> Index(int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
+        var query = _context.Users.Include(u => u.RoleNavigation);
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+        var totalCount = await query.CountAsync();
+
         var users = await _context.Users
             .Include(u => u.RoleNavigation)
             .OrderBy(u => u.FirstName)
             .ThenBy(u => u.LastName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(u => new StaffUserListItemViewModel
             {
                 Id = u.Id,
@@ -42,7 +50,16 @@ public class StaffUserController : Controller
             })
             .ToListAsync();
 
-        return View(users);
+        return View(new PagedResult<StaffUserListItemViewModel>
+        {
+            Items = users,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+            },
+        });
     }
 
     public async Task<IActionResult> Details(int id)

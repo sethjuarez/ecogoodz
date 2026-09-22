@@ -4,6 +4,7 @@ public class LocationDetailsViewModel
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public int? ClientId { get; set; }
     public string? ClientType { get; set; }
     public string? ClientName { get; set; }
     public string? Address { get; set; }

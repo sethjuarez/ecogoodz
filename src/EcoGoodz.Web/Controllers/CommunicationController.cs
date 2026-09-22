@@ -1,7 +1,9 @@
+using System.Globalization;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Communication;
+using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -21,7 +23,7 @@ public class CommunicationController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index(string? clientType, int? clientId)
+    public async Task<IActionResult> Index(string? clientType, int? clientId, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
         var isBuyer = clientType == SupplierClientType ? false : true;
         var query = CommunicationRows();
@@ -31,8 +33,24 @@ public class CommunicationController : Controller
             query = query.Where(c => c.Communication.ClientId == clientId && (c.Communication.IsBuyer ?? true) == isBuyer);
         }
 
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+        var totalCount = await query.CountAsync();
+        var scopeParameters = new Dictionary<string, string?>();
+        if (!string.IsNullOrWhiteSpace(clientType))
+        {
+            scopeParameters["clientType"] = clientType;
+        }
+
+        if (clientId.HasValue)
+        {
+            scopeParameters["clientId"] = clientId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
         var communications = await query
             .OrderByDescending(c => c.Communication.Date ?? c.Communication.CreateOn)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(c => new CommunicationListItemViewModel
             {
                 Id = c.Communication.Id,
@@ -50,7 +68,17 @@ public class CommunicationController : Controller
             })
             .ToListAsync();
 
-        return View(communications);
+        return View(new PagedResult<CommunicationListItemViewModel>
+        {
+            Items = communications,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                AdditionalQueryParameters = scopeParameters,
+            },
+        });
     }
 
     public async Task<IActionResult> Details(int id)

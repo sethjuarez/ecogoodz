@@ -1,6 +1,7 @@
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Identity;
+using EcoGoodz.Web.Models.Shared;
 using EcoGoodz.Web.Models.StaffTask;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +20,7 @@ public class StaffTaskController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index(bool includeCompleted = false)
+    public async Task<IActionResult> Index(bool includeCompleted = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
         var currentUserId = User.GetLegacyUserId();
         var query = _context.AssignTasks
@@ -35,10 +36,19 @@ public class StaffTaskController : Controller
             query = query.Where(t => !t.IsDone);
         }
 
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+        var totalCount = await query.CountAsync();
+        var scopeParameters = includeCompleted
+            ? new Dictionary<string, string?> { ["includeCompleted"] = "true" }
+            : [];
+
         var tasks = await query
             .OrderBy(t => t.Task!.Duedate == null)
             .ThenBy(t => t.Task!.Duedate)
             .ThenByDescending(t => t.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(t => new StaffTaskListItemViewModel
             {
                 Id = t.Id,
@@ -59,7 +69,17 @@ public class StaffTaskController : Controller
             })
             .ToListAsync();
 
-        return View(tasks);
+        return View(new PagedResult<StaffTaskListItemViewModel>
+        {
+            Items = tasks,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                AdditionalQueryParameters = scopeParameters,
+            },
+        });
     }
 
     public async Task<IActionResult> Details(int id)

@@ -322,12 +322,19 @@ public class ReportController : Controller
             .AsNoTracking()
             .Where(communication => communication.IsActive && communication.ClientId.HasValue && communication.IsBuyer == filters.IsBuyerReport)
             .GroupBy(communication => communication.ClientId!.Value)
-            .Select(group => new
-            {
-                ClientId = group.Key,
-                LastDate = group.Max(communication => communication.Date),
-            })
-            .ToDictionaryAsync(item => item.ClientId, item => item.LastDate);
+            .Select(group => group
+                .OrderByDescending(communication => communication.Date ?? communication.CreateOn)
+                .ThenByDescending(communication => communication.Id)
+                .Select(communication => new
+                {
+                    ClientId = communication.ClientId!.Value,
+                    communication.Id,
+                    Date = communication.Date ?? communication.CreateOn,
+                })
+                .First())
+            .ToDictionaryAsync(
+                item => item.ClientId,
+                item => new LatestCommunicationReportTarget(item.Id, item.Date));
 
         return latestLoads
             .Select(load => ToReportRow(load, filters.IsBuyerReport, communications))
@@ -349,10 +356,12 @@ public class ReportController : Controller
 
     private sealed record CommunicationTypeReportOption(int Id, string Name);
 
+    private sealed record LatestCommunicationReportTarget(int Id, DateTime? Date);
+
     private static LastLoadShippedReportRow ToReportRow(
         Load load,
         bool isBuyerReport,
-        IReadOnlyDictionary<int, DateTime?> lastCommunicationDates)
+        IReadOnlyDictionary<int, LatestCommunicationReportTarget> lastCommunicationDates)
     {
         var clientId = isBuyerReport ? load.Buyer : load.Supplier;
         var clientName = isBuyerReport
@@ -361,6 +370,10 @@ public class ReportController : Controller
         var accountManager = isBuyerReport
             ? load.BuyerAccountMgrNavigation ?? load.BuyerNavigation?.AccountManagerNavigation
             : load.SupplierAccountMgrNavigation ?? load.SupplierNavigation?.AccountManagerNavigation;
+        var accountManagerId = isBuyerReport
+            ? load.BuyerAccountMgr ?? load.BuyerNavigation?.AccountManager
+            : load.SupplierAccountMgr ?? load.SupplierNavigation?.AccountManager;
+        var locationId = isBuyerReport ? load.BuyerLocation : load.SupplierLocation;
         var locationName = isBuyerReport
             ? load.BuyerLocationNavigation?.Location1
             : load.SupplierLocationNavigation?.Location1;
@@ -371,15 +384,21 @@ public class ReportController : Controller
 
         return new LastLoadShippedReportRow
         {
+            LoadId = load.Id,
             ClientId = clientId,
             ClientName = clientName ?? "(unknown)",
+            AccountManagerId = accountManagerId,
             AccountManagerName = accountManager is null ? null : FormatUserName(accountManager),
+            LocationId = locationId,
             LocationName = locationName,
             ShipmentDate = load.ShipmentDate!.Value.Date,
             DaysSinceShipment = (int)(DateTime.Today - load.ShipmentDate.Value.Date).TotalDays,
             Products = string.Join(", ", products),
-            LastCommunicationDate = clientId.HasValue && lastCommunicationDates.TryGetValue(clientId.Value, out var lastDate)
-                ? lastDate
+            LastCommunicationId = clientId.HasValue && lastCommunicationDates.TryGetValue(clientId.Value, out var lastCommunication)
+                ? lastCommunication.Id
+                : null,
+            LastCommunicationDate = clientId.HasValue && lastCommunicationDates.TryGetValue(clientId.Value, out lastCommunication)
+                ? lastCommunication.Date
                 : null,
         };
     }

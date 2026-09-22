@@ -130,6 +130,44 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task ContactIndex_PagesLocationScopedContacts()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 10, Name = "Buyer One", IsActive = true });
+        context.Locations.Add(new Location { Id = 20, Location1 = "Main Dock", ClientId = 10, IsBuyer = true, IsActive = true });
+        for (var i = 1; i <= 3; i++)
+        {
+            context.Contacts.Add(new Contact
+            {
+                Id = i,
+                ClientId = 10,
+                Location = 20,
+                IsBuyer = true,
+                IsActive = true,
+                ContactNavigation = new ContactInformation
+                {
+                    Id = 100 + i,
+                    FirstName = $"Contact {i}",
+                    LastName = "Paged",
+                    IsActive = true,
+                },
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ContactController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Index(locationId: 20, page: 2, pageSize: 2));
+        var model = Assert.IsType<PagedResult<ContactListItemViewModel>>(result.Model);
+
+        Assert.Single(model.Items);
+        Assert.Equal(3, model.Page.TotalCount);
+        Assert.Equal(2, model.Page.PageNumber);
+        Assert.Equal("20", model.Page.AdditionalQueryParameters["locationId"]);
+    }
+
+    [Fact]
     public async Task LocationCreate_WithCopySource_ClonesContactsAndBuyerProducts()
     {
         await using var context = CreateContext();
@@ -267,6 +305,49 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task CommunicationIndex_PagesAndPreservesClientScope()
+    {
+        await using var context = CreateContext();
+        context.Suppliers.Add(new Supplier { Id = 7, Name = "Supplier One", IsActive = true });
+        for (var i = 1; i <= 3; i++)
+        {
+            context.Communications.Add(new Communication
+            {
+                Id = i,
+                ClientId = 7,
+                IsBuyer = false,
+                OtherType = "Call",
+                Note = $"Supplier note {i}",
+                Date = new DateTime(2026, 9, i),
+                IsActive = true,
+            });
+        }
+
+        context.Communications.Add(new Communication
+        {
+            Id = 10,
+            ClientId = 99,
+            IsBuyer = true,
+            OtherType = "Call",
+            Date = new DateTime(2026, 9, 30),
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new CommunicationController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Index(clientType: "Supplier", clientId: 7, page: 2, pageSize: 2));
+        var model = Assert.IsType<PagedResult<CommunicationListItemViewModel>>(result.Model);
+
+        Assert.Single(model.Items);
+        Assert.Equal(3, model.Page.TotalCount);
+        Assert.Equal(2, model.Page.PageNumber);
+        Assert.Equal("Supplier", model.Page.AdditionalQueryParameters["clientType"]);
+        Assert.Equal("7", model.Page.AdditionalQueryParameters["clientId"]);
+        Assert.All(model.Items, item => Assert.False(item.IsBuyer));
+    }
+
+    [Fact]
     public async Task NoteCreate_StoresProductScopedNote()
     {
         await using var context = CreateContext();
@@ -296,6 +377,38 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task NoteIndex_PagesAndPreservesScope()
+    {
+        await using var context = CreateContext();
+        context.Products.Add(new Product { Id = 2, Name = "PET", IsActive = true });
+        context.SupplierProducts.Add(new SupplierProduct { Id = 3, Product = 2, IsActive = true });
+        for (var i = 1; i <= 3; i++)
+        {
+            context.Notes.Add(new Note
+            {
+                Id = i,
+                Product = 3,
+                IsProduct = true,
+                Notes = $"Product note {i}",
+                IsActive = true,
+                CreateOn = new DateTime(2026, 9, i),
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new NoteController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Index(scope: "Product", id: 3, page: 2, pageSize: 2));
+        var model = Assert.IsType<PagedResult<NoteListItemViewModel>>(result.Model);
+
+        Assert.Single(model.Items);
+        Assert.Equal(3, model.Page.TotalCount);
+        Assert.Equal("Product", model.Page.AdditionalQueryParameters["scope"]);
+        Assert.Equal("3", model.Page.AdditionalQueryParameters["id"]);
+    }
+
+    [Fact]
     public async Task StaffTaskCreate_AssignsTaskAndCreatesAssignedHeadlineWhenMissing()
     {
         await using var context = CreateContext();
@@ -322,6 +435,73 @@ public class RestoredWorkflowControllerTests
         Assert.Equal(headline.Id, assigned.TaskHeadline);
         Assert.Equal("Assigned", headline.Headline);
         Assert.False(assigned.IsRead);
+    }
+
+    [Fact]
+    public async Task StaffTaskIndex_PagesAndPreservesCompletedToggle()
+    {
+        await using var context = CreateContext();
+        context.Users.Add(new User { Id = 5, FirstName = "Ava", LastName = "Trader", IsActive = true });
+        for (var i = 1; i <= 3; i++)
+        {
+            context.Tasks.Add(new TaskItem
+            {
+                Id = i,
+                Description = $"Task {i}",
+                Duedate = new DateTime(2026, 9, i),
+                IsActive = true,
+            });
+            context.AssignTasks.Add(new AssignTask
+            {
+                Id = i,
+                TaskId = i,
+                AssignedTo = 5,
+                IsDone = i == 1,
+                IsActive = true,
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new StaffTaskController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Index(includeCompleted: true, page: 2, pageSize: 2));
+        var model = Assert.IsType<PagedResult<StaffTaskListItemViewModel>>(result.Model);
+
+        Assert.Single(model.Items);
+        Assert.Equal(3, model.Page.TotalCount);
+        Assert.Equal("true", model.Page.AdditionalQueryParameters["includeCompleted"]);
+    }
+
+    [Fact]
+    public async Task StaffUserIndex_PagesUsers()
+    {
+        await using var context = CreateContext();
+        await using var identityContext = CreateIdentityContext();
+        for (var i = 1; i <= 3; i++)
+        {
+            context.Users.Add(new User
+            {
+                Id = i,
+                FirstName = $"User {i}",
+                LastName = "Paged",
+                UserName = $"user{i}",
+                Email = $"user{i}@example.com",
+                IsActive = true,
+            });
+        }
+
+        await context.SaveChangesAsync();
+
+        using var userManager = CreateUserManager(identityContext);
+        var controller = WithLegacyUser(new StaffUserController(context, userManager));
+
+        var result = Assert.IsType<ViewResult>(await controller.Index(page: 2, pageSize: 2));
+        var model = Assert.IsType<PagedResult<StaffUserListItemViewModel>>(result.Model);
+
+        Assert.Single(model.Items);
+        Assert.Equal(3, model.Page.TotalCount);
+        Assert.Equal(2, model.Page.PageNumber);
     }
 
     [Fact]
@@ -1193,6 +1373,177 @@ public class RestoredWorkflowControllerTests
         var item = Assert.Single(model.Items);
         Assert.Equal("Favorite Supplier", item.Name);
         Assert.Equal("true", model.Page.AdditionalQueryParameters["favoritesOnly"]);
+    }
+
+    [Fact]
+    public async Task BuyerProductIndex_ScopedFiltersReturnOnlyRequestedRelationship()
+    {
+        await using var context = CreateContext();
+        context.Buyers.AddRange(
+            new Buyer { Id = 1, Name = "Scoped Buyer", IsActive = true },
+            new Buyer { Id = 2, Name = "Other Buyer", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 10, ClientId = 1, IsBuyer = true, Location1 = "Scoped Buyer Dock", IsActive = true },
+            new Location { Id = 11, ClientId = 1, IsBuyer = true, Location1 = "Other Dock", IsActive = true });
+        context.Products.Add(new Product { Id = 20, Name = "Cotton", IsActive = true });
+        context.BuyerProducts.AddRange(
+            new BuyerProduct { Id = 30, Buyer = 1, Location = 10, Product = 20, IsActive = true },
+            new BuyerProduct { Id = 31, Buyer = 1, Location = 11, Product = 20, IsActive = true },
+            new BuyerProduct { Id = 32, Buyer = 2, Location = 10, Product = 20, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerProductController(context));
+        controller.ControllerContext.HttpContext.Request.Query = new QueryCollection(
+            new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                ["buyerId"] = "1",
+                ["locationId"] = "10",
+            });
+
+        var result = await controller.Index(search: null, sort: null);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<PagedResult<BuyerProductListItemViewModel>>(view.Model);
+        var item = Assert.Single(model.Items);
+        Assert.Equal(30, item.Id);
+        Assert.Equal("1", model.Page.AdditionalQueryParameters["buyerId"]);
+        Assert.Equal("10", model.Page.AdditionalQueryParameters["locationId"]);
+    }
+
+    [Fact]
+    public async Task SupplierProductIndex_ScopedFiltersReturnOnlyRequestedRelationship()
+    {
+        await using var context = CreateContext();
+        context.Suppliers.AddRange(
+            new Supplier { Id = 1, Name = "Scoped Supplier", IsActive = true },
+            new Supplier { Id = 2, Name = "Other Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 10, ClientId = 1, IsBuyer = false, Location1 = "Scoped Supplier Dock", IsActive = true },
+            new Location { Id = 11, ClientId = 1, IsBuyer = false, Location1 = "Other Dock", IsActive = true });
+        context.Products.Add(new Product { Id = 20, Name = "Cotton", IsActive = true });
+        context.SupplierProducts.AddRange(
+            new SupplierProduct { Id = 30, Supplier = 1, Location = 10, Product = 20, IsActive = true },
+            new SupplierProduct { Id = 31, Supplier = 1, Location = 11, Product = 20, IsActive = true },
+            new SupplierProduct { Id = 32, Supplier = 2, Location = 10, Product = 20, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SupplierProductController(context));
+        controller.ControllerContext.HttpContext.Request.Query = new QueryCollection(
+            new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                ["supplierId"] = "1",
+                ["locationId"] = "10",
+            });
+
+        var result = await controller.Index(search: null, sort: null);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<PagedResult<SupplierProductListItemViewModel>>(view.Model);
+        var item = Assert.Single(model.Items);
+        Assert.Equal(30, item.Id);
+        Assert.Equal("1", model.Page.AdditionalQueryParameters["supplierId"]);
+        Assert.Equal("10", model.Page.AdditionalQueryParameters["locationId"]);
+    }
+
+    [Fact]
+    public async Task BuyerSupplierIndex_ScopedFiltersReturnOnlyRequestedMatch()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer", IsActive = true });
+        context.Suppliers.AddRange(
+            new Supplier { Id = 2, Name = "Scoped Supplier", IsActive = true },
+            new Supplier { Id = 3, Name = "Other Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 10, ClientId = 1, IsBuyer = true, Location1 = "Buyer Dock", IsActive = true },
+            new Location { Id = 11, ClientId = 2, IsBuyer = false, Location1 = "Supplier Dock", IsActive = true },
+            new Location { Id = 12, ClientId = 3, IsBuyer = false, Location1 = "Other Supplier Dock", IsActive = true });
+        context.BuyerSuppliers.AddRange(
+            new BuyerSupplier { Id = 20, Buyer = 1, Supplier = 2, BuyerLocation = 10, SupplierLocation = 11, IsActive = true },
+            new BuyerSupplier { Id = 21, Buyer = 1, Supplier = 3, BuyerLocation = 10, SupplierLocation = 12, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new BuyerSupplierController(context));
+        controller.ControllerContext.HttpContext.Request.Query = new QueryCollection(
+            new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                ["buyerId"] = "1",
+                ["supplierLocationId"] = "11",
+            });
+
+        var result = await controller.Index(search: null, sort: null);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<PagedResult<BuyerSupplierListItemViewModel>>(view.Model);
+        var item = Assert.Single(model.Items);
+        Assert.Equal(20, item.Id);
+        Assert.Equal("1", model.Page.AdditionalQueryParameters["buyerId"]);
+        Assert.Equal("11", model.Page.AdditionalQueryParameters["supplierLocationId"]);
+    }
+
+    [Fact]
+    public async Task LoadIndex_ScopedFiltersReturnOnlyRequestedLoadsAndLocations()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 2, Name = "Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 10, ClientId = 1, IsBuyer = true, Location1 = "Buyer Dock", IsActive = true },
+            new Location { Id = 11, ClientId = 2, IsBuyer = false, Location1 = "Supplier Dock", IsActive = true },
+            new Location { Id = 12, ClientId = 2, IsBuyer = false, Location1 = "Other Supplier Dock", IsActive = true });
+        context.Loads.AddRange(
+            new Load { Id = 20, Buyer = 1, Supplier = 2, BuyerLocation = 10, SupplierLocation = 11, IsActive = true },
+            new Load { Id = 21, Buyer = 1, Supplier = 2, BuyerLocation = 10, SupplierLocation = 12, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+        controller.ControllerContext.HttpContext.Request.Query = new QueryCollection(
+            new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                ["buyerId"] = "1",
+                ["supplierLocationId"] = "11",
+            });
+
+        var result = await controller.Index(search: null, sort: null);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<PagedResult<LoadListItemViewModel>>(view.Model);
+        var item = Assert.Single(model.Items);
+        Assert.Equal(20, item.Id);
+        Assert.Equal(10, item.BuyerLocationId);
+        Assert.Equal("Buyer Dock", item.BuyerLocationName);
+        Assert.Equal(11, item.SupplierLocationId);
+        Assert.Equal("Supplier Dock", item.SupplierLocationName);
+        Assert.Equal("1", model.Page.AdditionalQueryParameters["buyerId"]);
+        Assert.Equal("11", model.Page.AdditionalQueryParameters["supplierLocationId"]);
+    }
+
+    [Fact]
+    public async Task LoadExport_UsesActiveScopedFilters()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 2, Name = "Supplier", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 10, ClientId = 1, IsBuyer = true, Location1 = "Buyer Dock", IsActive = true },
+            new Location { Id = 11, ClientId = 2, IsBuyer = false, Location1 = "Supplier Dock", IsActive = true },
+            new Location { Id = 12, ClientId = 2, IsBuyer = false, Location1 = "Other Supplier Dock", IsActive = true });
+        context.Loads.AddRange(
+            new Load { Id = 20, Buyer = 1, Supplier = 2, BuyerLocation = 10, SupplierLocation = 11, IsActive = true },
+            new Load { Id = 21, Buyer = 1, Supplier = 2, BuyerLocation = 10, SupplierLocation = 12, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+        controller.ControllerContext.HttpContext.Request.Query = new QueryCollection(
+            new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                ["supplierLocationId"] = "11",
+            });
+
+        var result = Assert.IsType<FileContentResult>(await controller.Export(search: null, sort: null));
+        var csv = Encoding.UTF8.GetString(result.FileContents);
+
+        Assert.Contains("20,", csv);
+        Assert.DoesNotContain("21,", csv);
     }
 
     [Fact]
@@ -2332,10 +2683,15 @@ public class RestoredWorkflowControllerTests
         Assert.Equal(2, model.Rows.Count);
 
         var buyerOne = model.Rows.Single(row => row.ClientName == "Buyer One");
+        Assert.Equal(22, buyerOne.LoadId);
+        Assert.Equal(1, buyerOne.ClientId);
+        Assert.Equal(10, buyerOne.AccountManagerId);
+        Assert.Equal(4, buyerOne.LocationId);
         Assert.Equal(DateTime.Today.AddDays(-5), buyerOne.ShipmentDate);
         Assert.Equal(5, buyerOne.DaysSinceShipment);
         Assert.Equal("HDPE", buyerOne.Products);
         Assert.Equal("Ava Manager", buyerOne.AccountManagerName);
+        Assert.Equal(30, buyerOne.LastCommunicationId);
         Assert.Equal(DateTime.Today.AddDays(-2), buyerOne.LastCommunicationDate);
     }
 
@@ -2423,6 +2779,48 @@ public class RestoredWorkflowControllerTests
         var model = Assert.IsType<CommunicationReportViewModel>(view.Model);
         Assert.Empty(model.Rows);
         Assert.False(controller.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task GlobalSearch_ReturnsWorkspaceRecordsAcrossCoreEntities()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 1, Name = "Acme Buyer", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 2, Name = "Acme Supplier", IsActive = true });
+        context.Locations.Add(new Location { Id = 3, ClientId = 1, IsBuyer = true, Location1 = "Acme Dock", City = "Seattle", IsActive = true });
+        context.Products.Add(new Product { Id = 4, Name = "Acme OCC", IsActive = true });
+        context.BuyerSuppliers.Add(new BuyerSupplier
+        {
+            Id = 5,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 3,
+            IsActive = true,
+        });
+        context.Loads.Add(new Load
+        {
+            Id = 6,
+            Buyer = 1,
+            Supplier = 2,
+            BuyerLocation = 3,
+            SupplierLocation = 3,
+            IsActive = true,
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new SearchController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Index("Acme"));
+        var model = Assert.IsType<GlobalSearchViewModel>(result.Model);
+
+        Assert.Equal("Acme", model.Query);
+        Assert.Contains(model.Results, result => result.Category == "Buyer" && result.RouteId == 1);
+        Assert.Contains(model.Results, result => result.Category == "Supplier" && result.RouteId == 2);
+        Assert.Contains(model.Results, result => result.Category == "Buyer location" && result.RouteId == 3);
+        Assert.Contains(model.Results, result => result.Category == "Product" && result.RouteId == 4);
+        Assert.Contains(model.Results, result => result.Category == "Match" && result.RouteId == 5);
+        Assert.Contains(model.Results, result => result.Category == "Load" && result.RouteId == 6);
     }
 
     private static EcoGoodzDbContext CreateContext()

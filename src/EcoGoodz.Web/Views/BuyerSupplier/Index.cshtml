@@ -1,20 +1,29 @@
 @model EcoGoodz.Web.Models.Shared.PagedResult<EcoGoodz.Web.Models.BuyerSupplier.BuyerSupplierListItemViewModel>
 @{
     ViewData["Title"] = "Buyer/Supplier matches";
+    var isScoped = Model.Page.AdditionalQueryParameters.Count > 0;
 }
 
-<div class="page-header d-print-none mb-3">
+<div class="page-header d-print-none mb-3 eg-list-workspace">
     <div class="row g-2 align-items-center">
         <div class="col">
+            <div class="page-pretitle">Trading workspace</div>
             <h2 class="page-title">Buyer/Supplier matches</h2>
-            <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount total matches. Use this as the deal lane for buyer, supplier, locations, status, products, and rates.</div>
+            <nav class="eg-view-tabs" aria-label="Match views">
+                <a asp-action="Index" class="eg-view-tab @(isScoped ? "" : "active")" aria-current="@(isScoped ? null : "page")">All matches</a>
+                <a asp-controller="Load" asp-action="Index" class="eg-view-tab">Loads</a>
+                <a asp-controller="SupplierProduct" asp-action="Index" class="eg-view-tab">Supplier products</a>
+            </nav>
         </div>
-        <div class="col-auto ms-auto d-flex gap-2">
+        <div class="col-auto ms-auto eg-command-bar">
             @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search matches…" })
             <a asp-action="Create" class="btn btn-primary text-nowrap">New match</a>
         </div>
     </div>
 </div>
+
+@await Html.PartialAsync("_ScopedFilterBanner", Model.Page)
 
 <div class="card">
     <div class="table-responsive">
@@ -41,9 +50,36 @@
                 {
                     <tr>
                         <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.BuyerName</a></td>
-                        <td><a asp-controller="Supplier" asp-action="Details" asp-route-id="@item.SupplierId" class="text-reset">@item.SupplierName</a></td>
-                        <td><a asp-controller="Location" asp-action="Details" asp-route-id="@item.BuyerLocationId" class="text-reset">@item.BuyerLocationName</a></td>
-                        <td><a asp-controller="Location" asp-action="Details" asp-route-id="@item.SupplierLocationId" class="text-reset">@item.SupplierLocationName</a></td>
+                        <td>
+                            @if (item.SupplierId.HasValue)
+                            {
+                                <a asp-controller="Supplier" asp-action="Details" asp-route-id="@item.SupplierId" class="text-reset">@item.SupplierName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.BuyerLocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@item.BuyerLocationId" class="text-reset">@item.BuyerLocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.SupplierLocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@item.SupplierLocationId" class="text-reset">@item.SupplierLocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
                         <td>@item.StatusName</td>
                         <td>
                             @if (item.IsActive)

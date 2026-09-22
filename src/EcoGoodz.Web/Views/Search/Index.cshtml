@@ -1,0 +1,92 @@
+@model EcoGoodz.Web.Models.Shared.GlobalSearchViewModel
+@{
+    ViewData["Title"] = string.IsNullOrWhiteSpace(Model.Query) ? "Search" : $"Search: {Model.Query}";
+    var groupedResults = Model.Results.GroupBy(result => result.Category).ToList();
+}
+
+<div class="page-header d-print-none mb-3 eg-list-workspace">
+    <div class="row g-3 align-items-center">
+        <div class="col">
+            <div class="page-pretitle">Workspace</div>
+            <h2 class="page-title">Search EcoGoodz</h2>
+            <div class="text-secondary mt-1">Jump directly to buyers, suppliers, locations, products, loads, and matches.</div>
+        </div>
+        <div class="col-auto ms-auto">
+            <form asp-controller="Search" asp-action="Index" method="get" class="eg-workspace-search" role="search">
+                <div class="input-icon">
+                    <span class="input-icon-addon">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+                            <path d="M21 21l-6 -6" />
+                        </svg>
+                    </span>
+                    <input type="search" name="q" value="@Model.Query" class="form-control" placeholder="Search the operation…" aria-label="Search EcoGoodz" autofocus />
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@if (string.IsNullOrWhiteSpace(Model.Query))
+{
+    <div class="card eg-table-card">
+        <div class="eg-empty-state">
+            <span class="eg-icon-bubble" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+                    <path d="M21 21l-6 -6" />
+                </svg>
+            </span>
+            <h3 class="mb-1">Search across the trading workspace</h3>
+            <div>Try a buyer, supplier, location, product, load number, or match participant.</div>
+        </div>
+    </div>
+}
+else if (Model.Results.Count == 0)
+{
+    <div class="card eg-table-card">
+        <div class="eg-empty-state">
+            <span class="eg-icon-bubble" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" class="eg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12h18" />
+                    <path d="M12 3v18" />
+                </svg>
+            </span>
+            <h3 class="mb-1">No results for “@Model.Query”</h3>
+            <div>Try a broader name, location, product, or load number.</div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="row row-cards">
+        @foreach (var group in groupedResults)
+        {
+            <div class="col-12 col-lg-6">
+                <div class="card eg-table-card h-100">
+                    <div class="card-header">
+                        <div>
+                            <div class="eg-card-kicker">@group.Key</div>
+                            <h3 class="card-title mb-0">Top @group.Count() result@(group.Count() == 1 ? string.Empty : "s")</h3>
+                        </div>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        @foreach (var result in group)
+                        {
+                            <a asp-controller="@result.Controller" asp-action="@result.Action" asp-route-id="@result.RouteId" class="list-group-item list-group-item-action eg-search-result">
+                                <span>
+                                    <strong>@result.Title</strong>
+                                    @if (!string.IsNullOrWhiteSpace(result.Description))
+                                    {
+                                        <span class="text-secondary d-block">@result.Description</span>
+                                    }
+                                </span>
+                                <span class="text-secondary" aria-hidden="true">→</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

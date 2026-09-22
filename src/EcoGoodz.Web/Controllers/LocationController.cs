@@ -142,6 +142,7 @@ public class LocationController : PagedListController<LocationController.Locatio
             {
                 Id = r.Location.Id,
                 Name = r.Location.Location1 ?? string.Empty,
+                ClientId = r.Location.ClientId,
                 ClientType = r.Location.IsBuyer == true ? BuyerClientType : r.Location.IsBuyer == false ? SupplierClientType : null,
                 ClientName = r.Location.IsBuyer == true ? r.BuyerName : r.SupplierName,
                 Address = r.Location.Address,
@@ -158,8 +159,8 @@ public class LocationController : PagedListController<LocationController.Locatio
                 UpdatedOn = r.Location.UpdatedOn,
                 BuyerProductCount = r.Location.BuyerProducts.Count,
                 SupplierProductCount = r.Location.SupplierProducts.Count,
-                LoadCount = r.Location.LoadBuyerLocationNavigations.Count + r.Location.LoadSupplierLocationNavigations.Count,
-                MatchCount = r.Location.BuyerSupplierBuyerLocationNavigations.Count + r.Location.BuyerSupplierSupplierLocationNavigations.Count,
+                LoadCount = Context.Loads.Count(load => load.BuyerLocation == r.Location.Id || load.SupplierLocation == r.Location.Id),
+                MatchCount = Context.BuyerSuppliers.Count(match => match.BuyerLocation == r.Location.Id || match.SupplierLocation == r.Location.Id),
                 IsFavorite = userId.HasValue
                     && r.Location.Favorites.Any(favorite =>
                         favorite.UserId == userId.Value

@@ -1,7 +1,9 @@
+using System.Globalization;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Contact;
+using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -19,7 +21,7 @@ public class ContactController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index(int? locationId)
+    public async Task<IActionResult> Index(int? locationId, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
         var query = ContactRows();
 
@@ -28,10 +30,21 @@ public class ContactController : Controller
             query = query.Where(c => c.Contact.Location == locationId);
         }
 
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+        var totalCount = await query.CountAsync();
+        var scopeParameters = new Dictionary<string, string?>();
+        if (locationId.HasValue)
+        {
+            scopeParameters["locationId"] = locationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
         var contacts = await query
             .OrderBy(c => c.Contact.LocationNavigation!.Location1)
             .ThenBy(c => c.Contact.ContactNavigation.LastName)
             .ThenBy(c => c.Contact.ContactNavigation.FirstName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(c => new ContactListItemViewModel
             {
                 Id = c.Contact.Id,
@@ -51,7 +64,17 @@ public class ContactController : Controller
             })
             .ToListAsync();
 
-        return View(contacts);
+        return View(new PagedResult<ContactListItemViewModel>
+        {
+            Items = contacts,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                AdditionalQueryParameters = scopeParameters,
+            },
+        });
     }
 
     public async Task<IActionResult> Details(int id)

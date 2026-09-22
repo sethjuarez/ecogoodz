@@ -1,15 +1,52 @@
 @model EcoGoodz.Web.Models.Location.LocationDetailsViewModel
 @{
     ViewData["Title"] = Model.Name;
+    var clientController = Model.ClientType == "Buyer" ? "Buyer" : Model.ClientType == "Supplier" ? "Supplier" : null;
+    var relationshipSummary = new List<EcoGoodz.Web.Models.Shared.RelationshipSummaryItemViewModel>
+    {
+        new()
+        {
+            Label = "Buyer products",
+            Value = Model.BuyerProductCount.ToString(),
+            Controller = "BuyerProduct",
+            Action = "Index",
+            RouteValues = new Dictionary<string, string> { ["locationId"] = Model.Id.ToString() },
+        },
+        new()
+        {
+            Label = "Supplier products",
+            Value = Model.SupplierProductCount.ToString(),
+            Controller = "SupplierProduct",
+            Action = "Index",
+            RouteValues = new Dictionary<string, string> { ["locationId"] = Model.Id.ToString() },
+        },
+        new()
+        {
+            Label = "Loads",
+            Value = Model.LoadCount.ToString(),
+            Controller = "Load",
+            Action = "Index",
+            RouteValues = new Dictionary<string, string> { ["locationId"] = Model.Id.ToString() },
+        },
+        new()
+        {
+            Label = "Matches",
+            Value = Model.MatchCount.ToString(),
+            Controller = "BuyerSupplier",
+            Action = "Index",
+            RouteValues = new Dictionary<string, string> { ["locationId"] = Model.Id.ToString() },
+        },
+    };
 }
 
-<div class="page-header d-print-none mb-3">
+<div class="page-header d-print-none mb-3 eg-list-workspace">
     <div class="row g-2 align-items-center">
         <div class="col">
             <div class="page-pretitle">Locations</div>
             <h2 class="page-title">@Model.Name</h2>
+            <div class="text-secondary mt-1">Location workspace for contacts, notes, products, matches, and load activity.</div>
         </div>
-        <div class="col-auto ms-auto d-flex gap-2">
+        <div class="col-auto ms-auto eg-command-bar">
             @if (Model.ClientType is not null)
             {
                 <form asp-action="ToggleFavorite" asp-route-id="@Model.Id" method="post">
@@ -36,7 +73,16 @@
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Client</div>
-                        <div class="datagrid-content">@Model.ClientName</div>
+                        <div class="datagrid-content">
+                            @if (clientController is not null && Model.ClientId.HasValue)
+                            {
+                                <a asp-controller="@clientController" asp-action="Details" asp-route-id="@Model.ClientId">@Model.ClientName</a>
+                            }
+                            else
+                            {
+                                @Model.ClientName
+                            }
+                        </div>
                     </div>
                     <div class="datagrid-item">
                         <div class="datagrid-title">Address</div>
@@ -101,25 +147,14 @@
     </div>
     <div class="col-12 col-lg-4">
         <div class="card">
-            <div class="card-body">
-                <div class="row text-center g-3">
-                    <div class="col-6">
-                        <div class="text-secondary">Buyer products</div>
-                        <div class="h1 m-0">@Model.BuyerProductCount</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-secondary">Supplier products</div>
-                        <div class="h1 m-0">@Model.SupplierProductCount</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-secondary">Loads</div>
-                        <div class="h1 m-0">@Model.LoadCount</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-secondary">Matches</div>
-                        <div class="h1 m-0">@Model.MatchCount</div>
-                    </div>
+            <div class="card-header">
+                <div>
+                    <div class="eg-card-kicker">Snapshot</div>
+                    <h3 class="card-title mb-0">Relationships</h3>
                 </div>
+            </div>
+            <div class="card-body">
+                @await Html.PartialAsync("_RelationshipSummary", relationshipSummary)
             </div>
         </div>
     </div>

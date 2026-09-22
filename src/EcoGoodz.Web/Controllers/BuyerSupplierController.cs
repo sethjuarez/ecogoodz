@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
+using EcoGoodz.Web.Extensions;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.BuyerSupplier;
 using EcoGoodz.Web.Models.Shared;
@@ -64,6 +66,21 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
 
     public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
+        var buyerId = ReadIntQuery("buyerId");
+        var supplierId = ReadIntQuery("supplierId");
+        var buyerLocationId = ReadIntQuery("buyerLocationId");
+        var supplierLocationId = ReadIntQuery("supplierLocationId");
+        var locationId = ReadIntQuery("locationId");
+        var hasScope = buyerId.HasValue
+            || supplierId.HasValue
+            || buyerLocationId.HasValue
+            || supplierLocationId.HasValue
+            || locationId.HasValue;
+        if (hasScope)
+        {
+            return await ScopedIndex(search, sort, desc, page, pageSize, buyerId, supplierId, buyerLocationId, supplierLocationId, locationId);
+        }
+
         if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
         {
             return await base.Index(search, sort, desc, page, pageSize);
@@ -121,6 +138,125 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
         });
     }
 
+    private async Task<IActionResult> ScopedIndex(
+        string? search,
+        string? sort,
+        bool desc,
+        int page,
+        int pageSize,
+        int? buyerId,
+        int? supplierId,
+        int? buyerLocationId,
+        int? supplierLocationId,
+        int? locationId)
+    {
+        var query = GetBaseQuery().AsNoTracking();
+        if (buyerId.HasValue)
+        {
+            query = query.Where(match => match.Buyer == buyerId.Value);
+        }
+
+        if (supplierId.HasValue)
+        {
+            query = query.Where(match => match.Supplier == supplierId.Value);
+        }
+
+        if (buyerLocationId.HasValue)
+        {
+            query = query.Where(match => match.BuyerLocation == buyerLocationId.Value);
+        }
+
+        if (supplierLocationId.HasValue)
+        {
+            query = query.Where(match => match.SupplierLocation == supplierLocationId.Value);
+        }
+
+        if (locationId.HasValue)
+        {
+            query = query.Where(match =>
+                match.BuyerLocation == locationId.Value
+                || match.SupplierLocation == locationId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = ApplySearch(query, search);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await query.CountAsync();
+        var sorted = query.ApplySort(sort, desc, SortColumns, DefaultSortColumn, out var resolvedSort);
+        var items = await sorted
+            .Select(ProjectionExpression)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return View("Index", new PagedResult<BuyerSupplierListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+                SortColumn = resolvedSort,
+                SortDescending = desc,
+                AdditionalQueryParameters = BuildScopeParameters(
+                    buyerId,
+                    supplierId,
+                    buyerLocationId,
+                    supplierLocationId,
+                    locationId),
+            },
+        });
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildScopeParameters(
+        int? buyerId,
+        int? supplierId,
+        int? buyerLocationId,
+        int? supplierLocationId,
+        int? locationId)
+    {
+        var parameters = new Dictionary<string, string?>();
+        if (buyerId.HasValue)
+        {
+            parameters["buyerId"] = buyerId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (supplierId.HasValue)
+        {
+            parameters["supplierId"] = supplierId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (buyerLocationId.HasValue)
+        {
+            parameters["buyerLocationId"] = buyerLocationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (supplierLocationId.HasValue)
+        {
+            parameters["supplierLocationId"] = supplierLocationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (locationId.HasValue)
+        {
+            parameters["locationId"] = locationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return parameters;
+    }
+
+    private int? ReadIntQuery(string key) =>
+        HttpContext?.Request.Query.TryGetValue(key, out var rawValue) == true
+        && int.TryParse(rawValue.ToString(), CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+
     public async Task<IActionResult> Details(int id)
     {
         var match = await Context.BuyerSuppliers
@@ -154,11 +290,28 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             .Select(m => new { m.Buyer, m.Supplier, m.BuyerLocation, m.SupplierLocation })
             .FirstAsync();
 
-        match.LoadCount = await Context.Loads.CountAsync(l =>
-            l.Buyer == matchKeys.Buyer
-            && l.Supplier == matchKeys.Supplier
-            && l.BuyerLocation == matchKeys.BuyerLocation
-            && l.SupplierLocation == matchKeys.SupplierLocation);
+        var loadsQuery = Context.Loads.AsNoTracking();
+        if (matchKeys.Buyer.HasValue)
+        {
+            loadsQuery = loadsQuery.Where(load => load.Buyer == matchKeys.Buyer.Value);
+        }
+
+        if (matchKeys.Supplier.HasValue)
+        {
+            loadsQuery = loadsQuery.Where(load => load.Supplier == matchKeys.Supplier.Value);
+        }
+
+        if (matchKeys.BuyerLocation.HasValue)
+        {
+            loadsQuery = loadsQuery.Where(load => load.BuyerLocation == matchKeys.BuyerLocation.Value);
+        }
+
+        if (matchKeys.SupplierLocation.HasValue)
+        {
+            loadsQuery = loadsQuery.Where(load => load.SupplierLocation == matchKeys.SupplierLocation.Value);
+        }
+
+        match.LoadCount = await loadsQuery.CountAsync();
 
         match.Products = await Context.BuyerSupplierProducts
             .AsNoTracking()

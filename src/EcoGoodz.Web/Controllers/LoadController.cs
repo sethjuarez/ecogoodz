@@ -7,6 +7,7 @@ using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Extensions;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Load;
+using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,8 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         Context.Loads
             .Include(l => l.BuyerNavigation)
             .Include(l => l.SupplierNavigation)
+            .Include(l => l.BuyerLocationNavigation)
+            .Include(l => l.SupplierLocationNavigation)
             .Include(l => l.LoadStatusNavigation);
 
     protected override IQueryable<Data.Models.Load> ApplySearch(IQueryable<Data.Models.Load> query, string searchTerm) =>
@@ -51,12 +54,151 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             Id = l.Id,
             BuyerId = l.Buyer,
             SupplierId = l.Supplier,
+            BuyerLocationId = l.BuyerLocation,
+            SupplierLocationId = l.SupplierLocation,
             BuyerName = l.BuyerNavigation != null ? l.BuyerNavigation.Name : null,
             SupplierName = l.SupplierNavigation != null ? l.SupplierNavigation.Name : null,
+            BuyerLocationName = l.BuyerLocationNavigation != null ? l.BuyerLocationNavigation.Location1 : null,
+            SupplierLocationName = l.SupplierLocationNavigation != null ? l.SupplierLocationNavigation.Location1 : null,
             StatusName = l.LoadStatusNavigation != null ? l.LoadStatusNavigation.Status : null,
             ShipmentDate = l.ShipmentDate,
             IsActive = l.IsActive ?? false,
         };
+
+    public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
+    {
+        var buyerId = ReadIntQuery("buyerId");
+        var supplierId = ReadIntQuery("supplierId");
+        var buyerLocationId = ReadIntQuery("buyerLocationId");
+        var supplierLocationId = ReadIntQuery("supplierLocationId");
+        var locationId = ReadIntQuery("locationId");
+        var hasScope = buyerId.HasValue
+            || supplierId.HasValue
+            || buyerLocationId.HasValue
+            || supplierLocationId.HasValue
+            || locationId.HasValue;
+        if (!hasScope)
+        {
+            return await base.Index(search, sort, desc, page, pageSize);
+        }
+
+        var query = ApplyScope(GetBaseQuery().AsNoTracking(), buyerId, supplierId, buyerLocationId, supplierLocationId, locationId);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = ApplySearch(query, search);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await query.CountAsync();
+        var sorted = query.ApplySort(sort, desc, SortColumns, DefaultSortColumn, out var resolvedSort);
+        var items = await sorted
+            .Select(ProjectionExpression)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return View("Index", new PagedResult<LoadListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+                SortColumn = resolvedSort,
+                SortDescending = desc,
+                AdditionalQueryParameters = BuildScopeParameters(
+                    buyerId,
+                    supplierId,
+                    buyerLocationId,
+                    supplierLocationId,
+                    locationId),
+            },
+        });
+    }
+
+    private static IQueryable<Data.Models.Load> ApplyScope(
+        IQueryable<Data.Models.Load> query,
+        int? buyerId,
+        int? supplierId,
+        int? buyerLocationId,
+        int? supplierLocationId,
+        int? locationId)
+    {
+        if (buyerId.HasValue)
+        {
+            query = query.Where(load => load.Buyer == buyerId.Value);
+        }
+
+        if (supplierId.HasValue)
+        {
+            query = query.Where(load => load.Supplier == supplierId.Value);
+        }
+
+        if (buyerLocationId.HasValue)
+        {
+            query = query.Where(load => load.BuyerLocation == buyerLocationId.Value);
+        }
+
+        if (supplierLocationId.HasValue)
+        {
+            query = query.Where(load => load.SupplierLocation == supplierLocationId.Value);
+        }
+
+        if (locationId.HasValue)
+        {
+            query = query.Where(load =>
+                load.BuyerLocation == locationId.Value
+                || load.SupplierLocation == locationId.Value);
+        }
+
+        return query;
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildScopeParameters(
+        int? buyerId,
+        int? supplierId,
+        int? buyerLocationId,
+        int? supplierLocationId,
+        int? locationId)
+    {
+        var parameters = new Dictionary<string, string?>();
+        if (buyerId.HasValue)
+        {
+            parameters["buyerId"] = buyerId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (supplierId.HasValue)
+        {
+            parameters["supplierId"] = supplierId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (buyerLocationId.HasValue)
+        {
+            parameters["buyerLocationId"] = buyerLocationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (supplierLocationId.HasValue)
+        {
+            parameters["supplierLocationId"] = supplierLocationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (locationId.HasValue)
+        {
+            parameters["locationId"] = locationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return parameters;
+    }
+
+    private int? ReadIntQuery(string key) =>
+        HttpContext?.Request.Query.TryGetValue(key, out var rawValue) == true
+        && int.TryParse(rawValue.ToString(), CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
 
     public async Task<IActionResult> Details(int id)
     {
@@ -145,6 +287,14 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             .Include(load => load.LoadProducts)
                 .ThenInclude(loadProduct => loadProduct.ProductNavigation)
                     .ThenInclude(product => product.ProductNavigation);
+
+        query = ApplyScope(
+            query,
+            ReadIntQuery("buyerId"),
+            ReadIntQuery("supplierId"),
+            ReadIntQuery("buyerLocationId"),
+            ReadIntQuery("supplierLocationId"),
+            ReadIntQuery("locationId"));
 
         if (!string.IsNullOrWhiteSpace(search))
         {

@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
+using EcoGoodz.Web.Extensions;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.Shared;
 using EcoGoodz.Web.Models.SupplierProduct;
@@ -84,6 +86,15 @@ public class SupplierProductController : PagedListController<SupplierProductCont
 
     public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
+        var supplierId = ReadIntQuery("supplierId");
+        var locationId = ReadIntQuery("locationId");
+        var productId = ReadIntQuery("productId");
+        var hasScope = supplierId.HasValue || locationId.HasValue || productId.HasValue;
+        if (hasScope)
+        {
+            return await ScopedIndex(search, sort, desc, page, pageSize, supplierId, locationId, productId);
+        }
+
         if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
         {
             return await base.Index(search, sort, desc, page, pageSize);
@@ -148,6 +159,91 @@ public class SupplierProductController : PagedListController<SupplierProductCont
             },
         });
     }
+
+    private async Task<IActionResult> ScopedIndex(
+        string? search,
+        string? sort,
+        bool desc,
+        int page,
+        int pageSize,
+        int? supplierId,
+        int? locationId,
+        int? productId)
+    {
+        var query = GetBaseQuery().AsNoTracking();
+        if (supplierId.HasValue)
+        {
+            query = query.Where(row => row.SupplierProduct.Supplier == supplierId.Value);
+        }
+
+        if (locationId.HasValue)
+        {
+            query = query.Where(row => row.SupplierProduct.Location == locationId.Value);
+        }
+
+        if (productId.HasValue)
+        {
+            query = query.Where(row => row.SupplierProduct.Product == productId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = ApplySearch(query, search);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await query.CountAsync();
+        var sorted = query.ApplySort(sort, desc, SortColumns, DefaultSortColumn, out var resolvedSort);
+        var items = await sorted
+            .Select(ProjectionExpression)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return View("Index", new PagedResult<SupplierProductListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+                SortColumn = resolvedSort,
+                SortDescending = desc,
+                AdditionalQueryParameters = BuildScopeParameters(supplierId, locationId, productId),
+            },
+        });
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildScopeParameters(int? supplierId, int? locationId, int? productId)
+    {
+        var parameters = new Dictionary<string, string?>();
+        if (supplierId.HasValue)
+        {
+            parameters["supplierId"] = supplierId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (locationId.HasValue)
+        {
+            parameters["locationId"] = locationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (productId.HasValue)
+        {
+            parameters["productId"] = productId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return parameters;
+    }
+
+    private int? ReadIntQuery(string key) =>
+        HttpContext?.Request.Query.TryGetValue(key, out var rawValue) == true
+        && int.TryParse(rawValue.ToString(), CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
 
     public async Task<IActionResult> Details(int id)
     {

@@ -4,23 +4,20 @@
     var favoritesOnly = Model.Page.AdditionalQueryParameters.ContainsKey("favoritesOnly");
 }
 
-<div class="page-header d-print-none mb-3">
+<div class="page-header d-print-none mb-3 eg-list-workspace">
     <div class="row g-2 align-items-center">
         <div class="col">
+            <div class="page-pretitle">Partner workspace</div>
             <h2 class="page-title">Suppliers</h2>
-            <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount total suppliers. Search, segment, then drill into products, buyers, and load activity.</div>
+            <nav class="eg-view-tabs" aria-label="Supplier views">
+                <a asp-action="Index" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-route-pageSize="@Model.Page.PageSize" class="eg-view-tab @(!favoritesOnly ? "active" : null)" aria-current="@(!favoritesOnly ? "page" : null)">All suppliers</a>
+                <a asp-action="Index" asp-route-favoritesOnly="true" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-route-pageSize="@Model.Page.PageSize" class="eg-view-tab @(favoritesOnly ? "active" : null)" aria-current="@(favoritesOnly ? "page" : null)">Favorites</a>
+                <a asp-action="Tracking" class="eg-view-tab">Tracking</a>
+            </nav>
         </div>
-        <div class="col-auto ms-auto d-flex gap-2">
+        <div class="col-auto ms-auto eg-command-bar">
             @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search suppliers…" })
-            @if (favoritesOnly)
-            {
-                <a asp-action="Index" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-route-pageSize="@Model.Page.PageSize" class="btn text-nowrap">Show all</a>
-            }
-            else
-            {
-                <a asp-action="Index" asp-route-favoritesOnly="true" asp-route-search="@Model.Page.SearchTerm" asp-route-sort="@Model.Page.SortColumn" asp-route-desc="@Model.Page.SortDescending" asp-route-pageSize="@Model.Page.PageSize" class="btn text-nowrap">Favorites only</a>
-            }
-            <a asp-action="Tracking" class="btn text-nowrap">Supplier tracking</a>
             <a asp-action="Create" class="btn btn-primary text-nowrap">New supplier</a>
         </div>
     </div>
@@ -48,7 +45,16 @@
                 {
                     <tr>
                         <td><a asp-action="Details" asp-route-id="@item.Id" class="text-reset">@item.Name</a></td>
-                        <td>@item.AccountManagerName</td>
+                        <td>
+                            @if (item.AccountManagerId.HasValue)
+                            {
+                                <a asp-controller="StaffUser" asp-action="Details" asp-route-id="@item.AccountManagerId" class="text-reset">@item.AccountManagerName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
                         <td>
                             @if (item.IsActive)
                             {

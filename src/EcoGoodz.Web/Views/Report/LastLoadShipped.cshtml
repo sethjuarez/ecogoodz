@@ -85,13 +85,49 @@
                 @foreach (var row in Model.Rows)
                 {
                     <tr>
-                        <td>@row.ClientName</td>
-                        <td>@row.AccountManagerName</td>
-                        <td>@row.LocationName</td>
-                        <td>@row.ShipmentDate.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (row.ClientId.HasValue)
+                            {
+                                <a asp-controller="@(Model.IsBuyerReport ? "Buyer" : "Supplier")" asp-action="Details" asp-route-id="@row.ClientId" class="text-reset">@row.ClientName</a>
+                            }
+                            else
+                            {
+                                @row.ClientName
+                            }
+                        </td>
+                        <td>
+                            @if (row.AccountManagerId.HasValue)
+                            {
+                                <a asp-controller="StaffUser" asp-action="Details" asp-route-id="@row.AccountManagerId" class="text-reset">@(row.AccountManagerName ?? $"User {row.AccountManagerId}")</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (row.LocationId.HasValue)
+                            {
+                                <a asp-controller="Location" asp-action="Details" asp-route-id="@row.LocationId" class="text-reset">@row.LocationName</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
+                        <td><a asp-controller="Load" asp-action="Details" asp-route-id="@row.LoadId" class="text-reset">@row.ShipmentDate.ToString("yyyy-MM-dd")</a></td>
                         <td class="text-end">@row.DaysSinceShipment</td>
                         <td>@row.Products</td>
-                        <td>@row.LastCommunicationDate?.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (row.LastCommunicationId.HasValue)
+                            {
+                                <a asp-controller="Communication" asp-action="Details" asp-route-id="@row.LastCommunicationId" class="text-reset">@(row.LastCommunicationDate?.ToString("yyyy-MM-dd") ?? $"Communication {row.LastCommunicationId}")</a>
+                            }
+                            else
+                            {
+                                <span class="text-secondary">—</span>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
