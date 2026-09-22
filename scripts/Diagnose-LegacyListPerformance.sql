@@ -5,8 +5,9 @@ target-query section if you can.
 */
 
 SET NOCOUNT ON;
-SET STATISTICS IO ON;
-SET STATISTICS TIME ON;
+
+DECLARE @RunSlowTargetQueries bit = 0;
+-- Set @RunSlowTargetQueries = 1 to reproduce the slow legacy list queries with STATISTICS IO/TIME.
 
 PRINT '1) Table sizes for list pages';
 SELECT
@@ -108,7 +109,15 @@ WHERE st.text LIKE '%[[]Buyer]%'
    OR st.text LIKE '%[[]Location]%'
 ORDER BY qs.max_elapsed_time DESC;
 
-PRINT '5) Target queries: run with Actual Execution Plan enabled';
+PRINT '5) Target queries';
+IF @RunSlowTargetQueries = 0
+BEGIN
+    PRINT 'Skipped slow target queries. Set @RunSlowTargetQueries = 1 to run them with Actual Execution Plan enabled.';
+END
+ELSE
+BEGIN
+SET STATISTICS IO ON;
+SET STATISTICS TIME ON;
 
 PRINT '5a) Buyer default list';
 SELECT COUNT(*) FROM dbo.Buyer;
@@ -182,3 +191,4 @@ ORDER BY s.Name;
 
 SET STATISTICS IO OFF;
 SET STATISTICS TIME OFF;
+END
