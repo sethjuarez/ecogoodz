@@ -54,23 +54,25 @@ string, dev-only flags) is explicitly excluded from publish output; see the
 `CopyToPublishDirectory="Never"` item in `EcoGoodz.Web.csproj`. There is no
 `appsettings.Production.json` in the repo at all.
 
-Production configuration must be supplied as **environment variables** on the
-IIS site/app pool. ASP.NET Core's configuration system reads
-double-underscore-delimited env vars as nested config keys, so set:
+Production configuration is supplied by an **external JSON file** loaded by
+`Program.cs`, not environment variables. The config keys are the same
+`Section:Key` shape ASP.NET Core always uses (shown below with the
+double-underscore env-var spelling for reference, in case you're translating
+from an older setup):
 
-| Environment variable | Purpose |
-|---|---|
-| `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ConnectionStrings__EcoGoodz` | Real production SQL Server connection string (see `docs/database-setup.md`) |
-| `Migration__SeedLegacyUsers` | `true` (one-time bootstrap, safe to leave set - see `docs/database-setup.md`) |
-| `Smtp__Host`, `Smtp__Port`, `Smtp__UserName`, `Smtp__Password`, `Smtp__FromAddress` | Amazon SES SMTP credentials (see below and `SmtpOptions.cs`) |
-| `Smtp__TenantName` | SES tenant name (`ecogoodz`) - isolates this app's sending reputation from other projects in the same personal AWS account (see below) |
-| `DataProtection__KeysDirectory` | A folder **outside** `httpdocs` (e.g. `C:\Inetpub\vhosts\app.ecogoodz.com\private\dp-keys`) to persist the DataProtection key ring - see "DataProtection keys" below. Without this, antiforgery tokens/reset links/auth cookies break on every app pool recycle. |
+| Config key | Env var equivalent | Purpose |
+|---|---|---|
+| n/a | `ASPNETCORE_ENVIRONMENT` | `Production` - still set via `web.config` (baked in by `<EnvironmentName>` in `EcoGoodz.Web.csproj`, regenerated every deploy, safe) |
+| `ConnectionStrings:EcoGoodz` | `ConnectionStrings__EcoGoodz` | Real production SQL Server connection string (see `docs/database-setup.md`) |
+| `Migration:SeedLegacyUsers` | `Migration__SeedLegacyUsers` | `true` (one-time bootstrap, safe to leave set - see `docs/database-setup.md`) |
+| `Smtp:Host`, `Smtp:Port`, `Smtp:UserName`, `Smtp:Password`, `Smtp:FromAddress` | `Smtp__*` | Amazon SES SMTP credentials (see below and `SmtpOptions.cs`) |
+| `Smtp:TenantName` | `Smtp__TenantName` | SES tenant name (`ecogoodz`) - isolates this app's sending reputation from other projects in the same personal AWS account (see below) |
+| `DataProtection:KeysDirectory` | `DataProtection__KeysDirectory` | A folder **outside** `httpdocs` (e.g. `C:\Inetpub\vhosts\app.ecogoodz.com\private\dp-keys`) to persist the DataProtection key ring - see "DataProtection keys" below. Without this, antiforgery tokens/reset links/auth cookies break on every app pool recycle. |
 
-### Where these actually get set (not Plesk's UI)
+### Where these actually get set (not Plesk's UI, not `applicationHost.config`)
 
 This Plesk installation has no built-in "Environment variables" panel for
-.NET Core sites, and the two things that look like they might work don't:
+.NET Core sites, and none of the things that look like they might work do:
 
 - The classic **"ASP.NET Configuration for Website"** panel (Framework
   4.8.0, VB.NET, Windows auth, "Connection string manager") is entirely for
@@ -81,29 +83,58 @@ This Plesk installation has no built-in "Environment variables" panel for
   our `deploy` branch **force-pushes a freshly regenerated `web.config` on
   every deploy**, silently wiping anything set there (a known Plesk issue,
   EXTPLESK-5018). Not usable with our CI/CD model.
+- **`applicationHost.config` (server/site level) was tried and does NOT
+  work reliably on this VPS either**, despite being the textbook-correct
+  IIS answer. In production, the custom `environmentVariables` collection
+  we added to the site's `<location>` block was silently wiped out more
+  than once - confirmed to happen when clicking **Deploy/Fetch on Plesk's
+  Git tab**, and suspected to also happen on other panel actions. Plesk
+  periodically regenerates a domain's entire IIS config from its own
+  internal database, and since it has no knowledge of our manually-added
+  block, it drops it on regeneration. **Do not rely on
+  `Set-ProdEnvVars.ps1`/`applicationHost.config` for anything you need to
+  survive future deploys** - it's kept in the repo only as a fallback/
+  emergency tool, not the primary mechanism.
 
-The deploy-safe location is **`applicationHost.config`** (server/site level)
-- it's never touched by `dotnet publish` or a `deploy` branch pull, and it's
-never served over HTTP. Setting it requires real Windows admin access to the
-VPS (RDP), not just Plesk's webspace/FTP system user:
+The actual deploy-safe location is a **JSON file outside `httpdocs`**
+(`Program.cs` loads it via `AddJsonFile(..., optional: true)` from
+`C:\Inetpub\vhosts\app.ecogoodz.com\private\appsettings.Production.json` by
+default, overridable with an `ExternalConfigPath` setting). Being outside
+`httpdocs` means the `deploy` branch pull never touches it; being outside
+`applicationHost.config` means Plesk's own config regeneration never touches
+it either. It only needs to be created **once**:
 
-1. RDP to the VPS as `Administrator` (GoDaddy: **My Products → Servers →
+1. Locally, fill in `scripts/Set-ProdEnvVars.local.ps1` (gitignored) with
+   real secrets, same as before - it's now only used as the input to the
+   next step, not run directly against IIS.
+2. Run `scripts/ConvertTo-ExternalConfig.ps1` locally. It parses that file
+   as plain text (never executes it, so no IIS tools required) and writes
+   `scripts/appsettings.Production.local.json` (also gitignored).
+3. RDP to the VPS as `Administrator` (GoDaddy: **My Products → Servers →
    Manage → Settings → Access → Login credentials** to set/reset that
    password; if RDP itself is unreachable, use **Server Actions → Recovery
    Console** as a no-password fallback to log into Windows directly).
-2. Either use IIS Manager's **Configuration Editor** (section
-   `system.webServer/aspNetCore`, **From:** dropdown set to
-   `ApplicationHost.config <location path='...'>` - not `Web.config` -
-   then edit the `environmentVariables` collection), or run
-   `scripts/Set-ProdEnvVars.ps1` from an elevated PowerShell prompt, which
-   does the same thing via `WebAdministration` cmdlets and prompts for each
-   secret interactively (masked for passwords, nothing written to disk).
-3. Recycle the app pool afterward (Plesk's "Recycle" button, or the script
-   does it automatically).
+   Upload that JSON file to
+   `C:\Inetpub\vhosts\app.ecogoodz.com\private\appsettings.Production.json`
+   (create the `private` folder if it doesn't already exist - it's also
+   used for the DataProtection keys directory below).
+4. Grant the app pool identity (check IIS Manager > Application Pools for
+   the exact identity name, e.g. `IWPD_1(app.ecog_94i)`) read access to that
+   file/folder, and Modify access specifically on the `dp-keys`
+   subdirectory (DataProtection needs to write key files there):
+   ```powershell
+   $acl = Get-Acl 'C:\Inetpub\vhosts\app.ecogoodz.com\private'
+   $rule = New-Object System.Security.AccessControl.FileSystemAccessRule('<identity>','ReadAndExecute','ContainerInherit,ObjectInherit','None','Allow')
+   $acl.AddAccessRule($rule)
+   Set-Acl 'C:\Inetpub\vhosts\app.ecogoodz.com\private' $acl
+   ```
+5. Recycle the app pool. Delete the local `.json`/`.local.ps1` copies once
+   confirmed working (they contain plaintext secrets).
 
 **This step still needs to happen once**, directly on the VPS via RDP,
 before the app will start successfully in production - it will fail to
-connect to a database otherwise.
+connect to a database otherwise. Unlike the `applicationHost.config`
+approach, it should never need to be repeated after future deploys.
 
 The database itself (schema + legacy data) needs to be imported into the
 hosted SQL Server *before* the app's first production start - see
@@ -196,16 +227,16 @@ easiest path if it isn't already covering that subdomain.
 
 1. [ ] Confirm Hosting Bundle (not just runtime) is unnecessary, but ASP.NET
        Core runtime + IIS module *is* installed on the VPS.
-2. [ ] Set the environment variables above via RDP + `applicationHost.config`
-       (see "Where these actually get set" above) - not Plesk's UI.
+2. [x] Create `appsettings.Production.json` outside `httpdocs` via RDP (see
+       "Where these actually get set" above) - not Plesk's UI, not
+       `applicationHost.config`.
 3. [ ] Create the Git repository in Plesk with the settings above (this
        triggers the first pull once `deploy` branch exists).
 4. [ ] Confirm/replace the app pool name in the deployment-actions script.
 5. [ ] Push to `main` (or re-run the `Publish to deploy branch` workflow
        manually) to create the initial `deploy` branch.
-6. [ ] Request SES production access (or verify each real staff email
-       individually) before relying on password-reset emails for anyone
-       outside the sandbox-verified test list.
+6. [x] Request SES production access - **done**, account is out of sandbox
+       mode.
 7. [ ] Verify the site loads at `https://app.ecogoodz.com` and can reach the
        database.
 8. [ ] Confirm TLS certificate covers `app.ecogoodz.com`.
