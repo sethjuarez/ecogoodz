@@ -58,7 +58,6 @@ WHERE OBJECT_NAME(i.object_id) IN (
     'SupplierProduct',
     'Location'
 )
-GROUP BY i.object_id, i.name, i.type_desc, i.is_primary_key, i.is_unique
 ORDER BY TableName, IndexName;
 
 PRINT '3) Missing-index recommendations since last SQL Server restart';
