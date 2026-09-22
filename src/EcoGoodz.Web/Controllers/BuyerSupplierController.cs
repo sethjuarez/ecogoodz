@@ -4,6 +4,7 @@ using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.BuyerSupplier;
+using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -56,6 +57,61 @@ public class BuyerSupplierController : PagedListController<Data.Models.BuyerSupp
             StatusName = m.StatusNavigation != null ? m.StatusNavigation.Status : null,
             IsActive = m.IsActive ?? false,
         };
+
+    public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
+    {
+        if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
+        {
+            return await base.Index(search, sort, desc, page, pageSize);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await Context.BuyerSuppliers.AsNoTracking().CountAsync();
+        var pageMatches = Context.BuyerSuppliers
+            .AsNoTracking()
+            .OrderBy(match => match.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
+
+        var items = await (
+                from match in pageMatches
+                join buyer in Context.Buyers.AsNoTracking() on match.Buyer equals buyer.Id into buyerJoin
+                from buyer in buyerJoin.DefaultIfEmpty()
+                join supplier in Context.Suppliers.AsNoTracking() on match.Supplier equals supplier.Id into supplierJoin
+                from supplier in supplierJoin.DefaultIfEmpty()
+                join buyerLocation in Context.Locations.AsNoTracking() on match.BuyerLocation equals buyerLocation.Id into buyerLocationJoin
+                from buyerLocation in buyerLocationJoin.DefaultIfEmpty()
+                join supplierLocation in Context.Locations.AsNoTracking() on match.SupplierLocation equals supplierLocation.Id into supplierLocationJoin
+                from supplierLocation in supplierLocationJoin.DefaultIfEmpty()
+                join status in Context.SupplierBuyerStatuses.AsNoTracking() on match.Status equals status.Id into statusJoin
+                from status in statusJoin.DefaultIfEmpty()
+                orderby match.Id
+                select new BuyerSupplierListItemViewModel
+                {
+                    Id = match.Id,
+                    BuyerName = buyer.Name,
+                    SupplierName = supplier.Name,
+                    BuyerLocationName = buyerLocation.Location1,
+                    SupplierLocationName = supplierLocation.Location1,
+                    StatusName = status.Status,
+                    IsActive = match.IsActive ?? false,
+                })
+            .ToListAsync();
+
+        return View("Index", new PagedResult<BuyerSupplierListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+            },
+        });
+    }
 
     public async Task<IActionResult> Details(int id)
     {

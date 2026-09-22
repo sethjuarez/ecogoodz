@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using EcoGoodz.Data;
 using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
+using EcoGoodz.Web.Models.Shared;
 using EcoGoodz.Web.Models.Supplier;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -45,6 +46,52 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
                 : null,
             IsActive = s.IsActive ?? false,
         };
+
+    public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
+    {
+        if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
+        {
+            return await base.Index(search, sort, desc, page, pageSize);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await Context.Suppliers.AsNoTracking().CountAsync();
+        var pageSuppliers = Context.Suppliers
+            .AsNoTracking()
+            .OrderBy(supplier => supplier.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
+
+        var items = await (
+                from supplier in pageSuppliers
+                join accountManager in Context.Users.AsNoTracking() on supplier.AccountManager equals accountManager.Id into accountManagerJoin
+                from accountManager in accountManagerJoin.DefaultIfEmpty()
+                orderby supplier.Id
+                select new SupplierListItemViewModel
+                {
+                    Id = supplier.Id,
+                    Name = supplier.Name ?? string.Empty,
+                    AccountManagerName = accountManager != null
+                        ? accountManager.FirstName + " " + accountManager.LastName
+                        : null,
+                    IsActive = supplier.IsActive ?? false,
+                })
+            .ToListAsync();
+
+        return View("Index", new PagedResult<SupplierListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+            },
+        });
+    }
 
     public async Task<IActionResult> Details(int id)
     {

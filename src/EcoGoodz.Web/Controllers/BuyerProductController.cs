@@ -4,6 +4,7 @@ using EcoGoodz.Data.Models;
 using EcoGoodz.Web.Controllers.Shared;
 using EcoGoodz.Web.Identity;
 using EcoGoodz.Web.Models.BuyerProduct;
+using EcoGoodz.Web.Models.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -62,6 +63,58 @@ public class BuyerProductController : PagedListController<BuyerProductController
                 .FirstOrDefault(),
             IsActive = r.BuyerProduct.IsActive,
         };
+
+    public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
+    {
+        if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
+        {
+            return await base.Index(search, sort, desc, page, pageSize);
+        }
+
+        page = page < 1 ? 1 : page;
+        pageSize = pageSize < 1 ? PageInfo.DefaultPageSize : pageSize;
+
+        var totalCount = await Context.BuyerProducts.AsNoTracking().CountAsync();
+        var pageBuyerProducts = Context.BuyerProducts
+            .AsNoTracking()
+            .OrderBy(buyerProduct => buyerProduct.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize);
+
+        var items = await (
+                from buyerProduct in pageBuyerProducts
+                join buyer in Context.Buyers.AsNoTracking() on buyerProduct.Buyer equals buyer.Id into buyerJoin
+                from buyer in buyerJoin.DefaultIfEmpty()
+                join location in Context.Locations.AsNoTracking() on buyerProduct.Location equals location.Id into locationJoin
+                from location in locationJoin.DefaultIfEmpty()
+                join product in Context.Products.AsNoTracking() on buyerProduct.Product equals product.Id into productJoin
+                from product in productJoin.DefaultIfEmpty()
+                orderby buyerProduct.Id
+                select new BuyerProductListItemViewModel
+                {
+                    Id = buyerProduct.Id,
+                    BuyerName = buyer.Name ?? string.Empty,
+                    LocationName = location.Location1 ?? string.Empty,
+                    ProductName = product.Name ?? buyerProduct.OtherProduct ?? "(other product)",
+                    PackagingName = buyerProduct.BuyerProductPackagings
+                        .Select(p => p.PackagingNavigation != null ? p.PackagingNavigation.Type : p.OtherPackaging)
+                        .FirstOrDefault(),
+                    IsActive = buyerProduct.IsActive,
+                })
+            .ToListAsync();
+
+        return View("Index", new PagedResult<BuyerProductListItemViewModel>
+        {
+            Items = items,
+            Page = new PageInfo
+            {
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                SearchTerm = search,
+            },
+        });
+    }
 
     public async Task<IActionResult> Details(int id)
     {
