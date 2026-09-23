@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq.Expressions;
+using System.Diagnostics;
 using System.Text;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
@@ -280,6 +281,10 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
 
     public async Task<IActionResult> Export(string? search, string? sort, bool desc = false)
     {
+        var exportTimer = Stopwatch.StartNew();
+        long queryElapsedMs;
+        long productsElapsedMs;
+
         var buyerId = ReadIntQuery("buyerId");
         var supplierId = ReadIntQuery("supplierId");
         var buyerLocationId = ReadIntQuery("buyerLocationId");
@@ -336,6 +341,7 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
                 IsActive = load.IsActive ?? false,
             })
             .ToListAsync();
+        queryElapsedMs = exportTimer.ElapsedMilliseconds;
 
         var productsLookup = new Dictionary<int, string>();
         if (loads.Count > 0)
@@ -363,6 +369,7 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
                         .Where(name => !string.IsNullOrWhiteSpace(name))
                         .Distinct()));
         }
+        productsElapsedMs = exportTimer.ElapsedMilliseconds - queryElapsedMs;
 
         var csv = new StringBuilder();
         AppendCsvRow(csv,
@@ -420,6 +427,11 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         var bytes = new byte[preamble.Length + content.Length];
         Buffer.BlockCopy(preamble, 0, bytes, 0, preamble.Length);
         Buffer.BlockCopy(content, 0, bytes, preamble.Length, content.Length);
+
+        Response.Headers["Server-Timing"] =
+            $"loads;dur={queryElapsedMs.ToString(CultureInfo.InvariantCulture)}, " +
+            $"products;dur={productsElapsedMs.ToString(CultureInfo.InvariantCulture)}, " +
+            $"csv;dur={(exportTimer.ElapsedMilliseconds - queryElapsedMs - productsElapsedMs).ToString(CultureInfo.InvariantCulture)}";
 
         return File(bytes, "text/csv", "loads.csv");
     }
