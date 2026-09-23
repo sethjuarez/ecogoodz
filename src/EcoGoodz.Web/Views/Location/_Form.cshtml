@@ -25,14 +25,14 @@
     </div>
     <div class="col-12 col-md-6 mb-3">
         <label asp-for="BuyerClientId" class="form-label"></label>
-        <select asp-for="BuyerClientId" asp-items="Model.BuyerOptions" class="form-select">
+        <select asp-for="BuyerClientId" asp-items="Model.BuyerOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchBuyers", "Location")">
             <option value="">-- choose buyer --</option>
         </select>
         <span asp-validation-for="BuyerClientId" class="text-danger"></span>
     </div>
     <div class="col-12 col-md-6 mb-3">
         <label asp-for="SupplierClientId" class="form-label"></label>
-        <select asp-for="SupplierClientId" asp-items="Model.SupplierOptions" class="form-select">
+        <select asp-for="SupplierClientId" asp-items="Model.SupplierOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchSuppliers", "Location")">
             <option value="">-- choose supplier --</option>
         </select>
         <span asp-validation-for="SupplierClientId" class="text-danger"></span>
@@ -49,7 +49,7 @@
     </div>
     <div class="col-12 col-md-4 mb-3">
         <label asp-for="State" class="form-label"></label>
-        <select asp-for="State" asp-items="Model.StateOptions" class="form-select">
+        <select asp-for="State" asp-items="Model.StateOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchStates", "Location")">
             <option value="">-- none --</option>
         </select>
         <span asp-validation-for="State" class="text-danger"></span>

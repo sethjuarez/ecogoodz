@@ -670,6 +670,92 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
         return Json(locations.Select(location => new { id = location.Value, text = location.Text }));
     }
 
+    public async Task<IActionResult> SearchTrackingBuyers(string? q)
+    {
+        var query = Context.Buyers.AsNoTracking().Where(buyer => buyer.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(buyer => buyer.Name != null && buyer.Name.Contains(q));
+        }
+
+        return Json(await query
+            .OrderBy(buyer => buyer.Name)
+            .Take(50)
+            .Select(buyer => new SelectOption(buyer.Id.ToString(), buyer.Name ?? "(unnamed buyer)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchTrackingProducts(int buyerId, int buyerLocationId, string? q)
+    {
+        var query = Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product =>
+                product.BuyerSupplier != null
+                && product.BuyerSupplier.Buyer == buyerId
+                && product.BuyerSupplier.BuyerLocation == buyerLocationId
+                && product.BuyerSupplier.IsActive == true
+                && product.SupplierProductNavigation != null
+                && product.SupplierProductNavigation.IsActive
+                && product.SupplierProductNavigation.ProductNavigation != null
+                && product.SupplierProductNavigation.ProductNavigation.IsActive == true
+                && product.SupplierProductNavigation.SupplierNavigation != null
+                && product.SupplierProductNavigation.SupplierNavigation.IsActive == true
+                && product.SupplierProductNavigation.LocationNavigation != null
+                && product.SupplierProductNavigation.LocationNavigation.IsActive);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(product => product.SupplierProductNavigation!.ProductNavigation!.Name != null && product.SupplierProductNavigation.ProductNavigation.Name.Contains(q));
+        }
+
+        var results = await query
+            .Select(product => new
+            {
+                Id = product.SupplierProductNavigation!.Product!.Value,
+                Name = product.SupplierProductNavigation.ProductNavigation!.Name ?? string.Empty,
+            })
+            .Distinct()
+            .OrderBy(product => product.Name)
+            .Take(50)
+            .Select(product => new SelectOption(product.Id.ToString(), product.Name))
+            .ToListAsync();
+
+        return Json(results);
+    }
+
+    public async Task<IActionResult> SearchTrackingSuppliers(int productId, int buyerId, int buyerLocationId, string? q)
+    {
+        var query = Context.BuyerSupplierProducts
+            .AsNoTracking()
+            .Where(product =>
+                product.BuyerSupplier != null
+                && product.BuyerSupplier.Buyer == buyerId
+                && product.BuyerSupplier.BuyerLocation == buyerLocationId
+                && product.BuyerSupplier.IsActive == true
+                && product.SupplierProductNavigation != null
+                && product.SupplierProductNavigation.IsActive
+                && product.SupplierProductNavigation.Product == productId
+                && product.SupplierProductNavigation.SupplierNavigation != null
+                && product.SupplierProductNavigation.SupplierNavigation.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(product => product.SupplierProductNavigation!.SupplierNavigation!.Name != null && product.SupplierProductNavigation.SupplierNavigation.Name.Contains(q));
+        }
+
+        var results = await query
+            .Select(product => new
+            {
+                Id = product.SupplierProductNavigation!.Supplier!.Value,
+                Name = product.SupplierProductNavigation.SupplierNavigation!.Name ?? string.Empty,
+            })
+            .Distinct()
+            .OrderBy(supplier => supplier.Name)
+            .Take(50)
+            .Select(supplier => new SelectOption(supplier.Id.ToString(), supplier.Name))
+            .ToListAsync();
+
+        return Json(results);
+    }
+
     private async Task<IEnumerable<SelectListItem>> GetAccountManagerOptionsAsync()
     {
         return await Context.Users
@@ -698,17 +784,18 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
             .ToListAsync();
 
     private async Task<IEnumerable<SelectListItem>> GetTrackingBuyerOptionsAsync(int? selectedId = null) =>
-        await Context.Buyers
-            .AsNoTracking()
-            .Where(buyer => buyer.IsActive == true)
-            .OrderBy(buyer => buyer.Name)
-            .Select(buyer => new SelectListItem
-            {
-                Value = buyer.Id.ToString(),
-                Text = buyer.Name,
-                Selected = selectedId == buyer.Id,
-            })
-            .ToListAsync();
+        selectedId is null
+            ? []
+            : await Context.Buyers
+                .AsNoTracking()
+                .Where(buyer => buyer.Id == selectedId)
+                .Select(buyer => new SelectListItem
+                {
+                    Value = buyer.Id.ToString(),
+                    Text = buyer.Name ?? "(unnamed buyer)",
+                    Selected = true,
+                })
+                .ToListAsync();
 
     private async Task<List<SelectListItem>> GetTrackingBuyerLocationOptionsAsync(int buyerId, int? selectedId) =>
         await Context.Locations
@@ -798,7 +885,9 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
     }
 
     private async Task<List<SelectListItem>> GetTrackingProductOptionsAsync(int buyerId, int buyerLocationId, int? selectedId) =>
-        await Context.BuyerSupplierProducts
+        selectedId is null
+            ? []
+            : await Context.BuyerSupplierProducts
             .AsNoTracking()
             .Where(product =>
                 product.BuyerSupplier != null
@@ -812,7 +901,8 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
                 && product.SupplierProductNavigation.SupplierNavigation != null
                 && product.SupplierProductNavigation.SupplierNavigation.IsActive == true
                 && product.SupplierProductNavigation.LocationNavigation != null
-                && product.SupplierProductNavigation.LocationNavigation.IsActive)
+                && product.SupplierProductNavigation.LocationNavigation.IsActive
+                && product.SupplierProductNavigation.Product == selectedId)
             .Select(product => new
             {
                 Id = product.SupplierProductNavigation!.Product!.Value,
@@ -824,12 +914,14 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
             {
                 Value = product.Id.ToString(),
                 Text = product.Name,
-                Selected = selectedId == product.Id,
+                Selected = true,
             })
             .ToListAsync();
 
     private async Task<IEnumerable<SelectListItem>> GetTrackingSupplierOptionsAsync(int productId, int buyerId, int buyerLocationId, int? selectedId) =>
-        await Context.BuyerSupplierProducts
+        selectedId is null
+            ? []
+            : await Context.BuyerSupplierProducts
             .AsNoTracking()
             .Where(product =>
                 product.BuyerSupplier != null
@@ -840,7 +932,8 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
                 && product.SupplierProductNavigation.IsActive
                 && product.SupplierProductNavigation.Product == productId
                 && product.SupplierProductNavigation.SupplierNavigation != null
-                && product.SupplierProductNavigation.SupplierNavigation.IsActive == true)
+                && product.SupplierProductNavigation.SupplierNavigation.IsActive == true
+                && product.SupplierProductNavigation.Supplier == selectedId)
             .Select(product => new
             {
                 Id = product.SupplierProductNavigation!.Supplier!.Value,
@@ -852,7 +945,7 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
             {
                 Value = supplier.Id.ToString(),
                 Text = supplier.Name,
-                Selected = selectedId == supplier.Id,
+                Selected = true,
             })
             .ToListAsync();
 
@@ -902,6 +995,8 @@ public class BuyerController : PagedListController<Data.Models.Buyer, BuyerListI
             && product.SupplierProductNavigation.LocationNavigation != null
             && product.SupplierProductNavigation.LocationNavigation.IsActive
             && product.SupplierProductNavigation.LocationNavigation.IsBuyer == false);
+
+    private sealed record SelectOption(string Value, string Text);
 
     private async Task<bool> BuyerTrackingSupplierLocationExistsAsync(int productId, int buyerId, int buyerLocationId, int supplierId, int supplierLocationId) =>
         await Context.BuyerSupplierProducts.AnyAsync(product =>

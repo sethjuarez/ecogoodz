@@ -545,6 +545,50 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
         return Json(locations.Select(location => new { id = location.Value, text = location.Text }));
     }
 
+    public async Task<IActionResult> SearchTrackingProducts(string? q)
+    {
+        var query = Context.Products.AsNoTracking().Where(product => product.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(product => product.Name != null && product.Name.Contains(q));
+        }
+
+        return Json(await query
+            .OrderBy(product => product.Name)
+            .Take(50)
+            .Select(product => new SelectOption(product.Id.ToString(), product.Name ?? "(unnamed product)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchTrackingSuppliers(int productId, string? q)
+    {
+        var query = Context.SupplierProducts
+            .AsNoTracking()
+            .Where(supplierProduct =>
+                supplierProduct.IsActive
+                && supplierProduct.Product == productId
+                && supplierProduct.SupplierNavigation != null
+                && supplierProduct.SupplierNavigation.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(supplierProduct => supplierProduct.SupplierNavigation!.Name != null && supplierProduct.SupplierNavigation.Name.Contains(q));
+        }
+
+        var results = await query
+            .Select(supplierProduct => new
+            {
+                Id = supplierProduct.Supplier!.Value,
+                Name = supplierProduct.SupplierNavigation!.Name ?? string.Empty,
+            })
+            .Distinct()
+            .OrderBy(supplier => supplier.Name)
+            .Take(50)
+            .Select(supplier => new SelectOption(supplier.Id.ToString(), supplier.Name))
+            .ToListAsync();
+
+        return Json(results);
+    }
+
     private async Task<IEnumerable<SelectListItem>> GetAccountManagerOptionsAsync()
     {
         return await Context.Users
@@ -573,17 +617,18 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
             .ToListAsync();
 
     private async Task<IEnumerable<SelectListItem>> GetTrackingProductOptionsAsync(int? selectedId = null) =>
-        await Context.Products
-            .AsNoTracking()
-            .Where(product => product.IsActive == true)
-            .OrderBy(product => product.Name)
-            .Select(product => new SelectListItem
-            {
-                Value = product.Id.ToString(),
-                Text = product.Name,
-                Selected = selectedId == product.Id,
-            })
-            .ToListAsync();
+        selectedId is null
+            ? []
+            : await Context.Products
+                .AsNoTracking()
+                .Where(product => product.Id == selectedId)
+                .Select(product => new SelectListItem
+                {
+                    Value = product.Id.ToString(),
+                    Text = product.Name ?? "(unnamed product)",
+                    Selected = true,
+                })
+                .ToListAsync();
 
     private async Task<SupplierTrackingSupplierFormViewModel?> BuildTrackingSupplierFormAsync(int userProductId, int? selectedSupplierId, int? selectedLocationId)
     {
@@ -619,13 +664,16 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
     }
 
     private async Task<IEnumerable<SelectListItem>> GetTrackingSupplierOptionsAsync(int productId, int? selectedId = null) =>
-        await Context.SupplierProducts
+        selectedId is null
+            ? []
+            : await Context.SupplierProducts
             .AsNoTracking()
             .Where(supplierProduct =>
                 supplierProduct.IsActive
                 && supplierProduct.Product == productId
                 && supplierProduct.SupplierNavigation != null
-                && supplierProduct.SupplierNavigation.IsActive == true)
+                && supplierProduct.SupplierNavigation.IsActive == true
+                && supplierProduct.Supplier == selectedId)
             .Select(supplierProduct => new
             {
                 Id = supplierProduct.Supplier!.Value,
@@ -637,7 +685,7 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
             {
                 Value = supplier.Id.ToString(),
                 Text = supplier.Name,
-                Selected = selectedId == supplier.Id,
+                Selected = true,
             })
             .ToListAsync();
 
@@ -727,4 +775,6 @@ public class SupplierController : PagedListController<Data.Models.Supplier, Supp
 
         return loads;
     }
+
+    private sealed record SelectOption(string Value, string Text);
 }
