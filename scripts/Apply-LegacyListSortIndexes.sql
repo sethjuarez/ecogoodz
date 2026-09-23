@@ -92,82 +92,14 @@ BEGIN
         INCLUDE (Buyer, BuyerLocation, SupplierLocation, LoadStatus);
 END;
 
-IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_Supplier_ShipmentDate_Id')
-   AND NOT EXISTS (
-       SELECT 1
-       FROM sys.indexes AS i
-       JOIN sys.index_columns AS ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-       JOIN sys.columns AS c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-       WHERE i.object_id = OBJECT_ID('dbo.Loads')
-         AND i.name = 'IX_Loads_Supplier_ShipmentDate_Id'
-         AND c.name = 'FreightAmountBilled'
-         AND ic.is_included_column = 1
-   )
-BEGIN
-    DROP INDEX IX_Loads_Supplier_ShipmentDate_Id ON dbo.Loads;
-END;
-
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_Supplier_ShipmentDate_Id')
 BEGIN
-    CREATE INDEX IX_Loads_Supplier_ShipmentDate_Id ON dbo.Loads (Supplier, ShipmentDate DESC, Id DESC)
-        INCLUDE (
-            Buyer,
-            BuyerLocation,
-            SupplierLocation,
-            LoadStatus,
-            IsActive,
-            BookingDate,
-            BuyerRef,
-            SupplierRef,
-            Container,
-            BuyerInvoice,
-            BuyerInvoiceAmount,
-            SupplierInvoice,
-            SupplierInvoiceAmount,
-            FreightCarrier,
-            FreightInvoice,
-            FreightAmountQuoted,
-            FreightAmountBilled
-        );
-END;
-
-IF EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_Buyer_ShipmentDate_Id')
-   AND NOT EXISTS (
-       SELECT 1
-       FROM sys.indexes AS i
-       JOIN sys.index_columns AS ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
-       JOIN sys.columns AS c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
-       WHERE i.object_id = OBJECT_ID('dbo.Loads')
-         AND i.name = 'IX_Loads_Buyer_ShipmentDate_Id'
-         AND c.name = 'FreightAmountBilled'
-         AND ic.is_included_column = 1
-   )
-BEGIN
-    DROP INDEX IX_Loads_Buyer_ShipmentDate_Id ON dbo.Loads;
+    CREATE INDEX IX_Loads_Supplier_ShipmentDate_Id ON dbo.Loads (Supplier, ShipmentDate DESC, Id DESC);
 END;
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_Buyer_ShipmentDate_Id')
 BEGIN
-    CREATE INDEX IX_Loads_Buyer_ShipmentDate_Id ON dbo.Loads (Buyer, ShipmentDate DESC, Id DESC)
-        INCLUDE (
-            Supplier,
-            BuyerLocation,
-            SupplierLocation,
-            LoadStatus,
-            IsActive,
-            BookingDate,
-            BuyerRef,
-            SupplierRef,
-            Container,
-            BuyerInvoice,
-            BuyerInvoiceAmount,
-            SupplierInvoice,
-            SupplierInvoiceAmount,
-            FreightCarrier,
-            FreightInvoice,
-            FreightAmountQuoted,
-            FreightAmountBilled
-        );
+    CREATE INDEX IX_Loads_Buyer_ShipmentDate_Id ON dbo.Loads (Buyer, ShipmentDate DESC, Id DESC);
 END;
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID('dbo.Loads') AND name = 'IX_Loads_BuyerLocation_ShipmentDate_Id')
