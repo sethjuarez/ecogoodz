@@ -1547,6 +1547,20 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task LoadExport_RejectsUnfilteredAllLoadExport()
+    {
+        await using var context = CreateContext();
+        context.Loads.Add(new Load { Id = 20, IsActive = true });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new LoadController(context));
+
+        var result = Assert.IsType<BadRequestObjectResult>(await controller.Export(search: null, sort: null));
+
+        Assert.Equal("Export requires a search term or scoped filter.", result.Value);
+    }
+
+    [Fact]
     public async Task BuyerGetSubStatus_ReturnsChildStatuses()
     {
         await using var context = CreateContext();

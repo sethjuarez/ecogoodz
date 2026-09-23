@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq.Expressions;
+using System.Diagnostics;
 using System.Text;
 using EcoGoodz.Data;
 using EcoGoodz.Data.Models;
@@ -280,30 +281,102 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
 
     public async Task<IActionResult> Export(string? search, string? sort, bool desc = false)
     {
-        IQueryable<Data.Models.Load> query = GetBaseQuery()
-            .AsNoTracking()
-            .Include(load => load.BuyerLocationNavigation)
-            .Include(load => load.SupplierLocationNavigation)
-            .Include(load => load.LoadProducts)
-                .ThenInclude(loadProduct => loadProduct.ProductNavigation)
-                    .ThenInclude(product => product.ProductNavigation);
+        var exportTimer = Stopwatch.StartNew();
+        long queryElapsedMs;
+        long namesElapsedMs;
+        long productsElapsedMs;
+
+        var buyerId = ReadIntQuery("buyerId");
+        var supplierId = ReadIntQuery("supplierId");
+        var buyerLocationId = ReadIntQuery("buyerLocationId");
+        var supplierLocationId = ReadIntQuery("supplierLocationId");
+        var locationId = ReadIntQuery("locationId");
+        var hasScope = buyerId.HasValue
+            || supplierId.HasValue
+            || buyerLocationId.HasValue
+            || supplierLocationId.HasValue
+            || locationId.HasValue;
+
+        if (!hasScope && string.IsNullOrWhiteSpace(search))
+        {
+            return BadRequest("Export requires a search term or scoped filter.");
+        }
+
+        IQueryable<Data.Models.Load> query = Context.Loads.AsNoTracking();
 
         query = ApplyScope(
             query,
-            ReadIntQuery("buyerId"),
-            ReadIntQuery("supplierId"),
-            ReadIntQuery("buyerLocationId"),
-            ReadIntQuery("supplierLocationId"),
-            ReadIntQuery("locationId"));
+            buyerId,
+            supplierId,
+            buyerLocationId,
+            supplierLocationId,
+            locationId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = ApplySearch(query, search);
         }
 
-        var loads = await query
-            .ApplySort(sort, desc, SortColumns, DefaultSortColumn, out _)
+        var loads = await ApplyExportSort(query, sort, desc)
+            .Select(load => new LoadExportRow
+            {
+                Id = load.Id,
+                LoadStatusId = load.LoadStatus,
+                BuyerId = load.Buyer,
+                BuyerLocationId = load.BuyerLocation,
+                SupplierId = load.Supplier,
+                SupplierLocationId = load.SupplierLocation,
+                ShipmentDate = load.ShipmentDate,
+                BookingDate = load.BookingDate,
+                BuyerRef = load.BuyerRef,
+                SupplierRef = load.SupplierRef,
+                Container = load.Container,
+                BuyerInvoice = load.BuyerInvoice,
+                BuyerInvoiceAmount = load.BuyerInvoiceAmount,
+                SupplierInvoice = load.SupplierInvoice,
+                SupplierInvoiceAmount = load.SupplierInvoiceAmount,
+                FreightCarrier = load.FreightCarrier,
+                FreightInvoice = load.FreightInvoice,
+                FreightAmountQuoted = load.FreightAmountQuoted,
+                FreightAmountBilled = load.FreightAmountBilled,
+                IsActive = load.IsActive ?? false,
+            })
             .ToListAsync();
+        queryElapsedMs = exportTimer.ElapsedMilliseconds;
+
+        if (loads.Count > 0)
+        {
+            await PopulateExportNamesAsync(loads);
+        }
+        namesElapsedMs = exportTimer.ElapsedMilliseconds - queryElapsedMs;
+
+        var productsLookup = new Dictionary<int, string>();
+        if (loads.Count > 0)
+        {
+            var loadIds = loads.Select(load => load.Id).ToList();
+            var productNamesByLoad = await Context.LoadProducts
+                .AsNoTracking()
+                .Where(loadProduct => loadIds.Contains(loadProduct.Load))
+                .Select(loadProduct => new
+                {
+                    LoadId = loadProduct.Load,
+                    Name = loadProduct.ProductNavigation.ProductNavigation != null
+                        ? loadProduct.ProductNavigation.ProductNavigation.Name
+                        : null,
+                })
+                .Where(product => !string.IsNullOrWhiteSpace(product.Name))
+                .ToListAsync();
+
+            productsLookup = productNamesByLoad
+                .GroupBy(product => product.LoadId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => string.Join(", ", group
+                        .Select(product => product.Name)
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Distinct()));
+        }
+        productsElapsedMs = exportTimer.ElapsedMilliseconds - queryElapsedMs - namesElapsedMs;
 
         var csv = new StringBuilder();
         AppendCsvRow(csv,
@@ -333,15 +406,12 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         {
             AppendCsvRow(csv,
                 load.Id.ToString(),
-                load.LoadStatusNavigation?.Status,
-                load.BuyerNavigation?.Name,
-                load.BuyerLocationNavigation?.Location1,
-                load.SupplierNavigation?.Name,
-                load.SupplierLocationNavigation?.Location1,
-                string.Join(", ", load.LoadProducts
-                    .Select(loadProduct => loadProduct.ProductNavigation?.ProductNavigation?.Name)
-                    .Where(name => !string.IsNullOrWhiteSpace(name))
-                    .Distinct()),
+                load.StatusName,
+                load.BuyerName,
+                load.BuyerLocationName,
+                load.SupplierName,
+                load.SupplierLocationName,
+                productsLookup.GetValueOrDefault(load.Id, string.Empty),
                 FormatDate(load.ShipmentDate),
                 FormatDate(load.BookingDate),
                 load.BuyerRef,
@@ -355,7 +425,7 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
                 load.FreightInvoice,
                 FormatDecimal(load.FreightAmountQuoted),
                 FormatDecimal(load.FreightAmountBilled),
-                (load.IsActive ?? false) ? "Yes" : "No");
+                load.IsActive ? "Yes" : "No");
         }
 
         var csvContent = csv.ToString();
@@ -365,7 +435,104 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         Buffer.BlockCopy(preamble, 0, bytes, 0, preamble.Length);
         Buffer.BlockCopy(content, 0, bytes, preamble.Length, content.Length);
 
+        Response.Headers["Server-Timing"] =
+            $"loads;dur={queryElapsedMs.ToString(CultureInfo.InvariantCulture)}, " +
+            $"names;dur={namesElapsedMs.ToString(CultureInfo.InvariantCulture)}, " +
+            $"products;dur={productsElapsedMs.ToString(CultureInfo.InvariantCulture)}, " +
+            $"csv;dur={(exportTimer.ElapsedMilliseconds - queryElapsedMs - namesElapsedMs - productsElapsedMs).ToString(CultureInfo.InvariantCulture)}";
+
         return File(bytes, "text/csv", "loads.csv");
+    }
+
+    private static IOrderedQueryable<Data.Models.Load> ApplyExportSort(
+        IQueryable<Data.Models.Load> query,
+        string? sort,
+        bool desc) =>
+        sort?.ToLowerInvariant() switch
+        {
+            "buyer" => desc
+                ? query.OrderByDescending(load => load.BuyerNavigation != null ? load.BuyerNavigation.Name : null)
+                : query.OrderBy(load => load.BuyerNavigation != null ? load.BuyerNavigation.Name : null),
+            "supplier" => desc
+                ? query.OrderByDescending(load => load.SupplierNavigation != null ? load.SupplierNavigation.Name : null)
+                : query.OrderBy(load => load.SupplierNavigation != null ? load.SupplierNavigation.Name : null),
+            "status" => desc
+                ? query.OrderByDescending(load => load.LoadStatusNavigation != null ? load.LoadStatusNavigation.Status : null)
+                : query.OrderBy(load => load.LoadStatusNavigation != null ? load.LoadStatusNavigation.Status : null),
+            "active" => desc
+                ? query.OrderByDescending(load => load.IsActive)
+                : query.OrderBy(load => load.IsActive),
+            _ => desc
+                ? query.OrderByDescending(load => load.ShipmentDate)
+                : query.OrderBy(load => load.ShipmentDate),
+        };
+
+    private sealed class LoadExportRow
+    {
+        public int Id { get; set; }
+        public int? LoadStatusId { get; set; }
+        public int? BuyerId { get; set; }
+        public int? BuyerLocationId { get; set; }
+        public int? SupplierId { get; set; }
+        public int? SupplierLocationId { get; set; }
+        public string? StatusName { get; set; }
+        public string? BuyerName { get; set; }
+        public string? BuyerLocationName { get; set; }
+        public string? SupplierName { get; set; }
+        public string? SupplierLocationName { get; set; }
+        public DateTime? ShipmentDate { get; set; }
+        public DateTime? BookingDate { get; set; }
+        public string? BuyerRef { get; set; }
+        public string? SupplierRef { get; set; }
+        public string? Container { get; set; }
+        public string? BuyerInvoice { get; set; }
+        public decimal? BuyerInvoiceAmount { get; set; }
+        public string? SupplierInvoice { get; set; }
+        public decimal? SupplierInvoiceAmount { get; set; }
+        public string? FreightCarrier { get; set; }
+        public string? FreightInvoice { get; set; }
+        public decimal? FreightAmountQuoted { get; set; }
+        public decimal? FreightAmountBilled { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private async Task PopulateExportNamesAsync(List<LoadExportRow> loads)
+    {
+        var statusIds = loads.Select(load => load.LoadStatusId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        var buyerIds = loads.Select(load => load.BuyerId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        var supplierIds = loads.Select(load => load.SupplierId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        var locationIds = loads
+            .SelectMany(load => new[] { load.BuyerLocationId, load.SupplierLocationId })
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        var statuses = await Context.LoadStatuses
+            .AsNoTracking()
+            .Where(status => statusIds.Contains(status.Id))
+            .ToDictionaryAsync(status => status.Id, status => status.Status);
+        var buyers = await Context.Buyers
+            .AsNoTracking()
+            .Where(buyer => buyerIds.Contains(buyer.Id))
+            .ToDictionaryAsync(buyer => buyer.Id, buyer => buyer.Name);
+        var suppliers = await Context.Suppliers
+            .AsNoTracking()
+            .Where(supplier => supplierIds.Contains(supplier.Id))
+            .ToDictionaryAsync(supplier => supplier.Id, supplier => supplier.Name);
+        var locations = await Context.Locations
+            .AsNoTracking()
+            .Where(location => locationIds.Contains(location.Id))
+            .ToDictionaryAsync(location => location.Id, location => location.Location1);
+
+        foreach (var load in loads)
+        {
+            load.StatusName = load.LoadStatusId.HasValue ? statuses.GetValueOrDefault(load.LoadStatusId.Value) : null;
+            load.BuyerName = load.BuyerId.HasValue ? buyers.GetValueOrDefault(load.BuyerId.Value) : null;
+            load.SupplierName = load.SupplierId.HasValue ? suppliers.GetValueOrDefault(load.SupplierId.Value) : null;
+            load.BuyerLocationName = load.BuyerLocationId.HasValue ? locations.GetValueOrDefault(load.BuyerLocationId.Value) : null;
+            load.SupplierLocationName = load.SupplierLocationId.HasValue ? locations.GetValueOrDefault(load.SupplierLocationId.Value) : null;
+        }
     }
 
     public async Task<IActionResult> GetLoadBySupplierAcctMgr(int id)

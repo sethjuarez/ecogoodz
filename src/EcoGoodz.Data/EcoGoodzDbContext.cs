@@ -705,6 +705,16 @@ public partial class EcoGoodzDbContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("PK_dbo.Loads");
 
+            entity.HasIndex(e => new { e.Supplier, e.IsActive, e.ShipmentDate, e.Id }, "IX_Loads_Supplier_Active_ShipmentDate_Id");
+
+            entity.HasIndex(e => new { e.Supplier, e.ShipmentDate, e.Id }, "IX_Loads_Supplier_ShipmentDate_Id");
+
+            entity.HasIndex(e => new { e.Buyer, e.ShipmentDate, e.Id }, "IX_Loads_Buyer_ShipmentDate_Id");
+
+            entity.HasIndex(e => new { e.BuyerLocation, e.ShipmentDate, e.Id }, "IX_Loads_BuyerLocation_ShipmentDate_Id");
+
+            entity.HasIndex(e => new { e.SupplierLocation, e.ShipmentDate, e.Id }, "IX_Loads_SupplierLocation_ShipmentDate_Id");
+
             entity.Property(e => e.BookingDate).HasColumnType("datetime");
             entity.Property(e => e.BuyerInvoiceAmount).HasColumnType("decimal(18, 4)");
             entity.Property(e => e.BuyerInvoiceDate).HasColumnType("datetime");
@@ -783,6 +793,11 @@ public partial class EcoGoodzDbContext : DbContext
 
             entity.Property<string>("CitySort").HasComputedColumnSql("CONVERT(nvarchar(450), [City])");
             entity.Property<string>("LocationSort").HasComputedColumnSql("CONVERT(nvarchar(450), [Location])");
+
+            entity.HasIndex("LocationSort", "Id").HasDatabaseName("IX_Location_LocationSort_Id");
+
+            entity.HasIndex("CitySort", "Id").HasDatabaseName("IX_Location_CitySort_Id");
+
             entity.Property(e => e.CreateOn).HasColumnType("datetime");
             entity.Property(e => e.Drayage1).HasColumnType("decimal(18, 4)");
             entity.Property(e => e.Drayage2).HasColumnType("decimal(18, 4)");
