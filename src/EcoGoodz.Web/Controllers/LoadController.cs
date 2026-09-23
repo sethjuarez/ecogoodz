@@ -283,6 +283,7 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
     {
         var exportTimer = Stopwatch.StartNew();
         long queryElapsedMs;
+        long namesElapsedMs;
         long productsElapsedMs;
 
         var buyerId = ReadIntQuery("buyerId");
@@ -320,11 +321,11 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             .Select(load => new LoadExportRow
             {
                 Id = load.Id,
-                StatusName = load.LoadStatusNavigation != null ? load.LoadStatusNavigation.Status : null,
-                BuyerName = load.BuyerNavigation != null ? load.BuyerNavigation.Name : null,
-                BuyerLocationName = load.BuyerLocationNavigation != null ? load.BuyerLocationNavigation.Location1 : null,
-                SupplierName = load.SupplierNavigation != null ? load.SupplierNavigation.Name : null,
-                SupplierLocationName = load.SupplierLocationNavigation != null ? load.SupplierLocationNavigation.Location1 : null,
+                LoadStatusId = load.LoadStatus,
+                BuyerId = load.Buyer,
+                BuyerLocationId = load.BuyerLocation,
+                SupplierId = load.Supplier,
+                SupplierLocationId = load.SupplierLocation,
                 ShipmentDate = load.ShipmentDate,
                 BookingDate = load.BookingDate,
                 BuyerRef = load.BuyerRef,
@@ -342,6 +343,12 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             })
             .ToListAsync();
         queryElapsedMs = exportTimer.ElapsedMilliseconds;
+
+        if (loads.Count > 0)
+        {
+            await PopulateExportNamesAsync(loads);
+        }
+        namesElapsedMs = exportTimer.ElapsedMilliseconds - queryElapsedMs;
 
         var productsLookup = new Dictionary<int, string>();
         if (loads.Count > 0)
@@ -369,7 +376,7 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
                         .Where(name => !string.IsNullOrWhiteSpace(name))
                         .Distinct()));
         }
-        productsElapsedMs = exportTimer.ElapsedMilliseconds - queryElapsedMs;
+        productsElapsedMs = exportTimer.ElapsedMilliseconds - queryElapsedMs - namesElapsedMs;
 
         var csv = new StringBuilder();
         AppendCsvRow(csv,
@@ -430,8 +437,9 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
 
         Response.Headers["Server-Timing"] =
             $"loads;dur={queryElapsedMs.ToString(CultureInfo.InvariantCulture)}, " +
+            $"names;dur={namesElapsedMs.ToString(CultureInfo.InvariantCulture)}, " +
             $"products;dur={productsElapsedMs.ToString(CultureInfo.InvariantCulture)}, " +
-            $"csv;dur={(exportTimer.ElapsedMilliseconds - queryElapsedMs - productsElapsedMs).ToString(CultureInfo.InvariantCulture)}";
+            $"csv;dur={(exportTimer.ElapsedMilliseconds - queryElapsedMs - namesElapsedMs - productsElapsedMs).ToString(CultureInfo.InvariantCulture)}";
 
         return File(bytes, "text/csv", "loads.csv");
     }
@@ -462,6 +470,11 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
     private sealed class LoadExportRow
     {
         public int Id { get; set; }
+        public int? LoadStatusId { get; set; }
+        public int? BuyerId { get; set; }
+        public int? BuyerLocationId { get; set; }
+        public int? SupplierId { get; set; }
+        public int? SupplierLocationId { get; set; }
         public string? StatusName { get; set; }
         public string? BuyerName { get; set; }
         public string? BuyerLocationName { get; set; }
@@ -481,6 +494,45 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         public decimal? FreightAmountQuoted { get; set; }
         public decimal? FreightAmountBilled { get; set; }
         public bool IsActive { get; set; }
+    }
+
+    private async Task PopulateExportNamesAsync(List<LoadExportRow> loads)
+    {
+        var statusIds = loads.Select(load => load.LoadStatusId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        var buyerIds = loads.Select(load => load.BuyerId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        var supplierIds = loads.Select(load => load.SupplierId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        var locationIds = loads
+            .SelectMany(load => new[] { load.BuyerLocationId, load.SupplierLocationId })
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        var statuses = await Context.LoadStatuses
+            .AsNoTracking()
+            .Where(status => statusIds.Contains(status.Id))
+            .ToDictionaryAsync(status => status.Id, status => status.Status);
+        var buyers = await Context.Buyers
+            .AsNoTracking()
+            .Where(buyer => buyerIds.Contains(buyer.Id))
+            .ToDictionaryAsync(buyer => buyer.Id, buyer => buyer.Name);
+        var suppliers = await Context.Suppliers
+            .AsNoTracking()
+            .Where(supplier => supplierIds.Contains(supplier.Id))
+            .ToDictionaryAsync(supplier => supplier.Id, supplier => supplier.Name);
+        var locations = await Context.Locations
+            .AsNoTracking()
+            .Where(location => locationIds.Contains(location.Id))
+            .ToDictionaryAsync(location => location.Id, location => location.Location1);
+
+        foreach (var load in loads)
+        {
+            load.StatusName = load.LoadStatusId.HasValue ? statuses.GetValueOrDefault(load.LoadStatusId.Value) : null;
+            load.BuyerName = load.BuyerId.HasValue ? buyers.GetValueOrDefault(load.BuyerId.Value) : null;
+            load.SupplierName = load.SupplierId.HasValue ? suppliers.GetValueOrDefault(load.SupplierId.Value) : null;
+            load.BuyerLocationName = load.BuyerLocationId.HasValue ? locations.GetValueOrDefault(load.BuyerLocationId.Value) : null;
+            load.SupplierLocationName = load.SupplierLocationId.HasValue ? locations.GetValueOrDefault(load.SupplierLocationId.Value) : null;
+        }
     }
 
     public async Task<IActionResult> GetLoadBySupplierAcctMgr(int id)
