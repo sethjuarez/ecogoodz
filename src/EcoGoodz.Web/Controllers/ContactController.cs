@@ -21,13 +21,30 @@ public class ContactController : Controller
         _context = context;
     }
 
-    public async Task<IActionResult> Index(int? locationId, int page = 1, int pageSize = PageInfo.DefaultPageSize)
+    public async Task<IActionResult> Index(
+        int? locationId = null,
+        string? clientType = null,
+        int? clientId = null,
+        string? search = null,
+        int page = 1,
+        int pageSize = PageInfo.DefaultPageSize)
     {
         var query = ContactRows();
 
         if (locationId.HasValue)
         {
             query = query.Where(c => c.Contact.Location == locationId);
+        }
+
+        var isBuyerScope = ParseClientType(clientType);
+        if (clientId.HasValue && isBuyerScope.HasValue)
+        {
+            query = query.Where(c => c.Contact.ClientId == clientId && c.Contact.IsBuyer == isBuyerScope);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = ApplySearch(query, search.Trim());
         }
 
         page = page < 1 ? 1 : page;
@@ -37,6 +54,11 @@ public class ContactController : Controller
         if (locationId.HasValue)
         {
             scopeParameters["locationId"] = locationId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+        if (clientId.HasValue && isBuyerScope.HasValue)
+        {
+            scopeParameters["clientType"] = isBuyerScope.Value ? "Buyer" : "Supplier";
+            scopeParameters["clientId"] = clientId.Value.ToString(CultureInfo.InvariantCulture);
         }
 
         var contacts = await query
@@ -58,6 +80,7 @@ public class ContactController : Controller
                 Email = c.Contact.ContactNavigation.Email,
                 OfficePhone = c.Contact.ContactNavigation.OfficePhone,
                 CellPhone = c.Contact.ContactNavigation.CellPhone,
+                Address = c.Contact.ContactNavigation.Address,
                 IsPrimaryContact = c.Contact.IsPrimaryContact == true,
                 IsDockContact = c.Contact.IsDockContact == true,
                 IsActive = c.Contact.IsActive,
@@ -72,6 +95,7 @@ public class ContactController : Controller
                 PageNumber = page,
                 PageSize = pageSize,
                 TotalCount = totalCount,
+                SearchTerm = search,
                 AdditionalQueryParameters = scopeParameters,
             },
         });
@@ -94,6 +118,7 @@ public class ContactController : Controller
                 Email = c.Contact.ContactNavigation.Email,
                 OfficePhone = c.Contact.ContactNavigation.OfficePhone,
                 CellPhone = c.Contact.ContactNavigation.CellPhone,
+                Address = c.Contact.ContactNavigation.Address,
                 IsPrimaryContact = c.Contact.IsPrimaryContact == true,
                 IsDockContact = c.Contact.IsDockContact == true,
                 IsActive = c.Contact.IsActive,
@@ -402,6 +427,36 @@ public class ContactController : Controller
         contactInformation.State = model.State;
         contactInformation.Country = model.Country;
         contactInformation.PinCode = model.PinCode;
+    }
+
+    private static IQueryable<ContactRow> ApplySearch(IQueryable<ContactRow> query, string searchTerm) =>
+        query.Where(c =>
+            (c.Contact.ContactNavigation.FirstName != null && c.Contact.ContactNavigation.FirstName.Contains(searchTerm))
+            || (c.Contact.ContactNavigation.LastName != null && c.Contact.ContactNavigation.LastName.Contains(searchTerm))
+            || (c.Contact.ContactNavigation.Title != null && c.Contact.ContactNavigation.Title.Contains(searchTerm))
+            || (c.Contact.ContactNavigation.Email != null && c.Contact.ContactNavigation.Email.Contains(searchTerm))
+            || (c.Contact.ContactNavigation.OfficePhone != null && c.Contact.ContactNavigation.OfficePhone.Contains(searchTerm))
+            || (c.Contact.ContactNavigation.CellPhone != null && c.Contact.ContactNavigation.CellPhone.Contains(searchTerm))
+            || (c.Contact.ContactNavigation.Address != null && c.Contact.ContactNavigation.Address.Contains(searchTerm))
+            || (c.Contact.LocationNavigation != null && (
+                (c.Contact.LocationNavigation.Location1 != null && c.Contact.LocationNavigation.Location1.Contains(searchTerm))
+                || (c.Contact.LocationNavigation.Address != null && c.Contact.LocationNavigation.Address.Contains(searchTerm))))
+            || (c.BuyerName != null && c.BuyerName.Contains(searchTerm))
+            || (c.SupplierName != null && c.SupplierName.Contains(searchTerm)));
+
+    private static bool? ParseClientType(string? clientType)
+    {
+        if (string.Equals(clientType, "Buyer", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (string.Equals(clientType, "Supplier", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return null;
     }
 
     private async Task PopulateOptionsAsync(ContactFormViewModel model)

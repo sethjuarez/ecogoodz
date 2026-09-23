@@ -9,7 +9,8 @@
         || string.Equals(currentController, "StaffTask", StringComparison.OrdinalIgnoreCase);
     var isPartnersActive = string.Equals(currentController, "Buyer", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "Supplier", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase);
+        || string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(currentController, "Contact", StringComparison.OrdinalIgnoreCase);
     var isCatalogActive = string.Equals(currentController, "Product", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "PackageType", StringComparison.OrdinalIgnoreCase)
         || string.Equals(currentController, "BuyerProduct", StringComparison.OrdinalIgnoreCase)
@@ -35,6 +36,7 @@
         "Buyer" => "Buyers",
         "Supplier" => "Suppliers",
         "Location" => "Locations",
+        "Contact" => "Contacts",
         "Load" => "Loads",
         "BuyerSupplier" => "Buyer/supplier matches",
         "Communication" => "Communications",
@@ -198,6 +200,7 @@
                                 <a class="dropdown-item @(string.Equals(currentController, "Buyer", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Buyer" asp-action="Index">Buyers</a>
                                 <a class="dropdown-item @(string.Equals(currentController, "Supplier", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Supplier" asp-action="Index">Suppliers</a>
                                 <a class="dropdown-item @(string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Location" asp-action="Index">Locations</a>
+                                <a class="dropdown-item @(string.Equals(currentController, "Contact", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-area="" asp-controller="Contact" asp-action="Index">Contacts</a>
                             </div>
                         </li>
                         <li class="nav-item dropdown @(isCatalogActive ? "active" : null)">
@@ -268,6 +271,7 @@
                 <a class="eg-sidebar-link @(string.Equals(currentController, "Buyer", StringComparison.OrdinalIgnoreCase) ? "active" : null)" aria-current="@(string.Equals(currentController, "Buyer", StringComparison.OrdinalIgnoreCase) ? "page" : null)" asp-area="" asp-controller="Buyer" asp-action="Index">Buyers</a>
                 <a class="eg-sidebar-link @(string.Equals(currentController, "Supplier", StringComparison.OrdinalIgnoreCase) ? "active" : null)" aria-current="@(string.Equals(currentController, "Supplier", StringComparison.OrdinalIgnoreCase) ? "page" : null)" asp-area="" asp-controller="Supplier" asp-action="Index">Suppliers</a>
                 <a class="eg-sidebar-link @(string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase) ? "active" : null)" aria-current="@(string.Equals(currentController, "Location", StringComparison.OrdinalIgnoreCase) ? "page" : null)" asp-area="" asp-controller="Location" asp-action="Index">Locations</a>
+                <a class="eg-sidebar-link @(string.Equals(currentController, "Contact", StringComparison.OrdinalIgnoreCase) ? "active" : null)" aria-current="@(string.Equals(currentController, "Contact", StringComparison.OrdinalIgnoreCase) ? "page" : null)" asp-area="" asp-controller="Contact" asp-action="Index">Contacts</a>
             </details>
             <details class="eg-sidebar-group" open="@isCatalogActive">
                 <summary class="eg-sidebar-heading">Catalog</summary>
