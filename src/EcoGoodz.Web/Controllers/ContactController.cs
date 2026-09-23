@@ -279,6 +279,68 @@ public class ContactController : Controller
         return RedirectToAction(nameof(Index), new { locationId = contact.Location });
     }
 
+    public async Task<IActionResult> SearchLocations(string? q)
+    {
+        var query =
+            from location in _context.Locations.AsNoTracking()
+            join buyer in _context.Buyers.AsNoTracking() on location.ClientId equals buyer.Id into buyerJoin
+            from buyer in buyerJoin.DefaultIfEmpty()
+            join supplier in _context.Suppliers.AsNoTracking() on location.ClientId equals supplier.Id into supplierJoin
+            from supplier in supplierJoin.DefaultIfEmpty()
+            where location.IsActive
+            select new
+            {
+                location.Id,
+                location.Location1,
+                location.City,
+                location.Address,
+                location.IsBuyer,
+                BuyerName = buyer.Name,
+                SupplierName = supplier.Name,
+            };
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(location =>
+                (location.Location1 != null && location.Location1.Contains(q))
+                || (location.City != null && location.City.Contains(q))
+                || (location.Address != null && location.Address.Contains(q))
+                || (location.BuyerName != null && location.BuyerName.Contains(q))
+                || (location.SupplierName != null && location.SupplierName.Contains(q)));
+        }
+
+        var results = await query
+            .OrderBy(location => location.Location1)
+            .Take(50)
+            .Select(location => new SelectOption(
+                location.Id.ToString(),
+                (location.Location1 ?? "(unnamed location)") + " - " + (location.IsBuyer == true
+                    ? location.BuyerName ?? "(unnamed buyer)"
+                    : location.SupplierName ?? "(unnamed supplier)")))
+            .ToListAsync();
+
+        return Json(results);
+    }
+
+    public async Task<IActionResult> SearchStates(string? q)
+    {
+        var query = _context.States.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(state =>
+                (state.StateName != null && state.StateName.Contains(q))
+                || (state.Code != null && state.Code.Contains(q)));
+        }
+
+        var results = await query
+            .OrderBy(state => state.StateName)
+            .Take(50)
+            .Select(state => new SelectOption(state.Id.ToString(), state.StateName ?? "(unnamed state)"))
+            .ToListAsync();
+
+        return Json(results);
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Copy(int id)
@@ -461,26 +523,8 @@ public class ContactController : Controller
 
     private async Task PopulateOptionsAsync(ContactFormViewModel model)
     {
-        model.LocationOptions = await (
-                from location in _context.Locations
-                join buyer in _context.Buyers on location.ClientId equals buyer.Id into buyerJoin
-                from buyer in buyerJoin.DefaultIfEmpty()
-                join supplier in _context.Suppliers on location.ClientId equals supplier.Id into supplierJoin
-                from supplier in supplierJoin.DefaultIfEmpty()
-                where location.IsActive
-                orderby location.Location1
-                select new SelectListItem
-                {
-                    Value = location.Id.ToString(),
-                    Text = (location.Location1 ?? "(Unnamed location)") + " - " + (location.IsBuyer == true ? buyer.Name : supplier.Name),
-                })
-            .ToListAsync();
-
-        model.StateOptions = await _context.States
-            .OrderBy(s => s.StateName)
-            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.StateName })
-            .ToListAsync();
-
+        model.LocationOptions = await GetSelectedLocationOptionsAsync(model.LocationId);
+        model.StateOptions = await GetSelectedStateOptionsAsync(model.State);
         model.CountryOptions = await _context.Countries
             .OrderBy(c => c.CountryName)
             .Select(c => new SelectListItem { Value = c.Id.ToString(), Text = c.CountryName })
@@ -508,4 +552,50 @@ public class ContactController : Controller
         public string? BuyerName { get; init; }
         public string? SupplierName { get; init; }
     }
+
+    private async Task<List<SelectListItem>> GetSelectedLocationOptionsAsync(int? selectedId)
+    {
+        if (selectedId is null)
+        {
+            return [];
+        }
+
+        return await (
+                from location in _context.Locations.AsNoTracking()
+                join buyer in _context.Buyers.AsNoTracking() on location.ClientId equals buyer.Id into buyerJoin
+                from buyer in buyerJoin.DefaultIfEmpty()
+                join supplier in _context.Suppliers.AsNoTracking() on location.ClientId equals supplier.Id into supplierJoin
+                from supplier in supplierJoin.DefaultIfEmpty()
+                where location.Id == selectedId
+                select new SelectListItem
+                {
+                    Value = location.Id.ToString(),
+                    Text = (location.Location1 ?? "(unnamed location)") + " - " + (location.IsBuyer == true
+                        ? buyer.Name ?? "(unnamed buyer)"
+                        : supplier.Name ?? "(unnamed supplier)"),
+                    Selected = true,
+                })
+            .ToListAsync();
+    }
+
+    private async Task<List<SelectListItem>> GetSelectedStateOptionsAsync(int? selectedId)
+    {
+        if (selectedId is null)
+        {
+            return [];
+        }
+
+        return await _context.States
+            .AsNoTracking()
+            .Where(state => state.Id == selectedId)
+            .Select(state => new SelectListItem
+            {
+                Value = state.Id.ToString(),
+                Text = state.StateName ?? "(unnamed state)",
+                Selected = true,
+            })
+            .ToListAsync();
+    }
+
+    private sealed record SelectOption(string Value, string Text);
 }

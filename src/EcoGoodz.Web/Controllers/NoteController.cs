@@ -248,6 +248,67 @@ public class NoteController : Controller
         return RedirectToAction(nameof(Index), new { scope, id = scopedId });
     }
 
+    public async Task<IActionResult> SearchBuyerLocations(string? q)
+    {
+        var query = _context.Locations.AsNoTracking().Where(location => location.IsBuyer == true && location.IsActive);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(location =>
+                (location.Location1 != null && location.Location1.Contains(q))
+                || (location.City != null && location.City.Contains(q))
+                || (location.Address != null && location.Address.Contains(q)));
+        }
+
+        return Json(await query
+            .OrderBy(location => location.Location1)
+            .Take(50)
+            .Select(location => new SelectOption(location.Id.ToString(), location.Location1 ?? "(unnamed buyer location)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchSupplierLocations(string? q)
+    {
+        var query = _context.Locations.AsNoTracking().Where(location => location.IsBuyer == false && location.IsActive);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(location =>
+                (location.Location1 != null && location.Location1.Contains(q))
+                || (location.City != null && location.City.Contains(q))
+                || (location.Address != null && location.Address.Contains(q)));
+        }
+
+        return Json(await query
+            .OrderBy(location => location.Location1)
+            .Take(50)
+            .Select(location => new SelectOption(location.Id.ToString(), location.Location1 ?? "(unnamed supplier location)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchProducts(string? q)
+    {
+        var query = _context.SupplierProducts
+            .AsNoTracking()
+            .Where(product => product.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(product =>
+                (product.SupplierNavigation != null && product.SupplierNavigation.Name != null && product.SupplierNavigation.Name.Contains(q))
+                || (product.ProductNavigation != null && product.ProductNavigation.Name != null && product.ProductNavigation.Name.Contains(q))
+                || (product.OtherPackaging != null && product.OtherPackaging.Contains(q)));
+        }
+
+        return Json(await query
+            .OrderBy(product => product.SupplierNavigation!.Name)
+            .ThenBy(product => product.ProductNavigation!.Name)
+            .Take(50)
+            .Select(product => new SelectOption(
+                product.Id.ToString(),
+                (product.SupplierNavigation != null ? product.SupplierNavigation.Name : "Supplier")
+                    + " - "
+                    + (product.ProductNavigation != null ? product.ProductNavigation.Name : "Product")))
+            .ToListAsync());
+    }
+
     private static string NormalizeScope(string? scope) =>
         scope is SupplierLocationScope or ProductScope ? scope : BuyerLocationScope;
 
@@ -302,27 +363,40 @@ public class NoteController : Controller
             new SelectListItem { Value = SupplierLocationScope, Text = "Supplier location" },
             new SelectListItem { Value = ProductScope, Text = "Supplier product" },
         ];
-        model.BuyerLocationOptions = await _context.Locations
-            .Where(l => l.IsBuyer == true && l.IsActive)
-            .OrderBy(l => l.Location1)
-            .Select(l => new SelectListItem { Value = l.Id.ToString(), Text = l.Location1 })
-            .ToListAsync();
-        model.SupplierLocationOptions = await _context.Locations
-            .Where(l => l.IsBuyer == false && l.IsActive)
-            .OrderBy(l => l.Location1)
-            .Select(l => new SelectListItem { Value = l.Id.ToString(), Text = l.Location1 })
-            .ToListAsync();
-        model.ProductOptions = await _context.SupplierProducts
-            .Include(sp => sp.SupplierNavigation)
-            .Include(sp => sp.ProductNavigation)
-            .Where(sp => sp.IsActive == true)
-            .OrderBy(sp => sp.SupplierNavigation!.Name)
-            .ThenBy(sp => sp.ProductNavigation!.Name)
-            .Select(sp => new SelectListItem
-            {
-                Value = sp.Id.ToString(),
-                Text = (sp.SupplierNavigation != null ? sp.SupplierNavigation.Name : "Supplier") + " - " + (sp.ProductNavigation != null ? sp.ProductNavigation.Name : "Product"),
-            })
-            .ToListAsync();
+        model.BuyerLocationOptions = await GetSelectedLocationOptionsAsync(model.BuyerLocation);
+        model.SupplierLocationOptions = await GetSelectedLocationOptionsAsync(model.SupplierLocation);
+        model.ProductOptions = await GetSelectedProductOptionsAsync(model.Product);
     }
+
+    private async Task<List<SelectListItem>> GetSelectedLocationOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await _context.Locations
+                .AsNoTracking()
+                .Where(location => location.Id == selectedId)
+                .Select(location => new SelectListItem
+                {
+                    Value = location.Id.ToString(),
+                    Text = location.Location1 ?? "(unnamed location)",
+                    Selected = true,
+                })
+                .ToListAsync();
+
+    private async Task<List<SelectListItem>> GetSelectedProductOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await _context.SupplierProducts
+                .AsNoTracking()
+                .Where(product => product.Id == selectedId)
+                .Select(product => new SelectListItem
+                {
+                    Value = product.Id.ToString(),
+                    Text = (product.SupplierNavigation != null ? product.SupplierNavigation.Name : "Supplier")
+                        + " - "
+                        + (product.ProductNavigation != null ? product.ProductNavigation.Name : "Product"),
+                    Selected = true,
+                })
+                .ToListAsync();
+
+    private sealed record SelectOption(string Value, string Text);
 }

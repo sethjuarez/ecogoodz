@@ -76,6 +76,8 @@ public class LocationController : PagedListController<LocationController.Locatio
         public string? SupplierName { get; init; }
     }
 
+    private sealed record SelectOption(string Value, string Text);
+
     public override async Task<IActionResult> Index(string? search, string? sort, bool desc = false, int page = 1, int pageSize = PageInfo.DefaultPageSize)
     {
         if (!string.IsNullOrWhiteSpace(search) || !string.IsNullOrWhiteSpace(sort) || desc)
@@ -415,27 +417,63 @@ public class LocationController : PagedListController<LocationController.Locatio
         return RedirectToAction(nameof(Index));
     }
 
+    public async Task<IActionResult> SearchBuyers(string? q)
+    {
+        var query = Context.Buyers.AsNoTracking().Where(buyer => buyer.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(buyer => buyer.Name != null && buyer.Name.Contains(q));
+        }
+
+        return Json(await query
+            .OrderBy(buyer => buyer.Name)
+            .Take(50)
+            .Select(buyer => new SelectOption(buyer.Id.ToString(), buyer.Name ?? "(unnamed buyer)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchSuppliers(string? q)
+    {
+        var query = Context.Suppliers.AsNoTracking().Where(supplier => supplier.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(supplier => supplier.Name != null && supplier.Name.Contains(q));
+        }
+
+        return Json(await query
+            .OrderBy(supplier => supplier.Name)
+            .Take(50)
+            .Select(supplier => new SelectOption(supplier.Id.ToString(), supplier.Name ?? "(unnamed supplier)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchStates(string? q)
+    {
+        var query = Context.States.AsNoTracking();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(state =>
+                (state.StateName != null && state.StateName.Contains(q))
+                || (state.Code != null && state.Code.Contains(q)));
+        }
+
+        return Json(await query
+            .OrderBy(state => state.StateName)
+            .Take(50)
+            .Select(state => new SelectOption(state.Id.ToString(), state.StateName ?? "(unnamed state)"))
+            .ToListAsync());
+    }
+
     private async Task PopulateOptionsAsync(LocationFormViewModel model)
     {
         model.ClientTypeOptions = GetClientTypeOptions();
-        model.BuyerOptions = await Context.Buyers
-            .Where(b => b.IsActive == true)
-            .OrderBy(b => b.Name)
-            .Select(b => new SelectListItem { Value = b.Id.ToString(), Text = b.Name })
-            .ToListAsync();
-        model.SupplierOptions = await Context.Suppliers
-            .Where(s => s.IsActive == true)
-            .OrderBy(s => s.Name)
-            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Name })
-            .ToListAsync();
+        model.BuyerOptions = await GetSelectedBuyerOptionsAsync(model.BuyerClientId);
+        model.SupplierOptions = await GetSelectedSupplierOptionsAsync(model.SupplierClientId);
         model.CountryOptions = await Context.Countries
             .OrderBy(c => c.CountryName)
             .Select(c => new SelectListItem { Value = c.Id.ToString(), Text = c.CountryName })
             .ToListAsync();
-        model.StateOptions = await Context.States
-            .OrderBy(s => s.StateName)
-            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.StateName })
-            .ToListAsync();
+        model.StateOptions = await GetSelectedStateOptionsAsync(model.State);
         model.PaymentTermOptions = await Context.PaymentTerms
             .OrderBy(p => p.Term)
             .Select(p => new SelectListItem { Value = p.Id.ToString(), Text = p.Term })
@@ -455,6 +493,33 @@ public class LocationController : PagedListController<LocationController.Locatio
         yield return new SelectListItem { Value = BuyerClientType, Text = BuyerClientType };
         yield return new SelectListItem { Value = SupplierClientType, Text = SupplierClientType };
     }
+
+    private async Task<List<SelectListItem>> GetSelectedBuyerOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await Context.Buyers
+                .AsNoTracking()
+                .Where(buyer => buyer.Id == selectedId)
+                .Select(buyer => new SelectListItem { Value = buyer.Id.ToString(), Text = buyer.Name ?? "(unnamed buyer)", Selected = true })
+                .ToListAsync();
+
+    private async Task<List<SelectListItem>> GetSelectedSupplierOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await Context.Suppliers
+                .AsNoTracking()
+                .Where(supplier => supplier.Id == selectedId)
+                .Select(supplier => new SelectListItem { Value = supplier.Id.ToString(), Text = supplier.Name ?? "(unnamed supplier)", Selected = true })
+                .ToListAsync();
+
+    private async Task<List<SelectListItem>> GetSelectedStateOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await Context.States
+                .AsNoTracking()
+                .Where(state => state.Id == selectedId)
+                .Select(state => new SelectListItem { Value = state.Id.ToString(), Text = state.StateName ?? "(unnamed state)", Selected = true })
+                .ToListAsync();
 
     private static bool? GetIsBuyer(string? clientType) =>
         clientType == BuyerClientType ? true : clientType == SupplierClientType ? false : null;

@@ -231,6 +231,53 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task ContactEdit_LoadsOnlySelectedLargeDropdownOptions()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 10, Name = "Buyer One", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 20, Location1 = "Selected Dock", ClientId = 10, IsBuyer = true, IsActive = true },
+            new Location { Id = 21, Location1 = "Other Dock", ClientId = 10, IsBuyer = true, IsActive = true });
+        context.States.AddRange(
+            new State { Id = 30, StateName = "Selected State" },
+            new State { Id = 31, StateName = "Other State" });
+        context.Countries.Add(new Country { Id = 40, CountryName = "United States" });
+        context.Contacts.Add(new Contact
+        {
+            Id = 50,
+            ContactId = 51,
+            ClientId = 10,
+            Location = 20,
+            IsBuyer = true,
+            IsActive = true,
+            ContactNavigation = new ContactInformation
+            {
+                Id = 51,
+                FirstName = "Selected",
+                State = 30,
+                Country = 40,
+                IsActive = true,
+            },
+        });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ContactController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Edit(50));
+        var model = Assert.IsType<ContactFormViewModel>(result.Model);
+
+        var locationOption = Assert.Single(model.LocationOptions);
+        Assert.Equal("20", locationOption.Value);
+        Assert.True(locationOption.Selected);
+
+        var stateOption = Assert.Single(model.StateOptions);
+        Assert.Equal("30", stateOption.Value);
+        Assert.True(stateOption.Selected);
+
+        Assert.Single(model.CountryOptions);
+    }
+
+    [Fact]
     public async Task LocationCreate_WithCopySource_ClonesContactsAndBuyerProducts()
     {
         await using var context = CreateContext();

@@ -11,14 +11,14 @@
         </div>
         <div class="col-md-4">
             <label asp-for="BuyerId" class="form-label"></label>
-            <select asp-for="BuyerId" asp-items="Model.BuyerOptions" class="form-select">
+            <select asp-for="BuyerId" asp-items="Model.BuyerOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchBuyers", "Communication")">
                 <option value="">Choose buyer</option>
             </select>
             <span asp-validation-for="BuyerId" class="text-danger"></span>
         </div>
         <div class="col-md-4">
             <label asp-for="SupplierId" class="form-label"></label>
-            <select asp-for="SupplierId" asp-items="Model.SupplierOptions" class="form-select">
+            <select asp-for="SupplierId" asp-items="Model.SupplierOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchSuppliers", "Communication")">
                 <option value="">Choose supplier</option>
             </select>
             <span asp-validation-for="SupplierId" class="text-danger"></span>

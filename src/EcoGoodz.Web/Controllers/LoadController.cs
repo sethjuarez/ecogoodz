@@ -584,6 +584,98 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         });
     }
 
+    public async Task<IActionResult> SearchBuyers(string? q)
+    {
+        var query = Context.Buyers.AsNoTracking().Where(buyer => buyer.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(buyer => buyer.Name != null && buyer.Name.Contains(q));
+        }
+
+        return Json(await query
+            .OrderBy(buyer => buyer.Name)
+            .Take(50)
+            .Select(buyer => new SelectOption(buyer.Id.ToString(), buyer.Name ?? "(unnamed buyer)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchSuppliers(string? q)
+    {
+        var query = Context.Suppliers.AsNoTracking().Where(supplier => supplier.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(supplier => supplier.Name != null && supplier.Name.Contains(q));
+        }
+
+        return Json(await query
+            .OrderBy(supplier => supplier.Name)
+            .Take(50)
+            .Select(supplier => new SelectOption(supplier.Id.ToString(), supplier.Name ?? "(unnamed supplier)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchBuyerLocations(string? q)
+    {
+        var query = Context.Locations.AsNoTracking().Where(location => location.IsActive && (location.IsBuyer == true || location.IsBuyer == null));
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(location =>
+                (location.Location1 != null && location.Location1.Contains(q))
+                || (location.City != null && location.City.Contains(q))
+                || (location.Address != null && location.Address.Contains(q))
+                || (location.ClientId.HasValue && location.ClientId.Value.ToString().Contains(q)));
+        }
+
+        return Json(await query
+            .OrderBy(location => location.Location1)
+            .Take(50)
+            .Select(location => new SelectOption(location.Id.ToString(), location.Location1 ?? "(unnamed buyer location)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchSupplierLocations(string? q)
+    {
+        var query = Context.Locations.AsNoTracking().Where(location => location.IsActive && (location.IsBuyer == false || location.IsBuyer == null));
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(location =>
+                (location.Location1 != null && location.Location1.Contains(q))
+                || (location.City != null && location.City.Contains(q))
+                || (location.Address != null && location.Address.Contains(q))
+                || (location.ClientId.HasValue && location.ClientId.Value.ToString().Contains(q)));
+        }
+
+        return Json(await query
+            .OrderBy(location => location.Location1)
+            .Take(50)
+            .Select(location => new SelectOption(location.Id.ToString(), location.Location1 ?? "(unnamed supplier location)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchSupplierProducts(string? q)
+    {
+        var query = Context.SupplierProducts.AsNoTracking().Where(product => product.IsActive);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(product =>
+                (product.SupplierNavigation != null && product.SupplierNavigation.Name != null && product.SupplierNavigation.Name.Contains(q))
+                || (product.ProductNavigation != null && product.ProductNavigation.Name != null && product.ProductNavigation.Name.Contains(q))
+                || (product.OtherPackaging != null && product.OtherPackaging.Contains(q)));
+        }
+
+        return Json(await query
+            .OrderBy(product => product.SupplierNavigation!.Name)
+            .ThenBy(product => product.ProductNavigation!.Name)
+            .Take(50)
+            .Select(product => new SelectOption(
+                product.Id.ToString(),
+                (product.SupplierNavigation != null ? product.SupplierNavigation.Name : "Supplier")
+                    + " - "
+                    + (product.ProductNavigation != null ? product.ProductNavigation.Name : "Product")
+                    + (product.PackagingNavigation != null ? " (" + product.PackagingNavigation.Type + ")" : product.OtherPackaging != null ? " (" + product.OtherPackaging + ")" : string.Empty)))
+            .ToListAsync());
+    }
+
     public async Task<IActionResult> Create()
     {
         var model = new LoadFormViewModel();
@@ -749,78 +841,59 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
 
     private async Task PopulateOptionsAsync(LoadFormViewModel model)
     {
-        model.BuyerOptions = await GetBuyerOptionsAsync();
-        model.SupplierOptions = await GetSupplierOptionsAsync();
-        model.BuyerLocationOptions = await GetLocationOptionsAsync(isBuyer: true, model.Buyer, model.BuyerLocation);
-        model.SupplierLocationOptions = await GetLocationOptionsAsync(isBuyer: false, model.Supplier, model.SupplierLocation);
-        model.SupplierProductOptions = await GetSupplierProductOptionsAsync(model.Supplier, model.SupplierProductIds);
+        model.BuyerOptions = await GetBuyerOptionsAsync(model.Buyer);
+        model.SupplierOptions = await GetSupplierOptionsAsync(model.Supplier);
+        model.BuyerLocationOptions = await GetLocationOptionsAsync(model.BuyerLocation);
+        model.SupplierLocationOptions = await GetLocationOptionsAsync(model.SupplierLocation);
+        model.SupplierProductOptions = await GetSupplierProductOptionsAsync(model.SupplierProductIds);
         model.StatusOptions = await GetStatusOptionsAsync();
     }
 
-    private async Task<IEnumerable<SelectListItem>> GetBuyerOptionsAsync() =>
-        await Context.Buyers
-            .Where(b => b.IsActive == true)
-            .OrderBy(b => b.Name)
-            .Select(b => new SelectListItem { Value = b.Id.ToString(), Text = b.Name })
-            .ToListAsync();
-
-    private async Task<IEnumerable<SelectListItem>> GetSupplierOptionsAsync() =>
-        await Context.Suppliers
-            .Where(s => s.IsActive == true)
-            .OrderBy(s => s.Name)
-            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Name })
-            .ToListAsync();
-
-    private async Task<IEnumerable<SelectListItem>> GetLocationOptionsAsync(bool isBuyer, int? clientId, int? selectedId)
-    {
-        var locations = Context.Locations
-            .Where(l => ((clientId == null || l.ClientId == clientId)
-                    && l.IsActive
-                    && (l.IsBuyer == isBuyer || l.IsBuyer == null))
-                || l.Id == selectedId);
-
-        if (isBuyer)
-        {
-            return await (
-                    from location in locations
-                    join buyer in Context.Buyers on location.ClientId equals buyer.Id into buyerJoin
-                    from buyer in buyerJoin.DefaultIfEmpty()
-                    orderby buyer.Name, location.Location1
-                    select new SelectListItem
-                    {
-                        Value = location.Id.ToString(),
-                        Text = (buyer.Name ?? "Buyer") + " - " + location.Location1,
-                    })
+    private async Task<IEnumerable<SelectListItem>> GetBuyerOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await Context.Buyers
+                .AsNoTracking()
+                .Where(buyer => buyer.Id == selectedId)
+                .Select(buyer => new SelectListItem { Value = buyer.Id.ToString(), Text = buyer.Name ?? "(unnamed buyer)", Selected = true })
                 .ToListAsync();
-        }
 
-        return await (
-                from location in locations
-                join supplier in Context.Suppliers on location.ClientId equals supplier.Id into supplierJoin
-                from supplier in supplierJoin.DefaultIfEmpty()
-                orderby supplier.Name, location.Location1
-                select new SelectListItem
+    private async Task<IEnumerable<SelectListItem>> GetSupplierOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await Context.Suppliers
+                .AsNoTracking()
+                .Where(supplier => supplier.Id == selectedId)
+                .Select(supplier => new SelectListItem { Value = supplier.Id.ToString(), Text = supplier.Name ?? "(unnamed supplier)", Selected = true })
+                .ToListAsync();
+
+    private async Task<IEnumerable<SelectListItem>> GetLocationOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await Context.Locations
+                .AsNoTracking()
+                .Where(location => location.Id == selectedId)
+                .Select(location => new SelectListItem { Value = location.Id.ToString(), Text = location.Location1 ?? "(unnamed location)", Selected = true })
+                .ToListAsync();
+
+    private async Task<IEnumerable<SelectListItem>> GetSupplierProductOptionsAsync(IReadOnlyCollection<int> selectedIds) =>
+        selectedIds.Count == 0
+            ? []
+            : await Context.SupplierProducts
+                .AsNoTracking()
+                .Where(product => selectedIds.Contains(product.Id))
+                .OrderBy(product => product.SupplierNavigation!.Name)
+                .ThenBy(product => product.ProductNavigation!.Name)
+                .Select(product => new SelectListItem
                 {
-                    Value = location.Id.ToString(),
-                    Text = (supplier.Name ?? "Supplier") + " - " + location.Location1,
+                    Value = product.Id.ToString(),
+                    Text = (product.SupplierNavigation != null ? product.SupplierNavigation.Name : "Supplier")
+                        + " - "
+                        + (product.ProductNavigation != null ? product.ProductNavigation.Name : "Product")
+                        + (product.PackagingNavigation != null ? " (" + product.PackagingNavigation.Type + ")" : product.OtherPackaging != null ? " (" + product.OtherPackaging + ")" : string.Empty),
+                    Selected = true,
                 })
-            .ToListAsync();
-    }
-
-    private async Task<IEnumerable<SelectListItem>> GetSupplierProductOptionsAsync(int? supplierId, IReadOnlyCollection<int> selectedIds) =>
-        await Context.SupplierProducts
-            .Where(sp => ((supplierId == null || sp.Supplier == supplierId) && sp.IsActive) || selectedIds.Contains(sp.Id))
-            .OrderBy(sp => sp.SupplierNavigation!.Name)
-            .ThenBy(sp => sp.ProductNavigation!.Name)
-            .Select(sp => new SelectListItem
-            {
-                Value = sp.Id.ToString(),
-                Text = (sp.SupplierNavigation != null ? sp.SupplierNavigation.Name : "Supplier")
-                    + " - "
-                    + (sp.ProductNavigation != null ? sp.ProductNavigation.Name : "Product")
-                    + (sp.PackagingNavigation != null ? " (" + sp.PackagingNavigation.Type + ")" : sp.OtherPackaging != null ? " (" + sp.OtherPackaging + ")" : string.Empty),
-            })
-            .ToListAsync();
+                .ToListAsync();
 
     private async Task<IEnumerable<SelectListItem>> GetStatusOptionsAsync() =>
         await Context.LoadStatuses
@@ -918,4 +991,6 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             });
         }
     }
+
+    private sealed record SelectOption(string Value, string Text);
 }

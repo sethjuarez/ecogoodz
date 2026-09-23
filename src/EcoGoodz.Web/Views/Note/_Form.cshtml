@@ -11,21 +11,21 @@
         </div>
         <div class="col-md-8">
             <label asp-for="BuyerLocation" class="form-label"></label>
-            <select asp-for="BuyerLocation" asp-items="Model.BuyerLocationOptions" class="form-select">
+            <select asp-for="BuyerLocation" asp-items="Model.BuyerLocationOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchBuyerLocations", "Note")">
                 <option value="">Choose buyer location</option>
             </select>
             <span asp-validation-for="BuyerLocation" class="text-danger"></span>
         </div>
         <div class="col-md-6">
             <label asp-for="SupplierLocation" class="form-label"></label>
-            <select asp-for="SupplierLocation" asp-items="Model.SupplierLocationOptions" class="form-select">
+            <select asp-for="SupplierLocation" asp-items="Model.SupplierLocationOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchSupplierLocations", "Note")">
                 <option value="">Choose supplier location</option>
             </select>
             <span asp-validation-for="SupplierLocation" class="text-danger"></span>
         </div>
         <div class="col-md-6">
             <label asp-for="Product" class="form-label"></label>
-            <select asp-for="Product" asp-items="Model.ProductOptions" class="form-select">
+            <select asp-for="Product" asp-items="Model.ProductOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchProducts", "Note")">
                 <option value="">Choose supplier product</option>
             </select>
             <span asp-validation-for="Product" class="text-danger"></span>

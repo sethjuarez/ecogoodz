@@ -241,6 +241,36 @@ public class CommunicationController : Controller
         });
     }
 
+    public async Task<IActionResult> SearchBuyers(string? q)
+    {
+        var query = _context.Buyers.AsNoTracking().Where(buyer => buyer.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(buyer => buyer.Name != null && buyer.Name.Contains(q));
+        }
+
+        return Json(await query
+            .OrderBy(buyer => buyer.Name)
+            .Take(50)
+            .Select(buyer => new SelectOption(buyer.Id.ToString(), buyer.Name ?? "(unnamed buyer)"))
+            .ToListAsync());
+    }
+
+    public async Task<IActionResult> SearchSuppliers(string? q)
+    {
+        var query = _context.Suppliers.AsNoTracking().Where(supplier => supplier.IsActive == true);
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query = query.Where(supplier => supplier.Name != null && supplier.Name.Contains(q));
+        }
+
+        return Json(await query
+            .OrderBy(supplier => supplier.Name)
+            .Take(50)
+            .Select(supplier => new SelectOption(supplier.Id.ToString(), supplier.Name ?? "(unnamed supplier)"))
+            .ToListAsync());
+    }
+
     private void ValidateClientAndType(CommunicationFormViewModel model)
     {
         if (model.ClientType == BuyerClientType && !model.BuyerId.HasValue)
@@ -265,21 +295,31 @@ public class CommunicationController : Controller
             new SelectListItem { Value = BuyerClientType, Text = BuyerClientType },
             new SelectListItem { Value = SupplierClientType, Text = SupplierClientType },
         ];
-        model.BuyerOptions = await _context.Buyers
-            .Where(b => b.IsActive == true)
-            .OrderBy(b => b.Name)
-            .Select(b => new SelectListItem { Value = b.Id.ToString(), Text = b.Name })
-            .ToListAsync();
-        model.SupplierOptions = await _context.Suppliers
-            .Where(s => s.IsActive == true)
-            .OrderBy(s => s.Name)
-            .Select(s => new SelectListItem { Value = s.Id.ToString(), Text = s.Name })
-            .ToListAsync();
+        model.BuyerOptions = await GetSelectedBuyerOptionsAsync(model.BuyerId);
+        model.SupplierOptions = await GetSelectedSupplierOptionsAsync(model.SupplierId);
         model.CommunicationTypeOptions = await _context.CommunicationTypes
             .OrderBy(t => t.Type)
             .Select(t => new SelectListItem { Value = t.Id.ToString(), Text = t.Type })
             .ToListAsync();
     }
+
+    private async Task<List<SelectListItem>> GetSelectedBuyerOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await _context.Buyers
+                .AsNoTracking()
+                .Where(buyer => buyer.Id == selectedId)
+                .Select(buyer => new SelectListItem { Value = buyer.Id.ToString(), Text = buyer.Name ?? "(unnamed buyer)", Selected = true })
+                .ToListAsync();
+
+    private async Task<List<SelectListItem>> GetSelectedSupplierOptionsAsync(int? selectedId) =>
+        selectedId is null
+            ? []
+            : await _context.Suppliers
+                .AsNoTracking()
+                .Where(supplier => supplier.Id == selectedId)
+                .Select(supplier => new SelectListItem { Value = supplier.Id.ToString(), Text = supplier.Name ?? "(unnamed supplier)", Selected = true })
+                .ToListAsync();
 
     private IQueryable<CommunicationRow> CommunicationRows() =>
         from communication in _context.Communications
@@ -303,4 +343,6 @@ public class CommunicationController : Controller
         public string? BuyerName { get; init; }
         public string? SupplierName { get; init; }
     }
+
+    private sealed record SelectOption(string Value, string Text);
 }

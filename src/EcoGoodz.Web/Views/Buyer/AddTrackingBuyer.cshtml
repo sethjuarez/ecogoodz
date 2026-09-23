@@ -22,7 +22,7 @@
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
             <div class="mb-3">
                 <label asp-for="BuyerId" class="form-label"></label>
-                <select asp-for="BuyerId" asp-items="Model.BuyerOptions" class="form-select" data-searchable-select="true">
+                <select asp-for="BuyerId" asp-items="Model.BuyerOptions" class="form-select" data-searchable-select="true" data-search-url="@Url.Action("SearchTrackingBuyers", "Buyer")">
                     <option value="">Choose a buyer</option>
                 </select>
                 <span asp-validation-for="BuyerId" class="text-danger"></span>
