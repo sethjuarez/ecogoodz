@@ -13,6 +13,7 @@ public class ContactListItemViewModel
     public string? Email { get; set; }
     public string? OfficePhone { get; set; }
     public string? CellPhone { get; set; }
+    public string? Address { get; set; }
     public bool IsPrimaryContact { get; set; }
     public bool IsDockContact { get; set; }
     public bool IsActive { get; set; }

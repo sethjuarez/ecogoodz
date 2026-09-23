@@ -168,6 +168,69 @@ public class RestoredWorkflowControllerTests
     }
 
     [Fact]
+    public async Task ContactIndex_FiltersByPolymorphicClientAndSearchesContactDetails()
+    {
+        await using var context = CreateContext();
+        context.Buyers.Add(new Buyer { Id = 10, Name = "Buyer One", IsActive = true });
+        context.Suppliers.Add(new Supplier { Id = 10, Name = "Supplier One", IsActive = true });
+        context.Locations.AddRange(
+            new Location { Id = 20, Location1 = "Buyer Dock", ClientId = 10, IsBuyer = true, IsActive = true },
+            new Location { Id = 21, Location1 = "Supplier Dock", ClientId = 10, IsBuyer = false, IsActive = true });
+        context.Contacts.AddRange(
+            new Contact
+            {
+                Id = 30,
+                ClientId = 10,
+                Location = 20,
+                IsBuyer = true,
+                IsPrimaryContact = true,
+                IsActive = true,
+                ContactNavigation = new ContactInformation
+                {
+                    Id = 40,
+                    FirstName = "Buyer",
+                    LastName = "Contact",
+                    Email = "buyer-contact@example.com",
+                    Address = "123 Buyer Lane",
+                    IsActive = true,
+                },
+            },
+            new Contact
+            {
+                Id = 31,
+                ClientId = 10,
+                Location = 21,
+                IsBuyer = false,
+                IsPrimaryContact = true,
+                IsActive = true,
+                ContactNavigation = new ContactInformation
+                {
+                    Id = 41,
+                    FirstName = "Supplier",
+                    LastName = "Contact",
+                    Email = "supplier-contact@example.com",
+                    Address = "123 Buyer Lane",
+                    IsActive = true,
+                },
+            });
+        await context.SaveChangesAsync();
+
+        var controller = WithLegacyUser(new ContactController(context));
+
+        var result = Assert.IsType<ViewResult>(await controller.Index(clientType: "Buyer", clientId: 10, search: "123 Buyer"));
+        var model = Assert.IsType<PagedResult<ContactListItemViewModel>>(result.Model);
+
+        var item = Assert.Single(model.Items);
+        Assert.True(item.IsBuyer);
+        Assert.Equal("Buyer One", item.ClientName);
+        Assert.Equal("Buyer Dock", item.LocationName);
+        Assert.Equal("123 Buyer Lane", item.Address);
+        Assert.Equal("Buyer", model.Page.AdditionalQueryParameters["clientType"]);
+        Assert.Equal("10", model.Page.AdditionalQueryParameters["clientId"]);
+        Assert.Equal("123 Buyer", model.Page.SearchTerm);
+    }
+
+    [Fact]
     public async Task LocationCreate_WithCopySource_ClonesContactsAndBuyerProducts()
     {
         await using var context = CreateContext();

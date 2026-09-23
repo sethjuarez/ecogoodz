@@ -38,6 +38,7 @@
             <div class="text-secondary mt-1">Supplier workspace with profile, relationships, activity, and next actions.</div>
         </div>
         <div class="col-auto ms-auto eg-command-bar">
+            <a asp-controller="Contact" asp-action="Index" asp-route-clientType="Supplier" asp-route-clientId="@Model.Id" class="btn">Contacts</a>
             <a asp-controller="Communication" asp-action="Index" asp-route-clientType="Supplier" asp-route-clientId="@Model.Id" class="btn">Communications</a>
             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">Edit</a>
             <a asp-action="Index" class="btn">Back to list</a>

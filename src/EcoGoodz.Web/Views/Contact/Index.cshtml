@@ -7,13 +7,16 @@
     <div class="row g-2 align-items-center">
         <div class="col">
             <h2 class="page-title">Contacts</h2>
-            <div class="text-secondary mt-1">@Model.Page.TotalCount total</div>
+            <div class="text-secondary mt-1">@Model.Page.TotalCount total. Search by contact, email, phone, buyer/supplier, location, or address.</div>
         </div>
-        <div class="col-auto ms-auto">
+        <div class="col-auto ms-auto d-flex gap-2">
+            @await Html.PartialAsync("_ListSearchBox", Model.Page, new ViewDataDictionary(ViewData) { ["Placeholder"] = "Search contacts…" })
             <a asp-action="Create" asp-route-locationId="@Context.Request.Query["locationId"]" class="btn btn-primary">New contact</a>
         </div>
     </div>
 </div>
+
+@await Html.PartialAsync("_ScopedFilterBanner", Model.Page)
 
 <div class="card">
     <div class="table-responsive">
@@ -23,6 +26,7 @@
                     <th>Name</th>
                     <th>Client</th>
                     <th>Location</th>
+                    <th>Address</th>
                     <th>Email</th>
                     <th>Phone</th>
                     <th>Flags</th>
@@ -32,7 +36,7 @@
             <tbody>
                 @if (Model.Items.Count == 0)
                 {
-                    <tr><td colspan="7" class="text-center text-secondary py-4">No contacts found.</td></tr>
+                    <tr><td colspan="8" class="text-center text-secondary py-4">No contacts found.</td></tr>
                 }
                 @foreach (var item in Model.Items)
                 {
@@ -61,6 +65,7 @@
                                 <span class="text-secondary">—</span>
                             }
                         </td>
+                        <td>@item.Address</td>
                         <td><a href="mailto:@item.Email">@item.Email</a></td>
                         <td>
                             <div>@item.OfficePhone</div>
