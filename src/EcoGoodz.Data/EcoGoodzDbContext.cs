@@ -707,9 +707,49 @@ public partial class EcoGoodzDbContext : DbContext
 
             entity.HasIndex(e => new { e.Supplier, e.IsActive, e.ShipmentDate, e.Id }, "IX_Loads_Supplier_Active_ShipmentDate_Id");
 
-            entity.HasIndex(e => new { e.Supplier, e.ShipmentDate, e.Id }, "IX_Loads_Supplier_ShipmentDate_Id");
+            entity.HasIndex(e => new { e.Supplier, e.ShipmentDate, e.Id }, "IX_Loads_Supplier_ShipmentDate_Id")
+                .IncludeProperties(e => new
+                {
+                    e.Buyer,
+                    e.BuyerLocation,
+                    e.SupplierLocation,
+                    e.LoadStatus,
+                    e.IsActive,
+                    e.BookingDate,
+                    e.BuyerRef,
+                    e.SupplierRef,
+                    e.Container,
+                    e.BuyerInvoice,
+                    e.BuyerInvoiceAmount,
+                    e.SupplierInvoice,
+                    e.SupplierInvoiceAmount,
+                    e.FreightCarrier,
+                    e.FreightInvoice,
+                    e.FreightAmountQuoted,
+                    e.FreightAmountBilled,
+                });
 
-            entity.HasIndex(e => new { e.Buyer, e.ShipmentDate, e.Id }, "IX_Loads_Buyer_ShipmentDate_Id");
+            entity.HasIndex(e => new { e.Buyer, e.ShipmentDate, e.Id }, "IX_Loads_Buyer_ShipmentDate_Id")
+                .IncludeProperties(e => new
+                {
+                    e.Supplier,
+                    e.BuyerLocation,
+                    e.SupplierLocation,
+                    e.LoadStatus,
+                    e.IsActive,
+                    e.BookingDate,
+                    e.BuyerRef,
+                    e.SupplierRef,
+                    e.Container,
+                    e.BuyerInvoice,
+                    e.BuyerInvoiceAmount,
+                    e.SupplierInvoice,
+                    e.SupplierInvoiceAmount,
+                    e.FreightCarrier,
+                    e.FreightInvoice,
+                    e.FreightAmountQuoted,
+                    e.FreightAmountBilled,
+                });
 
             entity.HasIndex(e => new { e.BuyerLocation, e.ShipmentDate, e.Id }, "IX_Loads_BuyerLocation_ShipmentDate_Id");
 
