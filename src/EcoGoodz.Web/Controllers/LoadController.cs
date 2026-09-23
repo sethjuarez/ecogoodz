@@ -296,13 +296,7 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             return BadRequest("Export requires a search term or scoped filter.");
         }
 
-        IQueryable<Data.Models.Load> query = GetBaseQuery()
-            .AsNoTracking()
-            .Include(load => load.BuyerLocationNavigation)
-            .Include(load => load.SupplierLocationNavigation)
-            .Include(load => load.LoadProducts)
-                .ThenInclude(loadProduct => loadProduct.ProductNavigation)
-                    .ThenInclude(product => product.ProductNavigation);
+        IQueryable<Data.Models.Load> query = Context.Loads.AsNoTracking();
 
         query = ApplyScope(
             query,
@@ -317,9 +311,58 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
             query = ApplySearch(query, search);
         }
 
-        var loads = await query
-            .ApplySort(sort, desc, SortColumns, DefaultSortColumn, out _)
+        var loads = await ApplyExportSort(query, sort, desc)
+            .Select(load => new LoadExportRow
+            {
+                Id = load.Id,
+                StatusName = load.LoadStatusNavigation != null ? load.LoadStatusNavigation.Status : null,
+                BuyerName = load.BuyerNavigation != null ? load.BuyerNavigation.Name : null,
+                BuyerLocationName = load.BuyerLocationNavigation != null ? load.BuyerLocationNavigation.Location1 : null,
+                SupplierName = load.SupplierNavigation != null ? load.SupplierNavigation.Name : null,
+                SupplierLocationName = load.SupplierLocationNavigation != null ? load.SupplierLocationNavigation.Location1 : null,
+                ShipmentDate = load.ShipmentDate,
+                BookingDate = load.BookingDate,
+                BuyerRef = load.BuyerRef,
+                SupplierRef = load.SupplierRef,
+                Container = load.Container,
+                BuyerInvoice = load.BuyerInvoice,
+                BuyerInvoiceAmount = load.BuyerInvoiceAmount,
+                SupplierInvoice = load.SupplierInvoice,
+                SupplierInvoiceAmount = load.SupplierInvoiceAmount,
+                FreightCarrier = load.FreightCarrier,
+                FreightInvoice = load.FreightInvoice,
+                FreightAmountQuoted = load.FreightAmountQuoted,
+                FreightAmountBilled = load.FreightAmountBilled,
+                IsActive = load.IsActive ?? false,
+            })
             .ToListAsync();
+
+        var productsLookup = new Dictionary<int, string>();
+        if (loads.Count > 0)
+        {
+            var loadIds = loads.Select(load => load.Id).ToList();
+            var productNamesByLoad = await Context.LoadProducts
+                .AsNoTracking()
+                .Where(loadProduct => loadIds.Contains(loadProduct.Load))
+                .Select(loadProduct => new
+                {
+                    LoadId = loadProduct.Load,
+                    Name = loadProduct.ProductNavigation.ProductNavigation != null
+                        ? loadProduct.ProductNavigation.ProductNavigation.Name
+                        : null,
+                })
+                .Where(product => !string.IsNullOrWhiteSpace(product.Name))
+                .ToListAsync();
+
+            productsLookup = productNamesByLoad
+                .GroupBy(product => product.LoadId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => string.Join(", ", group
+                        .Select(product => product.Name)
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Distinct()));
+        }
 
         var csv = new StringBuilder();
         AppendCsvRow(csv,
@@ -349,15 +392,12 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         {
             AppendCsvRow(csv,
                 load.Id.ToString(),
-                load.LoadStatusNavigation?.Status,
-                load.BuyerNavigation?.Name,
-                load.BuyerLocationNavigation?.Location1,
-                load.SupplierNavigation?.Name,
-                load.SupplierLocationNavigation?.Location1,
-                string.Join(", ", load.LoadProducts
-                    .Select(loadProduct => loadProduct.ProductNavigation?.ProductNavigation?.Name)
-                    .Where(name => !string.IsNullOrWhiteSpace(name))
-                    .Distinct()),
+                load.StatusName,
+                load.BuyerName,
+                load.BuyerLocationName,
+                load.SupplierName,
+                load.SupplierLocationName,
+                productsLookup.GetValueOrDefault(load.Id, string.Empty),
                 FormatDate(load.ShipmentDate),
                 FormatDate(load.BookingDate),
                 load.BuyerRef,
@@ -371,7 +411,7 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
                 load.FreightInvoice,
                 FormatDecimal(load.FreightAmountQuoted),
                 FormatDecimal(load.FreightAmountBilled),
-                (load.IsActive ?? false) ? "Yes" : "No");
+                load.IsActive ? "Yes" : "No");
         }
 
         var csvContent = csv.ToString();
@@ -382,6 +422,53 @@ public class LoadController : PagedListController<Data.Models.Load, LoadListItem
         Buffer.BlockCopy(content, 0, bytes, preamble.Length, content.Length);
 
         return File(bytes, "text/csv", "loads.csv");
+    }
+
+    private static IOrderedQueryable<Data.Models.Load> ApplyExportSort(
+        IQueryable<Data.Models.Load> query,
+        string? sort,
+        bool desc) =>
+        sort?.ToLowerInvariant() switch
+        {
+            "buyer" => desc
+                ? query.OrderByDescending(load => load.BuyerNavigation != null ? load.BuyerNavigation.Name : null)
+                : query.OrderBy(load => load.BuyerNavigation != null ? load.BuyerNavigation.Name : null),
+            "supplier" => desc
+                ? query.OrderByDescending(load => load.SupplierNavigation != null ? load.SupplierNavigation.Name : null)
+                : query.OrderBy(load => load.SupplierNavigation != null ? load.SupplierNavigation.Name : null),
+            "status" => desc
+                ? query.OrderByDescending(load => load.LoadStatusNavigation != null ? load.LoadStatusNavigation.Status : null)
+                : query.OrderBy(load => load.LoadStatusNavigation != null ? load.LoadStatusNavigation.Status : null),
+            "active" => desc
+                ? query.OrderByDescending(load => load.IsActive)
+                : query.OrderBy(load => load.IsActive),
+            _ => desc
+                ? query.OrderByDescending(load => load.ShipmentDate)
+                : query.OrderBy(load => load.ShipmentDate),
+        };
+
+    private sealed class LoadExportRow
+    {
+        public int Id { get; set; }
+        public string? StatusName { get; set; }
+        public string? BuyerName { get; set; }
+        public string? BuyerLocationName { get; set; }
+        public string? SupplierName { get; set; }
+        public string? SupplierLocationName { get; set; }
+        public DateTime? ShipmentDate { get; set; }
+        public DateTime? BookingDate { get; set; }
+        public string? BuyerRef { get; set; }
+        public string? SupplierRef { get; set; }
+        public string? Container { get; set; }
+        public string? BuyerInvoice { get; set; }
+        public decimal? BuyerInvoiceAmount { get; set; }
+        public string? SupplierInvoice { get; set; }
+        public decimal? SupplierInvoiceAmount { get; set; }
+        public string? FreightCarrier { get; set; }
+        public string? FreightInvoice { get; set; }
+        public decimal? FreightAmountQuoted { get; set; }
+        public decimal? FreightAmountBilled { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public async Task<IActionResult> GetLoadBySupplierAcctMgr(int id)
